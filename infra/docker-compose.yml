@@ -1,0 +1,140 @@
+name: wau-infra
+
+x-redis-node-common: &redis-node-common
+  image: redis:8.10-alpine
+  networks:
+    - wau-net
+  command: >
+    redis-server
+    --port 6379
+    --cluster-enabled yes
+    --cluster-config-file nodes.conf
+    --cluster-node-timeout 5000
+    --appendonly yes
+    --requirepass ${REDIS_PASSWORD}
+    --masterauth ${REDIS_PASSWORD}
+  healthcheck:
+    test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+    interval: 5s
+    timeout: 3s
+    retries: 10
+
+services:
+  redis-node-01:
+    <<: *redis-node-common
+    container_name: wau-redis-01
+    ports:
+      - "7001:6379"
+    volumes:
+      - redis-node-01-data:/data
+
+  redis-node-02:
+    <<: *redis-node-common
+    container_name: wau-redis-02
+    ports:
+      - "7002:6379"
+    volumes:
+      - redis-node-02-data:/data
+
+  redis-node-03:
+    <<: *redis-node-common
+    container_name: wau-redis-03
+    ports:
+      - "7003:6379"
+    volumes:
+      - redis-node-03-data:/data
+
+  redis-node-04:
+    <<: *redis-node-common
+    container_name: wau-redis-04
+    ports:
+      - "7004:6379"
+    volumes:
+      - redis-node-04-data:/data
+
+  redis-node-05:
+    <<: *redis-node-common
+    container_name: wau-redis-05
+    ports:
+      - "7005:6379"
+    volumes:
+      - redis-node-05-data:/data
+
+  redis-node-06:
+    <<: *redis-node-common
+    container_name: wau-redis-06
+    ports:
+      - "7006:6379"
+    volumes:
+      - redis-node-06-data:/data
+
+  redis-cluster-init:
+    image: redis:8.10-alpine
+    networks:
+      - wau-net
+    depends_on:
+      redis-node-01:
+        condition: service_healthy
+      redis-node-02:
+        condition: service_healthy
+      redis-node-03:
+        condition: service_healthy
+      redis-node-04:
+        condition: service_healthy
+      redis-node-05:
+        condition: service_healthy
+      redis-node-06:
+        condition: service_healthy
+    entrypoint: >
+      sh -c "
+      redis-cli -a ${REDIS_PASSWORD} --cluster create
+      redis-node-01:6379 redis-node-02:6379 redis-node-03:6379
+      redis-node-04:6379 redis-node-05:6379 redis-node-06:6379
+      --cluster-replicas 1 --cluster-yes
+      "
+
+  redisinsight:
+    image: redis/redisinsight:3.8.0
+    container_name: wau-redisinsight
+    networks:
+      - wau-net
+    ports:
+      - "5540:5540"
+    volumes:
+      - redisinsight-data:/data
+    depends_on:
+      - redis-node-01
+
+  postgres:
+    image: postgres:18-alpine
+    container_name: wau-postgres
+    networks:
+      - wau-net
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+      - ./postgres:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+networks:
+  wau-net:
+    driver: bridge
+
+volumes:
+  redis-node-01-data:
+  redis-node-02-data:
+  redis-node-03-data:
+  redis-node-04-data:
+  redis-node-05-data:
+  redis-node-06-data:
+  redisinsight-data:
+  postgres-data:
