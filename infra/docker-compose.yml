@@ -4,15 +4,6 @@ x-redis-node-common: &redis-node-common
   image: redis:8.10-alpine
   networks:
     - wau-net
-  command: >
-    redis-server
-    --port 6379
-    --cluster-enabled yes
-    --cluster-config-file nodes.conf
-    --cluster-node-timeout 5000
-    --appendonly yes
-    --requirepass ${REDIS_PASSWORD}
-    --masterauth ${REDIS_PASSWORD}
   healthcheck:
     test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
     interval: 5s
@@ -23,48 +14,126 @@ services:
   redis-node-01:
     <<: *redis-node-common
     container_name: wau-redis-01
+    command: >
+      redis-server
+      --port 6379
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --cluster-announce-ip 127.0.0.1
+      --cluster-announce-port 7001
+      --cluster-announce-bus-port 17001
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD}
+      --masterauth ${REDIS_PASSWORD}
     ports:
       - "7001:6379"
+      - "17001:16379"
     volumes:
       - redis-node-01-data:/data
 
   redis-node-02:
     <<: *redis-node-common
     container_name: wau-redis-02
+    command: >
+      redis-server
+      --port 6379
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --cluster-announce-ip 127.0.0.1
+      --cluster-announce-port 7002
+      --cluster-announce-bus-port 17002
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD}
+      --masterauth ${REDIS_PASSWORD}
     ports:
       - "7002:6379"
+      - "17002:16379"
     volumes:
       - redis-node-02-data:/data
 
   redis-node-03:
     <<: *redis-node-common
     container_name: wau-redis-03
+    command: >
+      redis-server
+      --port 6379
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --cluster-announce-ip 127.0.0.1
+      --cluster-announce-port 7003
+      --cluster-announce-bus-port 17003
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD}
+      --masterauth ${REDIS_PASSWORD}
     ports:
       - "7003:6379"
+      - "17003:16379"
     volumes:
       - redis-node-03-data:/data
 
   redis-node-04:
     <<: *redis-node-common
     container_name: wau-redis-04
+    command: >
+      redis-server
+      --port 6379
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --cluster-announce-ip 127.0.0.1
+      --cluster-announce-port 7004
+      --cluster-announce-bus-port 17004
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD}
+      --masterauth ${REDIS_PASSWORD}
     ports:
       - "7004:6379"
+      - "17004:16379"
     volumes:
       - redis-node-04-data:/data
 
   redis-node-05:
     <<: *redis-node-common
     container_name: wau-redis-05
+    command: >
+      redis-server
+      --port 6379
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --cluster-announce-ip 127.0.0.1
+      --cluster-announce-port 7005
+      --cluster-announce-bus-port 17005
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD}
+      --masterauth ${REDIS_PASSWORD}
     ports:
       - "7005:6379"
+      - "17005:16379"
     volumes:
       - redis-node-05-data:/data
 
   redis-node-06:
     <<: *redis-node-common
     container_name: wau-redis-06
+    command: >
+      redis-server
+      --port 6379
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --cluster-announce-ip 127.0.0.1
+      --cluster-announce-port 7006
+      --cluster-announce-bus-port 17006
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD}
+      --masterauth ${REDIS_PASSWORD}
     ports:
       - "7006:6379"
+      - "17006:16379"
     volumes:
       - redis-node-06-data:/data
 
@@ -88,22 +157,15 @@ services:
     entrypoint: >
       sh -c "
       redis-cli -a ${REDIS_PASSWORD} --cluster create
-      redis-node-01:6379 redis-node-02:6379 redis-node-03:6379
-      redis-node-04:6379 redis-node-05:6379 redis-node-06:6379
-      --cluster-replicas 1 --cluster-yes
+      redis-node-01:6379
+      redis-node-02:6379
+      redis-node-03:6379
+      redis-node-04:6379
+      redis-node-05:6379
+      redis-node-06:6379
+      --cluster-replicas 1
+      --cluster-yes
       "
-
-  redisinsight:
-    image: redis/redisinsight:3.8.0
-    container_name: wau-redisinsight
-    networks:
-      - wau-net
-    ports:
-      - "5540:5540"
-    volumes:
-      - redisinsight-data:/data
-    depends_on:
-      - redis-node-01
 
   postgres:
     image: postgres:18-alpine
@@ -136,5 +198,4 @@ volumes:
   redis-node-04-data:
   redis-node-05-data:
   redis-node-06-data:
-  redisinsight-data:
   postgres-data:
