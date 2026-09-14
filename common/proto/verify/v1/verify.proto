@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package verify.v1;
+
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "common/proto/verify/v1;v1";
+
+// VerifyService turns solved challenges into one-time tokens and validates them for site backends.
+service VerifyService {
+  // VerifyChallenge checks an answer and issues a one-time token on success.
+  rpc VerifyChallenge(VerifyChallengeRequest) returns (VerifyChallengeReply) {
+    option (google.api.http) = {
+      post: "/challenge/verify"
+      body: "*"
+    };
+  }
+
+  // SiteVerify consumes the token given as ?token=. Requires "Authorization: Bearer <secret_key>".
+  rpc SiteVerify(SiteVerifyRequest) returns (SiteVerifyReply) {
+    option (google.api.http) = {post: "/siteverify"};
+  }
+}
+
+message VerifyChallengeRequest {
+  string challenge_id = 1 [(google.api.field_behavior) = REQUIRED];
+  // Text read from the challenge image.
+  string answer = 2 [(google.api.field_behavior) = REQUIRED];
+}
+
+message VerifyChallengeReply {
+  bool success = 1;
+  // One-time token, set only on success.
+  string token = 2;
+  // Seconds until the token expires.
+  int32 expires_in = 3;
+}
+
+message SiteVerifyRequest {
+  string token = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message SiteVerifyReply {
+  bool success = 1;
+  string challenge_type = 2;
+  // Time the challenge was solved.
+  google.protobuf.Timestamp challenge_ts = 3;
+}

@@ -1,0 +1,121 @@
+# Generated with protoc-gen-openapi
+# https://github.com/google/gnostic/tree/master/cmd/protoc-gen-openapi
+
+openapi: 3.0.3
+info:
+    title: ""
+    version: 0.0.1
+paths:
+    /challenge/new:
+        get:
+            tags:
+                - ChallengeService
+            description: NewChallenge issues a challenge for a site key.
+            operationId: ChallengeService_NewChallenge
+            parameters:
+                - name: site_key
+                  in: query
+                  description: Public site key of the calling site.
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/challenge.v1.Challenge'
+    /challenge/verify:
+        post:
+            tags:
+                - VerifyService
+            description: VerifyChallenge checks an answer and issues a one-time token on success.
+            operationId: VerifyService_VerifyChallenge
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/verify.v1.VerifyChallengeRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/verify.v1.VerifyChallengeReply'
+    /siteverify:
+        post:
+            tags:
+                - VerifyService
+            description: 'SiteVerify consumes the token given as ?token=. Requires "Authorization: Bearer <secret_key>".'
+            operationId: VerifyService_SiteVerify
+            parameters:
+                - name: token
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/verify.v1.SiteVerifyReply'
+components:
+    schemas:
+        challenge.v1.Challenge:
+            type: object
+            properties:
+                challenge_id:
+                    type: string
+                challenge_type:
+                    type: string
+                    description: Challenge type, e.g. "image_distort".
+                image:
+                    type: string
+                    description: PNG image to solve.
+                    format: bytes
+                expires_in:
+                    type: integer
+                    description: Seconds until the challenge expires.
+                    format: int32
+        verify.v1.SiteVerifyReply:
+            type: object
+            properties:
+                success:
+                    type: boolean
+                challenge_type:
+                    type: string
+                challenge_ts:
+                    type: string
+                    description: Time the challenge was solved.
+                    format: date-time
+        verify.v1.VerifyChallengeReply:
+            type: object
+            properties:
+                success:
+                    type: boolean
+                token:
+                    type: string
+                    description: One-time token, set only on success.
+                expires_in:
+                    type: integer
+                    description: Seconds until the token expires.
+                    format: int32
+        verify.v1.VerifyChallengeRequest:
+            required:
+                - challenge_id
+                - answer
+            type: object
+            properties:
+                challenge_id:
+                    type: string
+                answer:
+                    type: string
+                    description: Text read from the challenge image.
+tags:
+    - name: ChallengeService
+      description: ChallengeService issues challenges and checks their answers.
+    - name: VerifyService
+      description: VerifyService turns solved challenges into one-time tokens and validates them for site backends.

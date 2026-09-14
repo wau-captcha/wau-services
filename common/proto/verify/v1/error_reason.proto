@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package verify.v1;
+
+option go_package = "common/proto/verify/v1;v1";
+
+enum ErrorReason {
+  ERROR_REASON_UNSPECIFIED = 0;
+  SECRET_KEY_INVALID = 1;
+}

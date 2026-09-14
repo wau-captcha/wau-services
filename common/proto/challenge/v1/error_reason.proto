@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package challenge.v1;
+
+option go_package = "common/proto/challenge/v1;v1";
+
+enum ErrorReason {
+  ERROR_REASON_UNSPECIFIED = 0;
+  SITE_KEY_INVALID = 1;
+  CHALLENGE_TYPE_NOT_ALLOWED = 2;
+  CHALLENGE_NOT_FOUND = 3;
+}

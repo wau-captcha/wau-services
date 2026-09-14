@@ -1,3 +1,5 @@
 .env.*
 .env
 ERD*.jpg
+flow*.png
+prompt*.md

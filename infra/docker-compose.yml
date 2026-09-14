@@ -1,11 +1,12 @@
 name: wau-infra
 
+# Redis nodes 02-06 share redis-node-01's network namespace. Each node listens on its
+# own port and announces 127.0.0.1, which is reachable both by the other nodes and,
+# through the published ports, by services running on the host.
 x-redis-node-common: &redis-node-common
   image: redis:8.10-alpine
-  networks:
-    - wau-net
   healthcheck:
-    test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+    test: ["CMD-SHELL", "redis-cli -p $$REDIS_PORT -a ${REDIS_PASSWORD} ping"]
     interval: 5s
     timeout: 3s
     retries: 10
@@ -14,133 +15,125 @@ services:
   redis-node-01:
     <<: *redis-node-common
     container_name: wau-redis-01
+    networks:
+      - wau-net
+    environment:
+      REDIS_PORT: 7001
     command: >
       redis-server
-      --port 6379
+      --port 7001
       --cluster-enabled yes
       --cluster-config-file nodes.conf
       --cluster-node-timeout 5000
       --cluster-announce-ip 127.0.0.1
-      --cluster-announce-port 7001
-      --cluster-announce-bus-port 17001
       --appendonly yes
       --requirepass ${REDIS_PASSWORD}
       --masterauth ${REDIS_PASSWORD}
     ports:
-      - "7001:6379"
-      - "17001:16379"
+      - "7001-7006:7001-7006"
+      - "17001-17006:17001-17006"
     volumes:
       - redis-node-01-data:/data
 
   redis-node-02:
     <<: *redis-node-common
     container_name: wau-redis-02
+    network_mode: service:redis-node-01
+    environment:
+      REDIS_PORT: 7002
     command: >
       redis-server
-      --port 6379
+      --port 7002
       --cluster-enabled yes
       --cluster-config-file nodes.conf
       --cluster-node-timeout 5000
       --cluster-announce-ip 127.0.0.1
-      --cluster-announce-port 7002
-      --cluster-announce-bus-port 17002
       --appendonly yes
       --requirepass ${REDIS_PASSWORD}
       --masterauth ${REDIS_PASSWORD}
-    ports:
-      - "7002:6379"
-      - "17002:16379"
     volumes:
       - redis-node-02-data:/data
 
   redis-node-03:
     <<: *redis-node-common
     container_name: wau-redis-03
+    network_mode: service:redis-node-01
+    environment:
+      REDIS_PORT: 7003
     command: >
       redis-server
-      --port 6379
+      --port 7003
       --cluster-enabled yes
       --cluster-config-file nodes.conf
       --cluster-node-timeout 5000
       --cluster-announce-ip 127.0.0.1
-      --cluster-announce-port 7003
-      --cluster-announce-bus-port 17003
       --appendonly yes
       --requirepass ${REDIS_PASSWORD}
       --masterauth ${REDIS_PASSWORD}
-    ports:
-      - "7003:6379"
-      - "17003:16379"
     volumes:
       - redis-node-03-data:/data
 
   redis-node-04:
     <<: *redis-node-common
     container_name: wau-redis-04
+    network_mode: service:redis-node-01
+    environment:
+      REDIS_PORT: 7004
     command: >
       redis-server
-      --port 6379
+      --port 7004
       --cluster-enabled yes
       --cluster-config-file nodes.conf
       --cluster-node-timeout 5000
       --cluster-announce-ip 127.0.0.1
-      --cluster-announce-port 7004
-      --cluster-announce-bus-port 17004
       --appendonly yes
       --requirepass ${REDIS_PASSWORD}
       --masterauth ${REDIS_PASSWORD}
-    ports:
-      - "7004:6379"
-      - "17004:16379"
     volumes:
       - redis-node-04-data:/data
 
   redis-node-05:
     <<: *redis-node-common
     container_name: wau-redis-05
+    network_mode: service:redis-node-01
+    environment:
+      REDIS_PORT: 7005
     command: >
       redis-server
-      --port 6379
+      --port 7005
       --cluster-enabled yes
       --cluster-config-file nodes.conf
       --cluster-node-timeout 5000
       --cluster-announce-ip 127.0.0.1
-      --cluster-announce-port 7005
-      --cluster-announce-bus-port 17005
       --appendonly yes
       --requirepass ${REDIS_PASSWORD}
       --masterauth ${REDIS_PASSWORD}
-    ports:
-      - "7005:6379"
-      - "17005:16379"
     volumes:
       - redis-node-05-data:/data
 
   redis-node-06:
     <<: *redis-node-common
     container_name: wau-redis-06
+    network_mode: service:redis-node-01
+    environment:
+      REDIS_PORT: 7006
     command: >
       redis-server
-      --port 6379
+      --port 7006
       --cluster-enabled yes
       --cluster-config-file nodes.conf
       --cluster-node-timeout 5000
       --cluster-announce-ip 127.0.0.1
-      --cluster-announce-port 7006
-      --cluster-announce-bus-port 17006
       --appendonly yes
       --requirepass ${REDIS_PASSWORD}
       --masterauth ${REDIS_PASSWORD}
-    ports:
-      - "7006:6379"
-      - "17006:16379"
     volumes:
       - redis-node-06-data:/data
 
+  # Creates the cluster once; skipped when it is already healthy.
   redis-cluster-init:
     image: redis:8.10-alpine
-    networks:
-      - wau-net
+    network_mode: service:redis-node-01
     depends_on:
       redis-node-01:
         condition: service_healthy
@@ -156,13 +149,10 @@ services:
         condition: service_healthy
     entrypoint: >
       sh -c "
+      redis-cli -a ${REDIS_PASSWORD} --cluster check 127.0.0.1:7001 ||
       redis-cli -a ${REDIS_PASSWORD} --cluster create
-      redis-node-01:6379
-      redis-node-02:6379
-      redis-node-03:6379
-      redis-node-04:6379
-      redis-node-05:6379
-      redis-node-06:6379
+      127.0.0.1:7001 127.0.0.1:7002 127.0.0.1:7003
+      127.0.0.1:7004 127.0.0.1:7005 127.0.0.1:7006
       --cluster-replicas 1
       --cluster-yes
       "
