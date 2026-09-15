@@ -1,7 +1,8 @@
 server:
   http:
     addr: 0.0.0.0:8000
-    timeout: 1s
+    # motion_noise encodes a multi-megabyte GIF (~0.3s on a dev machine); leave headroom under load.
+    timeout: 3s
   grpc:
     addr: 0.0.0.0:9000
     timeout: 1s

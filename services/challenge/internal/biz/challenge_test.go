@@ -40,23 +40,44 @@ func (f fakeChallenges) Take(_ context.Context, id string) (*Challenge, error) {
 func TestChallengeUsecase(t *testing.T) {
 	ctx := context.Background()
 	uc, err := NewChallengeUsecase(fakeSites{
-		"pk_free": {APIKeyID: "k1", ChallengeTypes: []string{TypeImageDistort}},
-		"pk_none": {APIKeyID: "k2"},
+		"pk_free":    {APIKeyID: "k1", ChallengeTypes: []string{TypeImageDistort}},
+		"pk_premium": {APIKeyID: "k2", ChallengeTypes: []string{TypeImageDistort, TypeMotionNoise}},
+		"pk_none":    {APIKeyID: "k3"},
 	}, fakeChallenges{}, &conf.Challenge{Ttl: durationpb.New(time.Minute)})
 	if err != nil {
 		t.Fatalf("NewChallengeUsecase() error = %v", err)
 	}
 
-	if _, err := uc.New(ctx, "pk_unknown"); !errors.IsUnauthorized(err) {
+	if _, err := uc.New(ctx, "pk_free", "slide_puzzle"); !errors.IsBadRequest(err) {
+		t.Fatalf("New(unsupported type) error = %v, want bad request", err)
+	}
+	if _, err := uc.New(ctx, "pk_unknown", ""); !errors.IsUnauthorized(err) {
 		t.Fatalf("New(unknown) error = %v, want unauthorized", err)
 	}
-	if _, err := uc.New(ctx, "pk_none"); !errors.IsForbidden(err) {
-		t.Fatalf("New(type not allowed) error = %v, want forbidden", err)
+	if _, err := uc.New(ctx, "pk_none", ""); !errors.IsForbidden(err) {
+		t.Fatalf("New(no types) error = %v, want forbidden", err)
+	}
+	if _, err := uc.New(ctx, "pk_free", TypeMotionNoise); !errors.IsForbidden(err) {
+		t.Fatalf("New(motion_noise on free) error = %v, want forbidden", err)
 	}
 
-	c, err := uc.New(ctx, "pk_free")
-	if err != nil || c.APIKeyID != "k1" || len(c.Image) == 0 {
-		t.Fatalf("New() = %+v, %v", c, err)
+	video, err := uc.New(ctx, "pk_premium", TypeMotionNoise)
+	if err != nil {
+		t.Fatalf("New(motion_noise) error = %v", err)
+	}
+	if video.Type != TypeMotionNoise || video.Media.MIMEType != "image/gif" {
+		t.Fatalf("New(motion_noise) type = %q, mime = %q", video.Type, video.Media.MIMEType)
+	}
+	if strings.Trim(video.Answer, uppercaseChars) != "" {
+		t.Fatalf("New(motion_noise) answer = %q, want uppercase letters only", video.Answer)
+	}
+
+	c, err := uc.New(ctx, "pk_free", "")
+	if err != nil {
+		t.Fatalf("New(default) error = %v", err)
+	}
+	if c.Type != TypeImageDistort || c.APIKeyID != "k1" || len(c.Media.Data) == 0 {
+		t.Fatalf("New(default) type = %q, api key = %q", c.Type, c.APIKeyID)
 	}
 	if _, ok, err := uc.Check(ctx, c.ID, strings.ToLower(c.Answer)); err != nil || !ok {
 		t.Fatalf("Check(correct) = %v, %v, want true", ok, err)
@@ -65,7 +86,7 @@ func TestChallengeUsecase(t *testing.T) {
 		t.Fatalf("Check(reused) error = %v, want not found", err)
 	}
 
-	c, _ = uc.New(ctx, "pk_free")
+	c, _ = uc.New(ctx, "pk_free", "")
 	if _, ok, _ := uc.Check(ctx, c.ID, "wrong!"); ok {
 		t.Fatal("Check(wrong) = true, want false")
 	}

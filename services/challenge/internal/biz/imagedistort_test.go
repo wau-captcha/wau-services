@@ -3,23 +3,22 @@ package biz
 import (
 	"bytes"
 	"image/png"
-	"strings"
 	"testing"
 )
 
-func TestNewImageDistort(t *testing.T) {
-	code, img, err := NewImageDistort()
+func TestRenderImageDistort(t *testing.T) {
+	media, err := renderImageDistort(newCode(alphanumericChars))
 	if err != nil {
-		t.Fatalf("NewImageDistort() error = %v", err)
+		t.Fatalf("renderImageDistort() error = %v", err)
 	}
-	if len(code) != codeLength || strings.Trim(code, codeChars) != "" {
-		t.Fatalf("code = %q, want %d chars from %q", code, codeLength, codeChars)
+	if media.MIMEType != "image/png" {
+		t.Fatalf("MIMEType = %q, want image/png", media.MIMEType)
 	}
-	decoded, err := png.Decode(bytes.NewReader(img))
+	img, err := png.Decode(bytes.NewReader(media.Data))
 	if err != nil {
 		t.Fatalf("png.Decode() error = %v", err)
 	}
-	if b := decoded.Bounds(); b.Dx() != imageWidth || b.Dy() != imageHeight {
+	if b := img.Bounds(); b.Dx() != imageWidth || b.Dy() != imageHeight {
 		t.Fatalf("image size = %v, want %dx%d", b.Size(), imageWidth, imageHeight)
 	}
 }

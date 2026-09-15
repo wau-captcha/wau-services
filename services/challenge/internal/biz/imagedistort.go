@@ -2,7 +2,6 @@ package biz
 
 import (
 	"bytes"
-	"crypto/rand"
 	"image"
 	"image/color"
 	"image/png"
@@ -11,42 +10,22 @@ import (
 
 	"golang.org/x/image/draw"
 	"golang.org/x/image/font"
-	"golang.org/x/image/font/gofont/gomonobold"
 	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/math/f64"
 	"golang.org/x/image/math/fixed"
 )
 
 const (
-	codeLength = 5
-	codeChars  = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-
 	imageWidth  = 200
 	imageHeight = 70
 	glyphTile   = 64
 )
 
-var codeFont = func() *opentype.Font {
-	f, err := opentype.Parse(gomonobold.TTF)
-	if err != nil {
-		panic(err)
-	}
-	return f
-}()
-
-func NewImageDistort() (string, []byte, error) {
-	var seed [32]byte
-	rand.Read(seed[:])
-	rng := mrand.New(mrand.NewChaCha8(seed))
-
-	code := make([]byte, codeLength)
-	for i := range code {
-		code[i] = codeChars[rng.IntN(len(codeChars))]
-	}
-
+func renderImageDistort(code string) (Media, error) {
+	rng := newRand()
 	face, err := opentype.NewFace(codeFont, &opentype.FaceOptions{Size: 42, DPI: 72, Hinting: font.HintingFull})
 	if err != nil {
-		return "", nil, err
+		return Media{}, err
 	}
 	defer face.Close()
 
@@ -72,9 +51,9 @@ func NewImageDistort() (string, []byte, error) {
 
 	var buf bytes.Buffer
 	if err := png.Encode(&buf, img); err != nil {
-		return "", nil, err
+		return Media{}, err
 	}
-	return string(code), buf.Bytes(), nil
+	return Media{Data: buf.Bytes(), MIMEType: "image/png", Width: imageWidth, Height: imageHeight}, nil
 }
 
 func renderGlyph(face font.Face, s string, c color.Color) *image.RGBA {
@@ -143,9 +122,4 @@ func blur(src *image.RGBA) *image.RGBA {
 
 func pixel(img *image.RGBA, x, y int) color.RGBA {
 	return img.RGBAAt(min(max(x, 0), imageWidth-1), min(max(y, 0), imageHeight-1))
-}
-
-func randomColor(rng *mrand.Rand, lo, hi int) color.RGBA {
-	n := func() uint8 { return uint8(lo + rng.IntN(hi-lo+1)) }
-	return color.RGBA{n(), n(), n(), 255}
 }

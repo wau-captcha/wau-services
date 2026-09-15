@@ -22,14 +22,17 @@ func NewChallengeService(uc *biz.ChallengeUsecase) *ChallengeService {
 
 // NewChallenge issues a challenge for a site key.
 func (s *ChallengeService) NewChallenge(ctx context.Context, req *v1.NewChallengeRequest) (*v1.Challenge, error) {
-	c, err := s.uc.New(ctx, req.GetSiteKey())
+	c, err := s.uc.New(ctx, req.GetSiteKey(), req.GetChallengeType())
 	if err != nil {
 		return nil, err
 	}
 	return &v1.Challenge{
 		ChallengeId:   c.ID,
 		ChallengeType: c.Type,
-		Image:         c.Image,
+		Image:         c.Media.Data,
+		MimeType:      c.Media.MIMEType,
+		Width:         int32(c.Media.Width),
+		Height:        int32(c.Media.Height),
 		ExpiresIn:     int32(c.TTL.Seconds()),
 	}, nil
 }

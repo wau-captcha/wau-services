@@ -15,12 +15,27 @@ import (
 	"github.com/google/uuid"
 )
 
-const TypeImageDistort = "image_distort"
+const (
+	TypeImageDistort = "image_distort"
+	TypeMotionNoise  = "motion_noise"
+)
+
+// challengeKind is how a challenge type builds its code and draws it as media.
+type challengeKind struct {
+	chars  string
+	render func(code string) (Media, error)
+}
+
+var challengeKinds = map[string]challengeKind{
+	TypeImageDistort: {chars: alphanumericChars, render: renderImageDistort},
+	TypeMotionNoise:  {chars: uppercaseChars, render: renderMotionNoise},
+}
 
 var (
-	ErrSiteKeyInvalid          = errors.Unauthorized(v1.ErrorReason_SITE_KEY_INVALID.String(), "site key is invalid")
-	ErrChallengeTypeNotAllowed = errors.Forbidden(v1.ErrorReason_CHALLENGE_TYPE_NOT_ALLOWED.String(), "challenge type is not allowed")
-	ErrChallengeNotFound       = errors.NotFound(v1.ErrorReason_CHALLENGE_NOT_FOUND.String(), "challenge not found")
+	ErrSiteKeyInvalid           = errors.Unauthorized(v1.ErrorReason_SITE_KEY_INVALID.String(), "site key is invalid")
+	ErrChallengeTypeUnsupported = errors.BadRequest(v1.ErrorReason_CHALLENGE_TYPE_UNSUPPORTED.String(), "challenge type is not supported")
+	ErrChallengeTypeNotAllowed  = errors.Forbidden(v1.ErrorReason_CHALLENGE_TYPE_NOT_ALLOWED.String(), "challenge type is not allowed")
+	ErrChallengeNotFound        = errors.NotFound(v1.ErrorReason_CHALLENGE_NOT_FOUND.String(), "challenge not found")
 )
 
 type Site struct {
@@ -28,12 +43,19 @@ type Site struct {
 	ChallengeTypes []string
 }
 
+type Media struct {
+	Data     []byte
+	MIMEType string
+	// Width and Height are the display size in CSS pixels, which may be smaller than the media.
+	Width, Height int
+}
+
 type Challenge struct {
 	ID       string
 	Type     string
 	APIKeyID string
 	Answer   string
-	Image    []byte
+	Media    Media
 	TTL      time.Duration
 }
 
@@ -59,24 +81,33 @@ func NewChallengeUsecase(sites SiteRepo, challenges ChallengeRepo, c *conf.Chall
 	return &ChallengeUsecase{sites: sites, challenges: challenges, ttl: ttl}, nil
 }
 
-func (uc *ChallengeUsecase) New(ctx context.Context, siteKey string) (*Challenge, error) {
+// New issues a challenge of challengeType, image_distort when empty.
+func (uc *ChallengeUsecase) New(ctx context.Context, siteKey, challengeType string) (*Challenge, error) {
+	if challengeType == "" {
+		challengeType = TypeImageDistort
+	}
+	kind, ok := challengeKinds[challengeType]
+	if !ok {
+		return nil, ErrChallengeTypeUnsupported
+	}
 	site, err := uc.sites.FindBySiteKey(ctx, siteKey)
 	if err != nil {
 		return nil, err
 	}
-	if !slices.Contains(site.ChallengeTypes, TypeImageDistort) {
+	if !slices.Contains(site.ChallengeTypes, challengeType) {
 		return nil, ErrChallengeTypeNotAllowed
 	}
-	answer, image, err := NewImageDistort()
+	code := newCode(kind.chars)
+	media, err := kind.render(code)
 	if err != nil {
 		return nil, err
 	}
 	c := &Challenge{
 		ID:       uuid.NewString(),
-		Type:     TypeImageDistort,
+		Type:     challengeType,
 		APIKeyID: site.APIKeyID,
-		Answer:   answer,
-		Image:    image,
+		Answer:   code,
+		Media:    media,
 		TTL:      uc.ttl,
 	}
 	if err := uc.challenges.Save(ctx, c); err != nil {
