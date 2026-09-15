@@ -12,7 +12,6 @@ import (
 
 const challengeKeyPrefix = "wau:challenge:"
 
-// challengePO is the Redis value of a pending challenge.
 type challengePO struct {
 	Type     string `json:"type"`
 	APIKeyID string `json:"api_key_id"`
@@ -23,7 +22,6 @@ type challengeRepo struct {
 	data *Data
 }
 
-// NewChallengeRepo creates a ChallengeRepo backed by Redis.
 func NewChallengeRepo(data *Data) biz.ChallengeRepo {
 	return &challengeRepo{data: data}
 }

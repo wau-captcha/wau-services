@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"verify/internal/conf"
+	"verify/internal/data/db"
 
 	challengev1 "common/proto/challenge/v1"
 
@@ -14,18 +15,15 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// ProviderSet is data providers.
 var ProviderSet = wire.NewSet(NewData, NewChallengeServiceClient, NewChallengeClient, NewGrantRepo, NewSiteRepo)
 
-// Data holds the long-lived storage clients shared by repos.
 type Data struct {
-	db  *pgxpool.Pool
-	rdb *redis.ClusterClient
+	queries *db.Queries
+	rdb     *redis.ClusterClient
 }
 
-// NewData opens the PostgreSQL pool and the Redis Cluster client.
 func NewData(c *conf.Data) (*Data, func(), error) {
-	db, err := pgxpool.New(context.Background(), c.GetDatabase().GetSource())
+	pool, err := pgxpool.New(context.Background(), c.GetDatabase().GetSource())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -38,15 +36,14 @@ func NewData(c *conf.Data) (*Data, func(), error) {
 	})
 	cleanup := func() {
 		log.Info("closing the data resources")
-		db.Close()
+		pool.Close()
 		if err := rdb.Close(); err != nil {
 			log.Error("failed closing redis", "err", err)
 		}
 	}
-	return &Data{db: db, rdb: rdb}, cleanup, nil
+	return &Data{queries: db.New(pool), rdb: rdb}, cleanup, nil
 }
 
-// NewChallengeServiceClient connects to the challenge service over gRPC.
 func NewChallengeServiceClient(c *conf.Client) (challengev1.ChallengeServiceClient, func(), error) {
 	conn, err := grpc.NewClient(context.Background(),
 		grpc.WithEndpoint(c.GetChallenge().GetEndpoint()),

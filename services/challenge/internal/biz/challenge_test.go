@@ -65,7 +65,6 @@ func TestChallengeUsecase(t *testing.T) {
 		t.Fatalf("Check(reused) error = %v, want not found", err)
 	}
 
-	// A wrong answer also consumes the challenge.
 	c, _ = uc.New(ctx, "pk_free")
 	if _, ok, _ := uc.Check(ctx, c.ID, "wrong!"); ok {
 		t.Fatal("Check(wrong) = true, want false")

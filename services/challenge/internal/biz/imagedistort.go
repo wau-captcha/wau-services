@@ -26,7 +26,6 @@ const (
 	glyphTile   = 64
 )
 
-// codeFont is Go Mono Bold, which keeps 0/O and 1/l/I distinguishable.
 var codeFont = func() *opentype.Font {
 	f, err := opentype.Parse(gomonobold.TTF)
 	if err != nil {
@@ -35,8 +34,6 @@ var codeFont = func() *opentype.Font {
 	return f
 }()
 
-// NewImageDistort returns a random code and a PNG of it with rotated glyphs,
-// crossing curves, wave distortion, noise and a light blur.
 func NewImageDistort() (string, []byte, error) {
 	var seed [32]byte
 	rand.Read(seed[:])
@@ -47,7 +44,6 @@ func NewImageDistort() (string, []byte, error) {
 		code[i] = codeChars[rng.IntN(len(codeChars))]
 	}
 
-	// Faces are not safe for concurrent use, so each image gets its own.
 	face, err := opentype.NewFace(codeFont, &opentype.FaceOptions{Size: 42, DPI: 72, Hinting: font.HintingFull})
 	if err != nil {
 		return "", nil, err
@@ -81,7 +77,6 @@ func NewImageDistort() (string, []byte, error) {
 	return string(code), buf.Bytes(), nil
 }
 
-// renderGlyph draws s centered on a transparent tile.
 func renderGlyph(face font.Face, s string, c color.Color) *image.RGBA {
 	tile := image.NewRGBA(image.Rect(0, 0, glyphTile, glyphTile))
 	d := font.Drawer{Dst: tile, Src: image.NewUniform(c), Face: face}
@@ -94,7 +89,6 @@ func renderGlyph(face font.Face, s string, c color.Color) *image.RGBA {
 	return tile
 }
 
-// drawCurve strokes a sine curve across the text to hinder segmentation.
 func drawCurve(img *image.RGBA, rng *mrand.Rand) {
 	c := randomColor(rng, 0, 140)
 	y0 := imageHeight * (0.3 + rng.Float64()*0.4)
@@ -108,7 +102,6 @@ func drawCurve(img *image.RGBA, rng *mrand.Rand) {
 	}
 }
 
-// warp shifts pixels along two sine waves.
 func warp(src *image.RGBA, rng *mrand.Rand) *image.RGBA {
 	dst := image.NewRGBA(src.Bounds())
 	ax, ay := 2+rng.Float64()*2, 2+rng.Float64()*3
@@ -124,14 +117,12 @@ func warp(src *image.RGBA, rng *mrand.Rand) *image.RGBA {
 	return dst
 }
 
-// addNoise recolors about a tenth of the pixels at random.
 func addNoise(img *image.RGBA, rng *mrand.Rand) {
 	for range imageWidth * imageHeight / 10 {
 		img.SetRGBA(rng.IntN(imageWidth), rng.IntN(imageHeight), randomColor(rng, 0, 255))
 	}
 }
 
-// blur applies a single 3x3 Gaussian pass, softening edges while glyphs stay readable.
 func blur(src *image.RGBA) *image.RGBA {
 	kernel := [3][3]int{{1, 2, 1}, {2, 4, 2}, {1, 2, 1}}
 	dst := image.NewRGBA(src.Bounds())
@@ -150,7 +141,6 @@ func blur(src *image.RGBA) *image.RGBA {
 	return dst
 }
 
-// pixel returns the color at (x, y) clamped to the image bounds.
 func pixel(img *image.RGBA, x, y int) color.RGBA {
 	return img.RGBAAt(min(max(x, 0), imageWidth-1), min(max(y, 0), imageHeight-1))
 }

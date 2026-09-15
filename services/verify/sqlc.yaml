@@ -1,0 +1,15 @@
+version: "2"
+sql:
+  - engine: postgresql
+    schema: ../../infra/postgres/001_schema.sql
+    queries: internal/data/queries
+    gen:
+      go:
+        package: db
+        out: internal/data/db
+        sql_package: pgx/v5
+        omit_unused_structs: true
+        initialisms: [id, api]
+        overrides:
+          - db_type: uuid
+            go_type: github.com/google/uuid.UUID
