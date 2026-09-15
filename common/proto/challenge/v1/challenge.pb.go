@@ -25,7 +25,9 @@ const (
 type NewChallengeRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Public site key of the calling site.
-	SiteKey       string `protobuf:"bytes,1,opt,name=site_key,json=siteKey,proto3" json:"site_key,omitempty"`
+	SiteKey string `protobuf:"bytes,1,opt,name=site_key,json=siteKey,proto3" json:"site_key,omitempty"`
+	// "image_distort" (default) or "motion_noise".
+	ChallengeType string `protobuf:"bytes,2,opt,name=challenge_type,json=challengeType,proto3" json:"challenge_type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -67,15 +69,24 @@ func (x *NewChallengeRequest) GetSiteKey() string {
 	return ""
 }
 
+func (x *NewChallengeRequest) GetChallengeType() string {
+	if x != nil {
+		return x.ChallengeType
+	}
+	return ""
+}
+
 type Challenge struct {
 	state       protoimpl.MessageState `protogen:"open.v1"`
 	ChallengeId string                 `protobuf:"bytes,1,opt,name=challenge_id,json=challengeId,proto3" json:"challenge_id,omitempty"`
 	// Challenge type, e.g. "image_distort".
 	ChallengeType string `protobuf:"bytes,2,opt,name=challenge_type,json=challengeType,proto3" json:"challenge_type,omitempty"`
-	// PNG image to solve.
+	// Media to solve: a PNG for image_distort, a 5-second animated GIF for motion_noise.
 	Image []byte `protobuf:"bytes,3,opt,name=image,proto3" json:"image,omitempty"`
 	// Seconds until the challenge expires.
-	ExpiresIn     int32 `protobuf:"varint,4,opt,name=expires_in,json=expiresIn,proto3" json:"expires_in,omitempty"`
+	ExpiresIn int32 `protobuf:"varint,4,opt,name=expires_in,json=expiresIn,proto3" json:"expires_in,omitempty"`
+	// MIME type of image, e.g. "image/gif".
+	MimeType      string `protobuf:"bytes,5,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -136,6 +147,13 @@ func (x *Challenge) GetExpiresIn() int32 {
 		return x.ExpiresIn
 	}
 	return 0
+}
+
+func (x *Challenge) GetMimeType() string {
+	if x != nil {
+		return x.MimeType
+	}
+	return ""
 }
 
 type CheckAnswerRequest struct {
@@ -255,15 +273,17 @@ var File_challenge_v1_challenge_proto protoreflect.FileDescriptor
 
 const file_challenge_v1_challenge_proto_rawDesc = "" +
 	"\n" +
-	"\x1cchallenge/v1/challenge.proto\x12\fchallenge.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\"5\n" +
+	"\x1cchallenge/v1/challenge.proto\x12\fchallenge.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\"\\\n" +
 	"\x13NewChallengeRequest\x12\x1e\n" +
-	"\bsite_key\x18\x01 \x01(\tB\x03\xe0A\x02R\asiteKey\"\x8a\x01\n" +
+	"\bsite_key\x18\x01 \x01(\tB\x03\xe0A\x02R\asiteKey\x12%\n" +
+	"\x0echallenge_type\x18\x02 \x01(\tR\rchallengeType\"\xa7\x01\n" +
 	"\tChallenge\x12!\n" +
 	"\fchallenge_id\x18\x01 \x01(\tR\vchallengeId\x12%\n" +
 	"\x0echallenge_type\x18\x02 \x01(\tR\rchallengeType\x12\x14\n" +
 	"\x05image\x18\x03 \x01(\fR\x05image\x12\x1d\n" +
 	"\n" +
-	"expires_in\x18\x04 \x01(\x05R\texpiresIn\"Y\n" +
+	"expires_in\x18\x04 \x01(\x05R\texpiresIn\x12\x1b\n" +
+	"\tmime_type\x18\x05 \x01(\tR\bmimeType\"Y\n" +
 	"\x12CheckAnswerRequest\x12&\n" +
 	"\fchallenge_id\x18\x01 \x01(\tB\x03\xe0A\x02R\vchallengeId\x12\x1b\n" +
 	"\x06answer\x18\x02 \x01(\tB\x03\xe0A\x02R\x06answer\"q\n" +

@@ -28,6 +28,7 @@ const (
 	ErrorReason_SITE_KEY_INVALID           ErrorReason = 1
 	ErrorReason_CHALLENGE_TYPE_NOT_ALLOWED ErrorReason = 2
 	ErrorReason_CHALLENGE_NOT_FOUND        ErrorReason = 3
+	ErrorReason_CHALLENGE_TYPE_UNSUPPORTED ErrorReason = 4
 )
 
 // Enum value maps for ErrorReason.
@@ -37,12 +38,14 @@ var (
 		1: "SITE_KEY_INVALID",
 		2: "CHALLENGE_TYPE_NOT_ALLOWED",
 		3: "CHALLENGE_NOT_FOUND",
+		4: "CHALLENGE_TYPE_UNSUPPORTED",
 	}
 	ErrorReason_value = map[string]int32{
 		"ERROR_REASON_UNSPECIFIED":   0,
 		"SITE_KEY_INVALID":           1,
 		"CHALLENGE_TYPE_NOT_ALLOWED": 2,
 		"CHALLENGE_NOT_FOUND":        3,
+		"CHALLENGE_TYPE_UNSUPPORTED": 4,
 	}
 )
 
@@ -77,12 +80,13 @@ var File_challenge_v1_error_reason_proto protoreflect.FileDescriptor
 
 const file_challenge_v1_error_reason_proto_rawDesc = "" +
 	"\n" +
-	"\x1fchallenge/v1/error_reason.proto\x12\fchallenge.v1*z\n" +
+	"\x1fchallenge/v1/error_reason.proto\x12\fchallenge.v1*\x9a\x01\n" +
 	"\vErrorReason\x12\x1c\n" +
 	"\x18ERROR_REASON_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10SITE_KEY_INVALID\x10\x01\x12\x1e\n" +
 	"\x1aCHALLENGE_TYPE_NOT_ALLOWED\x10\x02\x12\x17\n" +
-	"\x13CHALLENGE_NOT_FOUND\x10\x03B\x1eZ\x1ccommon/proto/challenge/v1;v1b\x06proto3"
+	"\x13CHALLENGE_NOT_FOUND\x10\x03\x12\x1e\n" +
+	"\x1aCHALLENGE_TYPE_UNSUPPORTED\x10\x04B\x1eZ\x1ccommon/proto/challenge/v1;v1b\x06proto3"
 
 var (
 	file_challenge_v1_error_reason_proto_rawDescOnce sync.Once
