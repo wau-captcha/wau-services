@@ -18,6 +18,11 @@ paths:
                   description: Public site key of the calling site.
                   schema:
                     type: string
+                - name: challenge_type
+                  in: query
+                  description: '"image_distort" (default) or "motion_noise".'
+                  schema:
+                    type: string
             responses:
                 "200":
                     description: OK
@@ -74,11 +79,21 @@ components:
                     description: Challenge type, e.g. "image_distort".
                 image:
                     type: string
-                    description: PNG image to solve.
+                    description: 'Media to solve: a PNG for image_distort, a 5-second animated GIF for motion_noise.'
                     format: bytes
                 expires_in:
                     type: integer
                     description: Seconds until the challenge expires.
+                    format: int32
+                mime_type:
+                    type: string
+                    description: MIME type of image, e.g. "image/gif".
+                width:
+                    type: integer
+                    description: Size to display image at, in CSS pixels. The media may hold more pixels for finer dots.
+                    format: int32
+                height:
+                    type: integer
                     format: int32
         verify.v1.SiteVerifyReply:
             type: object

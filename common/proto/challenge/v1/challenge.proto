@@ -22,16 +22,23 @@ service ChallengeService {
 message NewChallengeRequest {
   // Public site key of the calling site.
   string site_key = 1 [(google.api.field_behavior) = REQUIRED];
+  // "image_distort" (default) or "motion_noise".
+  string challenge_type = 2;
 }
 
 message Challenge {
   string challenge_id = 1;
   // Challenge type, e.g. "image_distort".
   string challenge_type = 2;
-  // PNG image to solve.
+  // Media to solve: a PNG for image_distort, a 5-second animated GIF for motion_noise.
   bytes image = 3;
   // Seconds until the challenge expires.
   int32 expires_in = 4;
+  // MIME type of image, e.g. "image/gif".
+  string mime_type = 5;
+  // Size to display image at, in CSS pixels. The media may hold more pixels for finer dots.
+  int32 width = 6;
+  int32 height = 7;
 }
 
 message CheckAnswerRequest {
