@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package tenant.v1;
+
+option go_package = "common/proto/tenant/v1;v1";
+
+enum ErrorReason {
+  ERROR_REASON_UNSPECIFIED = 0;
+  // Request data broke a validation rule; metadata "field" names it.
+  INVALID_ARGUMENT = 1;
+  USERNAME_TAKEN = 2;
+  EMAIL_TAKEN = 3;
+  // Unknown identifier or wrong password; deliberately not distinguished.
+  INVALID_CREDENTIALS = 4;
+  UNAUTHENTICATED = 5;
+  // Missing, deleted, or owned by another user.
+  API_KEY_NOT_FOUND = 6;
+  API_KEY_LIMIT_REACHED = 7;
+  INTERNAL = 8;
+}

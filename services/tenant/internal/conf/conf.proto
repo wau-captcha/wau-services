@@ -8,6 +8,9 @@ import "google/protobuf/duration.proto";
 message Bootstrap {
   Server server = 1;
   Data data = 2;
+  Auth auth = 3;
+  ApiKey api_key = 4;
+  Usage usage = 5;
 }
 
 message Server {
@@ -16,33 +19,30 @@ message Server {
     string addr = 2;
     google.protobuf.Duration timeout = 3;
   }
-  message GRPC {
-    string network = 1;
-    string addr = 2;
-    google.protobuf.Duration timeout = 3;
-  }
   HTTP http = 1;
-  GRPC grpc = 2;
 }
 
 message Data {
   message Database {
-    // Driver name registered with database/sql, e.g. "mysql".
-    string driver = 1;
-    // Driver-specific DSN. Keep credentials out of version control.
-    string source = 2;
-    // Log every generated statement. Development only.
-    bool debug = 3;
-    // Create or update tables from the ent schema on startup. Leave false in
-    // production and apply migrations as a separate, reviewed step.
-    bool auto_migrate = 4;
-  }
-  message Redis {
-    string network = 1;
-    string addr = 2;
-    google.protobuf.Duration read_timeout = 3;
-    google.protobuf.Duration write_timeout = 4;
+    // PostgreSQL DSN. Keep credentials out of version control.
+    string source = 1;
   }
   Database database = 1;
-  Redis redis = 2;
+}
+
+message Auth {
+  // HMAC-SHA256 signing key for access tokens, at least 32 bytes.
+  string secret = 1;
+  // Lifetime of an issued access token.
+  google.protobuf.Duration ttl = 2;
+}
+
+message ApiKey {
+  // How many keys a user may hold at once.
+  int32 max_per_user = 1;
+}
+
+message Usage {
+  // IANA name used to group usage records by local day.
+  string time_zone = 1;
 }

@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package tenant.v1;
+
+import "google/api/annotations.proto";
+
+option go_package = "common/proto/tenant/v1;v1";
+
+// UsageService reports how often the keys of the signed-in user were exercised.
+// One record is one answer check done by the verify service.
+service UsageService {
+  // GetUsage requires "Authorization: Bearer <access_token>".
+  rpc GetUsage(GetUsageRequest) returns (Usage) {
+    option (google.api.http) = {get: "/v1/usage"};
+  }
+}
+
+message GetUsageRequest {
+  // Empty means every key of the user, deleted ones included.
+  string api_key_id = 1;
+  // 1-90 days back; 0 means 30.
+  int32 days = 2;
+}
+
+message Usage {
+  int64 total = 1;
+  int64 success = 2;
+  // One entry per day in the window, oldest first; empty days are zero.
+  repeated DailyUsage days = 3;
+  repeated ChallengeTypeUsage challenge_types = 4;
+}
+
+message DailyUsage {
+  // Local date, "YYYY-MM-DD".
+  string date = 1;
+  int64 total = 2;
+  int64 success = 3;
+}
+
+message ChallengeTypeUsage {
+  string challenge_type = 1;
+  int64 total = 2;
+  int64 success = 3;
+}

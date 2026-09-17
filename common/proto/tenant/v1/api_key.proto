@@ -1,0 +1,91 @@
+syntax = "proto3";
+
+package tenant.v1;
+
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "common/proto/tenant/v1;v1";
+
+// ApiKeyService manages the captcha keys of the signed-in user.
+// Every RPC requires "Authorization: Bearer <access_token>".
+service ApiKeyService {
+  // ListApiKeys returns the keys that are not deleted, newest first.
+  rpc ListApiKeys(ListApiKeysRequest) returns (ApiKeySet) {
+    option (google.api.http) = {get: "/v1/api-keys"};
+  }
+
+  // CreateApiKey issues a new site key and secret key.
+  rpc CreateApiKey(CreateApiKeyRequest) returns (ApiKey) {
+    option (google.api.http) = {
+      post: "/v1/api-keys"
+      body: "*"
+    };
+  }
+
+  rpc GetApiKey(GetApiKeyRequest) returns (ApiKey) {
+    option (google.api.http) = {get: "/v1/api-keys/{id}"};
+  }
+
+  // UpdateApiKey applies a partial update; update_mask accepts "name" and "is_active".
+  rpc UpdateApiKey(UpdateApiKeyRequest) returns (ApiKey) {
+    option (google.api.http) = {
+      patch: "/v1/api-keys/{api_key.id}"
+      body: "*"
+    };
+  }
+
+  // RotateSecretKey replaces the secret key; the previous one stops working at once.
+  rpc RotateSecretKey(RotateSecretKeyRequest) returns (ApiKey) {
+    option (google.api.http) = {post: "/v1/api-keys/{id}/rotate-secret"};
+  }
+
+  // DeleteApiKey soft-deletes the key and deactivates it.
+  rpc DeleteApiKey(DeleteApiKeyRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {delete: "/v1/api-keys/{id}"};
+  }
+}
+
+message ApiKey {
+  string id = 1;
+  // Label chosen by the user, 1-64 characters.
+  string name = 2;
+  // Public key used by the site frontend.
+  string site_key = 3;
+  // Private key used by the site backend on /siteverify.
+  string secret_key = 4;
+  bool is_active = 5;
+  google.protobuf.Timestamp create_date = 6;
+}
+
+message ListApiKeysRequest {}
+
+message ApiKeySet {
+  repeated ApiKey api_keys = 1;
+  // How many keys this user may hold at once.
+  int32 max_api_keys = 2;
+}
+
+message CreateApiKeyRequest {
+  string name = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message GetApiKeyRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message UpdateApiKeyRequest {
+  ApiKey api_key = 1 [(google.api.field_behavior) = REQUIRED];
+  google.protobuf.FieldMask update_mask = 2 [(google.api.field_behavior) = REQUIRED];
+}
+
+message RotateSecretKeyRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message DeleteApiKeyRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}

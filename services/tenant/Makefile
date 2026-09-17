@@ -7,16 +7,17 @@ VERSION=$(shell git describe --tags --always)
 init:
 	go install github.com/google/wire/cmd/wire@latest
 	go install github.com/bufbuild/buf/cmd/buf@latest
+	go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
 
 .PHONY: config
 # generate internal proto
 config:
 	buf generate --template buf.gen.config.yaml
 
-.PHONY: api
-# generate api proto
-api:
-	buf generate --template buf.gen.yaml
+.PHONY: sqlc
+# generate PostgreSQL queries
+sqlc:
+	sqlc generate
 
 .PHONY: build
 # build
@@ -32,8 +33,8 @@ generate:
 .PHONY: all
 # generate all
 all:
-	make api
 	make config
+	make sqlc
 	make generate
 
 # show help

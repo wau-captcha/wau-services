@@ -1,9 +1,10 @@
-FROM golang:1.25 AS builder
+# Build from the repository root: docker build -f services/tenant/Dockerfile .
+FROM golang:1.27 AS builder
 
 COPY . /src
-WORKDIR /src
+WORKDIR /src/services/tenant
 
-RUN GOPROXY=https://goproxy.cn make build
+RUN make build
 
 FROM debian:stable-slim
 
@@ -13,12 +14,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         && rm -rf /var/lib/apt/lists/ \
         && apt-get autoremove -y && apt-get autoclean -y
 
-COPY --from=builder /src/bin /app
+COPY --from=builder /src/services/tenant/bin /app
 
 WORKDIR /app
 
-EXPOSE 8000
-EXPOSE 9000
+EXPOSE 8002
 VOLUME /data/conf
 
-CMD ["./server", "-conf", "/data/conf"]
+CMD ["./tenant", "-conf", "/data/conf"]

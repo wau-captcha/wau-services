@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package tenant.v1;
+
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "common/proto/tenant/v1;v1";
+
+// AuthService registers dashboard users and signs them in.
+service AuthService {
+  // Register creates an account and returns an access token for it.
+  rpc Register(RegisterRequest) returns (AuthReply) {
+    option (google.api.http) = {
+      post: "/v1/auth/register"
+      body: "*"
+    };
+  }
+
+  // Login exchanges a username or email plus password for an access token.
+  rpc Login(LoginRequest) returns (AuthReply) {
+    option (google.api.http) = {
+      post: "/v1/auth/login"
+      body: "*"
+    };
+  }
+
+  // GetMe returns the signed-in user. Requires "Authorization: Bearer <access_token>".
+  rpc GetMe(GetMeRequest) returns (User) {
+    option (google.api.http) = {get: "/v1/me"};
+  }
+}
+
+message RegisterRequest {
+  // 3-32 characters, lowercase letters, digits and underscore.
+  string username = 1 [(google.api.field_behavior) = REQUIRED];
+  string email = 2 [(google.api.field_behavior) = REQUIRED];
+  // 8-72 bytes.
+  string password = 3 [(google.api.field_behavior) = REQUIRED];
+}
+
+message LoginRequest {
+  // Username, or email when it contains "@".
+  string identifier = 1 [(google.api.field_behavior) = REQUIRED];
+  string password = 2 [(google.api.field_behavior) = REQUIRED];
+}
+
+message GetMeRequest {}
+
+message AuthReply {
+  string access_token = 1;
+  // Seconds until the token expires.
+  int32 expires_in = 2;
+  User user = 3;
+}
+
+message User {
+  string id = 1;
+  string username = 2;
+  string email = 3;
+  string tier_id = 4;
+  string tier_name = 5;
+  google.protobuf.Timestamp create_date = 6;
+}

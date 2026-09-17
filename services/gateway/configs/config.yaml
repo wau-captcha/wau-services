@@ -1,0 +1,21 @@
+server:
+  http:
+    addr: 0.0.0.0:8080
+    timeout: 5s
+routes:
+  - prefix: /v1/
+    upstream: ${TENANT_UPSTREAM:http://127.0.0.1:8002}
+  - prefix: /challenge/new
+    upstream: ${CHALLENGE_UPSTREAM:http://127.0.0.1:8000}
+  - prefix: /challenge/verify
+    upstream: ${VERIFY_UPSTREAM:http://127.0.0.1:8001}
+  - prefix: /siteverify
+    upstream: ${VERIFY_UPSTREAM:http://127.0.0.1:8001}
+rate_limit:
+  prefixes:
+    - /v1/auth/
+  requests: 20
+  window: 60s
+  trusted_proxies:
+    - 127.0.0.0/8
+    - ::1/128

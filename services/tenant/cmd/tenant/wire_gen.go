@@ -7,33 +7,53 @@
 package main
 
 import (
+	"github.com/go-kratos/kratos/v3"
+	"log/slog"
+	"tenant/internal/auth"
 	"tenant/internal/biz"
 	"tenant/internal/conf"
 	"tenant/internal/data"
 	"tenant/internal/server"
 	"tenant/internal/service"
-	"github.com/go-kratos/kratos/v3"
-	"log/slog"
 )
 
 import (
+	_ "common/codec"
 	_ "go.uber.org/automaxprocs"
+	_ "time/tzdata"
 )
 
 // Injectors from wire.go:
 
 // wireApp init kratos application.
-func wireApp(confServer *conf.Server, confData *conf.Data, logger *slog.Logger) (*kratos.App, func(), error) {
+func wireApp(confServer *conf.Server, confData *conf.Data, confAuth *conf.Auth, apiKey *conf.ApiKey, usage *conf.Usage, logger *slog.Logger) (*kratos.App, func(), error) {
+	jwt, err := auth.NewJWT(confAuth)
+	if err != nil {
+		return nil, nil, err
+	}
 	dataData, cleanup, err := data.NewData(confData)
 	if err != nil {
 		return nil, nil, err
 	}
-	todoRepo := data.NewTodoRepo(dataData)
-	todoUsecase := biz.NewTodoUsecase(todoRepo)
-	todoService := service.NewTodoService(todoUsecase)
-	grpcServer := server.NewGRPCServer(confServer, todoService)
-	httpServer := server.NewHTTPServer(confServer, todoService)
-	app := newApp(logger, grpcServer, httpServer)
+	userRepo := data.NewUserRepo(dataData)
+	bcrypt := auth.NewBcrypt()
+	authUsecase := biz.NewAuthUsecase(userRepo, bcrypt, jwt)
+	authService := service.NewAuthService(authUsecase)
+	apiKeyRepo := data.NewApiKeyRepo(dataData)
+	apiKeyUsecase := biz.NewApiKeyUsecase(apiKeyRepo, apiKey)
+	apiKeyService := service.NewApiKeyService(apiKeyUsecase)
+	usageRepo := data.NewUsageRepo(dataData)
+	usageUsecase, err := biz.NewUsageUsecase(usageRepo, apiKeyRepo, usage)
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
+	usageService := service.NewUsageService(usageUsecase)
+	catalogRepo := data.NewCatalogRepo(dataData)
+	catalogUsecase := biz.NewCatalogUsecase(catalogRepo)
+	catalogService := service.NewCatalogService(catalogUsecase)
+	httpServer := server.NewHTTPServer(confServer, jwt, authService, apiKeyService, usageService, catalogService)
+	app := newApp(logger, httpServer)
 	return app, func() {
 		cleanup()
 	}, nil

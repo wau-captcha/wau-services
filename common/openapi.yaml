@@ -67,6 +67,203 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/verify.v1.SiteVerifyReply'
+    /v1/api-keys:
+        get:
+            tags:
+                - ApiKeyService
+            description: ListApiKeys returns the keys that are not deleted, newest first.
+            operationId: ApiKeyService_ListApiKeys
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/tenant.v1.ApiKeySet'
+        post:
+            tags:
+                - ApiKeyService
+            description: CreateApiKey issues a new site key and secret key.
+            operationId: ApiKeyService_CreateApiKey
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/tenant.v1.CreateApiKeyRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/tenant.v1.ApiKey'
+    /v1/api-keys/{api_key.id}:
+        patch:
+            tags:
+                - ApiKeyService
+            description: UpdateApiKey applies a partial update; update_mask accepts "name" and "is_active".
+            operationId: ApiKeyService_UpdateApiKey
+            parameters:
+                - name: api_key.id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/tenant.v1.UpdateApiKeyRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/tenant.v1.ApiKey'
+    /v1/api-keys/{id}:
+        get:
+            tags:
+                - ApiKeyService
+            operationId: ApiKeyService_GetApiKey
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/tenant.v1.ApiKey'
+        delete:
+            tags:
+                - ApiKeyService
+            description: DeleteApiKey soft-deletes the key and deactivates it.
+            operationId: ApiKeyService_DeleteApiKey
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /v1/api-keys/{id}/rotate-secret:
+        post:
+            tags:
+                - ApiKeyService
+            description: RotateSecretKey replaces the secret key; the previous one stops working at once.
+            operationId: ApiKeyService_RotateSecretKey
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/tenant.v1.ApiKey'
+    /v1/auth/login:
+        post:
+            tags:
+                - AuthService
+            description: Login exchanges a username or email plus password for an access token.
+            operationId: AuthService_Login
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/tenant.v1.LoginRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/tenant.v1.AuthReply'
+    /v1/auth/register:
+        post:
+            tags:
+                - AuthService
+            description: Register creates an account and returns an access token for it.
+            operationId: AuthService_Register
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/tenant.v1.RegisterRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/tenant.v1.AuthReply'
+    /v1/challenge-types:
+        get:
+            tags:
+                - CatalogService
+            description: 'ListChallengeTypes requires "Authorization: Bearer <access_token>".'
+            operationId: CatalogService_ListChallengeTypes
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/tenant.v1.ChallengeTypeSet'
+    /v1/me:
+        get:
+            tags:
+                - AuthService
+            description: 'GetMe returns the signed-in user. Requires "Authorization: Bearer <access_token>".'
+            operationId: AuthService_GetMe
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/tenant.v1.User'
+    /v1/usage:
+        get:
+            tags:
+                - UsageService
+            description: 'GetUsage requires "Authorization: Bearer <access_token>".'
+            operationId: UsageService_GetUsage
+            parameters:
+                - name: api_key_id
+                  in: query
+                  description: Empty means every key of the user, deleted ones included.
+                  schema:
+                    type: string
+                - name: days
+                  in: query
+                  description: 1-90 days back; 0 means 30.
+                  schema:
+                    type: integer
+                    format: int32
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/tenant.v1.Usage'
 components:
     schemas:
         challenge.v1.Challenge:
@@ -95,6 +292,157 @@ components:
                 height:
                     type: integer
                     format: int32
+        tenant.v1.ApiKey:
+            type: object
+            properties:
+                id:
+                    type: string
+                name:
+                    type: string
+                    description: Label chosen by the user, 1-64 characters.
+                site_key:
+                    type: string
+                    description: Public key used by the site frontend.
+                secret_key:
+                    type: string
+                    description: Private key used by the site backend on /siteverify.
+                is_active:
+                    type: boolean
+                create_date:
+                    type: string
+                    format: date-time
+        tenant.v1.ApiKeySet:
+            type: object
+            properties:
+                api_keys:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/tenant.v1.ApiKey'
+                max_api_keys:
+                    type: integer
+                    description: How many keys this user may hold at once.
+                    format: int32
+        tenant.v1.AuthReply:
+            type: object
+            properties:
+                access_token:
+                    type: string
+                expires_in:
+                    type: integer
+                    description: Seconds until the token expires.
+                    format: int32
+                user:
+                    $ref: '#/components/schemas/tenant.v1.User'
+        tenant.v1.ChallengeType:
+            type: object
+            properties:
+                id:
+                    type: string
+                    description: Value accepted by /challenge/new?challenge_type=, e.g. "image_distort".
+                code:
+                    type: string
+        tenant.v1.ChallengeTypeSet:
+            type: object
+            properties:
+                challenge_types:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/tenant.v1.ChallengeType'
+        tenant.v1.ChallengeTypeUsage:
+            type: object
+            properties:
+                challenge_type:
+                    type: string
+                total:
+                    type: string
+                success:
+                    type: string
+        tenant.v1.CreateApiKeyRequest:
+            required:
+                - name
+            type: object
+            properties:
+                name:
+                    type: string
+        tenant.v1.DailyUsage:
+            type: object
+            properties:
+                date:
+                    type: string
+                    description: Local date, "YYYY-MM-DD".
+                total:
+                    type: string
+                success:
+                    type: string
+        tenant.v1.LoginRequest:
+            required:
+                - identifier
+                - password
+            type: object
+            properties:
+                identifier:
+                    type: string
+                    description: Username, or email when it contains "@".
+                password:
+                    type: string
+        tenant.v1.RegisterRequest:
+            required:
+                - username
+                - email
+                - password
+            type: object
+            properties:
+                username:
+                    type: string
+                    description: 3-32 characters, lowercase letters, digits and underscore.
+                email:
+                    type: string
+                password:
+                    type: string
+                    description: 8-72 bytes.
+        tenant.v1.UpdateApiKeyRequest:
+            required:
+                - api_key
+                - update_mask
+            type: object
+            properties:
+                api_key:
+                    $ref: '#/components/schemas/tenant.v1.ApiKey'
+                update_mask:
+                    type: string
+                    format: field-mask
+        tenant.v1.Usage:
+            type: object
+            properties:
+                total:
+                    type: string
+                success:
+                    type: string
+                days:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/tenant.v1.DailyUsage'
+                    description: One entry per day in the window, oldest first; empty days are zero.
+                challenge_types:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/tenant.v1.ChallengeTypeUsage'
+        tenant.v1.User:
+            type: object
+            properties:
+                id:
+                    type: string
+                username:
+                    type: string
+                email:
+                    type: string
+                tier_id:
+                    type: string
+                tier_name:
+                    type: string
+                create_date:
+                    type: string
+                    format: date-time
         verify.v1.SiteVerifyReply:
             type: object
             properties:
@@ -130,7 +478,19 @@ components:
                     type: string
                     description: Text read from the challenge image.
 tags:
+    - name: ApiKeyService
+      description: |-
+        ApiKeyService manages the captcha keys of the signed-in user.
+         Every RPC requires "Authorization: Bearer <access_token>".
+    - name: AuthService
+      description: AuthService registers dashboard users and signs them in.
+    - name: CatalogService
+      description: CatalogService lists what the tier of the signed-in user may use.
     - name: ChallengeService
       description: ChallengeService issues challenges and checks their answers.
+    - name: UsageService
+      description: |-
+        UsageService reports how often the keys of the signed-in user were exercised.
+         One record is one answer check done by the verify service.
     - name: VerifyService
       description: VerifyService turns solved challenges into one-time tokens and validates them for site backends.

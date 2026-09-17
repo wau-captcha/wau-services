@@ -1,0 +1,39 @@
+syntax = "proto3";
+package kratos.api;
+
+option go_package = "gateway/internal/conf;conf";
+
+import "google/protobuf/duration.proto";
+
+message Bootstrap {
+  Server server = 1;
+  repeated Route routes = 2;
+  RateLimit rate_limit = 3;
+}
+
+message Server {
+  message HTTP {
+    string network = 1;
+    string addr = 2;
+    // Upper bound for a whole proxied request, GIF challenges included.
+    google.protobuf.Duration timeout = 3;
+  }
+  HTTP http = 1;
+}
+
+// Route sends every request whose path starts with prefix to upstream.
+// The longest matching prefix wins.
+message Route {
+  string prefix = 1;
+  // Base URL of the service, e.g. http://127.0.0.1:8002.
+  string upstream = 2;
+}
+
+message RateLimit {
+  // Path prefixes the limit applies to; everything else passes through.
+  repeated string prefixes = 1;
+  int32 requests = 2;
+  google.protobuf.Duration window = 3;
+  // CIDR blocks whose X-Forwarded-For header may be believed.
+  repeated string trusted_proxies = 4;
+}
