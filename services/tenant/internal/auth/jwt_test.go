@@ -79,7 +79,7 @@ func TestParseRejects(t *testing.T) {
 
 	noneToken, err := jwt.NewWithClaims(jwt.SigningMethodNone, jwt.RegisteredClaims{
 		Subject:   id.String(),
-		Issuer:    issuer,
+		Issuer:    userIssuer,
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
 	}).SignedString(jwt.UnsafeAllowNoneSignatureType)
 	if err != nil {
@@ -97,7 +97,7 @@ func TestParseRejects(t *testing.T) {
 
 	badSubject, err := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
 		Subject:   "not-a-uuid",
-		Issuer:    issuer,
+		Issuer:    userIssuer,
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
 	}).SignedString([]byte(testSecret))
 	if err != nil {
@@ -106,7 +106,7 @@ func TestParseRejects(t *testing.T) {
 
 	noExpiry, err := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
 		Subject: id.String(),
-		Issuer:  issuer,
+		Issuer:  userIssuer,
 	}).SignedString([]byte(testSecret))
 	if err != nil {
 		t.Fatalf("sign without expiry: %v", err)
@@ -128,6 +128,26 @@ func TestParseRejects(t *testing.T) {
 				t.Fatalf("err = %v, want ErrUnauthenticated", err)
 			}
 		})
+	}
+}
+
+func TestUserAndAdminTokensAreNotInterchangeable(t *testing.T) {
+	j := testJWT(t)
+	id := uuid.New()
+	userToken, _, _ := j.Issue(id)
+	adminToken, ttl, err := j.IssueAdmin(id)
+	if err != nil || ttl != time.Hour {
+		t.Fatalf("IssueAdmin: ttl %v, err %v", ttl, err)
+	}
+
+	if got, err := j.ParseAdmin(adminToken); err != nil || got != id {
+		t.Fatalf("ParseAdmin = %v, %v; want %v", got, err, id)
+	}
+	if _, err := j.ParseAdmin(userToken); !errors.Is(err, biz.ErrUnauthenticated) {
+		t.Fatalf("user token as admin: err = %v, want ErrUnauthenticated", err)
+	}
+	if _, err := j.Parse(adminToken); !errors.Is(err, biz.ErrUnauthenticated) {
+		t.Fatalf("admin token as user: err = %v, want ErrUnauthenticated", err)
 	}
 }
 
@@ -167,13 +187,13 @@ func contextWithAuthorization(value string) context.Context {
 	return transport.NewServerContext(context.Background(), &fakeTransport{header: header})
 }
 
-// fakeAccounts holds the users that still exist.
+// fakeAccounts holds the users that still exist, with their status.
 type fakeAccounts struct {
-	ids map[uuid.UUID]bool
+	ids map[uuid.UUID]biz.AccountStatus
 	err error
 }
 
-func (f fakeAccounts) Exists(_ context.Context, id uuid.UUID) (bool, error) {
+func (f fakeAccounts) Status(_ context.Context, id uuid.UUID) (biz.AccountStatus, error) {
 	return f.ids[id], f.err
 }
 
@@ -181,7 +201,7 @@ func TestMiddleware(t *testing.T) {
 	j := testJWT(t)
 	id := uuid.New()
 	token, _, _ := j.Issue(id)
-	accounts := fakeAccounts{ids: map[uuid.UUID]bool{id: true}}
+	accounts := fakeAccounts{ids: map[uuid.UUID]biz.AccountStatus{id: {Exists: true}}}
 
 	t.Run("valid bearer", func(t *testing.T) {
 		var seen uuid.UUID

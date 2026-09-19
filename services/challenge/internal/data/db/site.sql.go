@@ -14,6 +14,10 @@ import (
 const getSiteBySiteKey = `-- name: GetSiteBySiteKey :one
 SELECT
     k.api_key_id,
+    k.user_id,
+    k.is_suspended,
+    u.is_banned,
+    t.daily_quota,
     ARRAY(
         SELECT ct.challenge_type_id
         FROM tier_challenge_types tct
@@ -32,12 +36,37 @@ WHERE k.site_key = $1
 
 type GetSiteBySiteKeyRow struct {
 	APIKeyID       uuid.UUID
+	UserID         uuid.UUID
+	IsSuspended    bool
+	IsBanned       bool
+	DailyQuota     int32
 	ChallengeTypes []string
 }
 
 func (q *Queries) GetSiteBySiteKey(ctx context.Context, siteKey string) (GetSiteBySiteKeyRow, error) {
 	row := q.db.QueryRow(ctx, getSiteBySiteKey, siteKey)
 	var i GetSiteBySiteKeyRow
-	err := row.Scan(&i.APIKeyID, &i.ChallengeTypes)
+	err := row.Scan(
+		&i.APIKeyID,
+		&i.UserID,
+		&i.IsSuspended,
+		&i.IsBanned,
+		&i.DailyQuota,
+		&i.ChallengeTypes,
+	)
 	return i, err
+}
+
+const suspendAPIKeyForScraping = `-- name: SuspendAPIKeyForScraping :exec
+UPDATE api_keys
+SET is_suspended = true,
+    suspend_reason = 'scraping'
+WHERE api_key_id = $1
+  AND NOT is_suspended
+`
+
+// A key already suspended keeps the reason it was suspended for.
+func (q *Queries) SuspendAPIKeyForScraping(ctx context.Context, apiKeyID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, suspendAPIKeyForScraping, apiKeyID)
+	return err
 }

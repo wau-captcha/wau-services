@@ -14,6 +14,9 @@ var (
 	ErrApiKeyNotFound     = errors.NotFound(v1.ErrorReason_API_KEY_NOT_FOUND.String(), "api key not found")
 	ErrApiKeyLimitReached = errors.Forbidden(v1.ErrorReason_API_KEY_LIMIT_REACHED.String(), "api key limit reached")
 	ErrInternal           = errors.InternalServer(v1.ErrorReason_INTERNAL.String(), "internal error")
+	ErrAccountBanned      = errors.Forbidden(v1.ErrorReason_ACCOUNT_BANNED.String(), "account is banned")
+	ErrNotAdmin           = errors.Forbidden(v1.ErrorReason_PERMISSION_DENIED.String(), "google account is not an administrator")
+	ErrNoSuchUser         = errors.NotFound(v1.ErrorReason_USER_NOT_FOUND.String(), "user not found")
 )
 
 // InvalidField names the input that broke a validation rule. It matches

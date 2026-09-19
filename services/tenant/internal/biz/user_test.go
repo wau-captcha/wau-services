@@ -163,3 +163,12 @@ func TestMe(t *testing.T) {
 		t.Fatalf("err = %v, want ErrUnauthenticated", err)
 	}
 }
+
+func TestBannedAccountCannotSignIn(t *testing.T) {
+	existing := &memUser{id: uuid.New(), sub: "sub-ann", email: "ann@gmail.com", name: "Ann", banned: true}
+	uc, _, _ := newAuthFixture(ann, existing)
+
+	if _, err := uc.SignInWithGoogle(context.Background(), "id-token", "nonce"); !errors.Is(err, ErrAccountBanned) {
+		t.Fatalf("err = %v, want ErrAccountBanned", err)
+	}
+}

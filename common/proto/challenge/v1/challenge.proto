@@ -51,4 +51,6 @@ message CheckAnswerReply {
   // API key the challenge was issued for.
   string api_key_id = 2;
   string challenge_type = 3;
+  // Owner of the API key, whose daily quota a correct answer counts against.
+  string user_id = 4;
 }

@@ -59,6 +59,11 @@ message ApiKey {
   string secret_key = 4;
   bool is_active = 5;
   google.protobuf.Timestamp create_date = 6;
+  // Blocked by an administrator or automatically; the key stops working whatever
+  // is_active says, and only an administrator can lift it.
+  bool is_suspended = 7;
+  // "admin" or "scraping" while suspended, empty otherwise.
+  string suspend_reason = 8;
 }
 
 message ListApiKeysRequest {}

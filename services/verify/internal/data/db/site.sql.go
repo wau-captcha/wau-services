@@ -27,17 +27,24 @@ func (q *Queries) CreateUsageLog(ctx context.Context, arg CreateUsageLogParams) 
 	return err
 }
 
-const getAPIKeyIDBySecretKey = `-- name: GetAPIKeyIDBySecretKey :one
-SELECT api_key_id
-FROM api_keys
-WHERE secret_key = $1
-  AND is_active
-  AND NOT is_deleted
+const getSiteBySecretKey = `-- name: GetSiteBySecretKey :one
+SELECT k.api_key_id, k.is_suspended, u.is_banned
+FROM api_keys k
+JOIN users u ON u.user_id = k.user_id
+WHERE k.secret_key = $1
+  AND k.is_active
+  AND NOT k.is_deleted
 `
 
-func (q *Queries) GetAPIKeyIDBySecretKey(ctx context.Context, secretKey string) (uuid.UUID, error) {
-	row := q.db.QueryRow(ctx, getAPIKeyIDBySecretKey, secretKey)
-	var api_key_id uuid.UUID
-	err := row.Scan(&api_key_id)
-	return api_key_id, err
+type GetSiteBySecretKeyRow struct {
+	APIKeyID    uuid.UUID
+	IsSuspended bool
+	IsBanned    bool
+}
+
+func (q *Queries) GetSiteBySecretKey(ctx context.Context, secretKey string) (GetSiteBySecretKeyRow, error) {
+	row := q.db.QueryRow(ctx, getSiteBySecretKey, secretKey)
+	var i GetSiteBySecretKeyRow
+	err := row.Scan(&i.APIKeyID, &i.IsSuspended, &i.IsBanned)
+	return i, err
 }

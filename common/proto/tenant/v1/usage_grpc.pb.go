@@ -20,6 +20,7 @@ const _ = grpc.SupportPackageIsVersion9
 
 const (
 	UsageService_GetUsage_FullMethodName = "/tenant.v1.UsageService/GetUsage"
+	UsageService_GetQuota_FullMethodName = "/tenant.v1.UsageService/GetQuota"
 )
 
 // UsageServiceClient is the client API for UsageService service.
@@ -31,6 +32,9 @@ const (
 type UsageServiceClient interface {
 	// GetUsage requires "Authorization: Bearer <access_token>".
 	GetUsage(ctx context.Context, in *GetUsageRequest, opts ...grpc.CallOption) (*Usage, error)
+	// GetQuota reports today's successful verifications against the daily quota of the tier.
+	// Requires "Authorization: Bearer <access_token>".
+	GetQuota(ctx context.Context, in *GetQuotaRequest, opts ...grpc.CallOption) (*Quota, error)
 }
 
 type usageServiceClient struct {
@@ -51,6 +55,16 @@ func (c *usageServiceClient) GetUsage(ctx context.Context, in *GetUsageRequest, 
 	return out, nil
 }
 
+func (c *usageServiceClient) GetQuota(ctx context.Context, in *GetQuotaRequest, opts ...grpc.CallOption) (*Quota, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Quota)
+	err := c.cc.Invoke(ctx, UsageService_GetQuota_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // UsageServiceServer is the server API for UsageService service.
 // All implementations must embed UnimplementedUsageServiceServer
 // for forward compatibility.
@@ -60,6 +74,9 @@ func (c *usageServiceClient) GetUsage(ctx context.Context, in *GetUsageRequest, 
 type UsageServiceServer interface {
 	// GetUsage requires "Authorization: Bearer <access_token>".
 	GetUsage(context.Context, *GetUsageRequest) (*Usage, error)
+	// GetQuota reports today's successful verifications against the daily quota of the tier.
+	// Requires "Authorization: Bearer <access_token>".
+	GetQuota(context.Context, *GetQuotaRequest) (*Quota, error)
 	mustEmbedUnimplementedUsageServiceServer()
 }
 
@@ -72,6 +89,9 @@ type UnimplementedUsageServiceServer struct{}
 
 func (UnimplementedUsageServiceServer) GetUsage(context.Context, *GetUsageRequest) (*Usage, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetUsage not implemented")
+}
+func (UnimplementedUsageServiceServer) GetQuota(context.Context, *GetQuotaRequest) (*Quota, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetQuota not implemented")
 }
 func (UnimplementedUsageServiceServer) mustEmbedUnimplementedUsageServiceServer() {}
 func (UnimplementedUsageServiceServer) testEmbeddedByValue()                      {}
@@ -112,6 +132,24 @@ func _UsageService_GetUsage_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _UsageService_GetQuota_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetQuotaRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UsageServiceServer).GetQuota(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UsageService_GetQuota_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UsageServiceServer).GetQuota(ctx, req.(*GetQuotaRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // UsageService_ServiceDesc is the grpc.ServiceDesc for UsageService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -122,6 +160,10 @@ var UsageService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetUsage",
 			Handler:    _UsageService_GetUsage_Handler,
+		},
+		{
+			MethodName: "GetQuota",
+			Handler:    _UsageService_GetQuota_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -16,9 +16,19 @@ type fakeSites map[string]*Site
 
 func (f fakeSites) FindBySiteKey(_ context.Context, siteKey string) (*Site, error) {
 	if s, ok := f[siteKey]; ok {
-		return s, nil
+		copied := *s
+		return &copied, nil
 	}
 	return nil, ErrSiteKeyInvalid
+}
+
+func (f fakeSites) SuspendForScraping(_ context.Context, apiKeyID string) error {
+	for _, s := range f {
+		if s.APIKeyID == apiKeyID {
+			s.Suspended = true
+		}
+	}
+	return nil
 }
 
 type fakeChallenges map[string]*Challenge
@@ -40,10 +50,10 @@ func (f fakeChallenges) Take(_ context.Context, id string) (*Challenge, error) {
 func TestChallengeUsecase(t *testing.T) {
 	ctx := context.Background()
 	uc, err := NewChallengeUsecase(fakeSites{
-		"pk_free":    {APIKeyID: "k1", ChallengeTypes: []string{TypeImageDistort}},
-		"pk_premium": {APIKeyID: "k2", ChallengeTypes: []string{TypeImageDistort, TypeMotionNoise}},
-		"pk_none":    {APIKeyID: "k3"},
-	}, fakeChallenges{}, &conf.Challenge{Ttl: durationpb.New(time.Minute)})
+		"pk_free":    {APIKeyID: "k1", UserID: "u1", DailyQuota: 1000, ChallengeTypes: []string{TypeImageDistort}},
+		"pk_premium": {APIKeyID: "k2", UserID: "u2", DailyQuota: 1000, ChallengeTypes: []string{TypeImageDistort, TypeMotionNoise}},
+		"pk_none":    {APIKeyID: "k3", UserID: "u3", DailyQuota: 1000},
+	}, fakeChallenges{}, newFakeCounters(), &conf.Challenge{Ttl: durationpb.New(time.Minute)}, testQuota)
 	if err != nil {
 		t.Fatalf("NewChallengeUsecase() error = %v", err)
 	}
@@ -76,7 +86,7 @@ func TestChallengeUsecase(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New(default) error = %v", err)
 	}
-	if c.Type != TypeImageDistort || c.APIKeyID != "k1" || len(c.Media.Data) == 0 {
+	if c.Type != TypeImageDistort || c.APIKeyID != "k1" || c.UserID != "u1" || len(c.Media.Data) == 0 {
 		t.Fatalf("New(default) type = %q, api key = %q", c.Type, c.APIKeyID)
 	}
 	if _, ok, err := uc.Check(ctx, c.ID, strings.ToLower(c.Answer)); err != nil || !ok {

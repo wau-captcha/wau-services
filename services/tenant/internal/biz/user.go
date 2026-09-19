@@ -19,6 +19,16 @@ type User struct {
 	TierID     string
 	TierName   string
 	CreateDate time.Time
+	// Successful verifications the tier allows per local day.
+	DailyQuota int64
+	IsBanned   bool
+}
+
+// AccountStatus is what every authenticated request checks: tokens cannot be revoked, so
+// a deleted or banned account is only stopped by looking it up.
+type AccountStatus struct {
+	Exists bool
+	Banned bool
 }
 
 // Session is an issued access token together with its owner.
@@ -48,8 +58,8 @@ type UserRepo interface {
 	// uses it. Empty values leave the stored ones unchanged.
 	UpdateGoogleProfile(ctx context.Context, id uuid.UUID, email, name string) error
 	Profile(ctx context.Context, id uuid.UUID) (*User, error)
-	// Exists reports whether the account is still there; tokens outlive a deleted account.
-	Exists(ctx context.Context, id uuid.UUID) (bool, error)
+	// Status reports whether the account is still there, and whether it is banned.
+	Status(ctx context.Context, id uuid.UUID) (AccountStatus, error)
 }
 
 // TokenIssuer mints access tokens.
@@ -141,6 +151,9 @@ func (uc *AuthUsecase) session(ctx context.Context, id uuid.UUID) (*Session, err
 	user, err := uc.users.Profile(ctx, id)
 	if err != nil {
 		return nil, err
+	}
+	if user.IsBanned {
+		return nil, ErrAccountBanned
 	}
 	token, ttl, err := uc.tokens.Issue(id)
 	if err != nil {

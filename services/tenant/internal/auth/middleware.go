@@ -11,16 +11,26 @@ import (
 	"github.com/google/uuid"
 )
 
-type userIDKey struct{}
+type (
+	userIDKey  struct{}
+	adminIDKey struct{}
+)
 
-// Accounts tells whether the user a token names still exists.
+// Accounts tells what the account a token names is now.
 type Accounts interface {
-	Exists(ctx context.Context, id uuid.UUID) (bool, error)
+	Status(ctx context.Context, id uuid.UUID) (biz.AccountStatus, error)
 }
 
-// Middleware rejects requests without a valid bearer token and carries the user
-// id to the service layer. Tokens cannot be revoked, so a token whose account was
-// deleted is rejected here; otherwise it would keep working until it expires.
+// Admins looks up the administrator a token names.
+type Admins interface {
+	// Get returns ErrUnauthenticated for an administrator that was removed.
+	Get(ctx context.Context, id uuid.UUID) (*biz.Admin, error)
+}
+
+// Middleware rejects requests without a valid bearer token and carries the user id to
+// the service layer. Tokens cannot be revoked, so the account is looked up on every
+// request: a deleted account gets UNAUTHENTICATED and a banned one ACCOUNT_BANNED at
+// once, instead of their tokens working until they expire.
 func Middleware(j *JWT, accounts Accounts) middleware.Middleware {
 	return func(handler middleware.Handler) middleware.Handler {
 		return func(ctx context.Context, req any) (any, error) {
@@ -28,14 +38,34 @@ func Middleware(j *JWT, accounts Accounts) middleware.Middleware {
 			if err != nil {
 				return nil, err
 			}
-			exists, err := accounts.Exists(ctx, id)
+			status, err := accounts.Status(ctx, id)
+			switch {
+			case err != nil:
+				return nil, err
+			case !status.Exists:
+				return nil, biz.ErrUnauthenticated
+			case status.Banned:
+				return nil, biz.ErrAccountBanned
+			}
+			return handler(WithUserID(ctx, id), req)
+		}
+	}
+}
+
+// AdminMiddleware guards AdminService the way Middleware guards the user API, with
+// administrator tokens only. The administrator is looked up on every request, so removing
+// the row from admins ends their sessions at once.
+func AdminMiddleware(j *JWT, admins Admins) middleware.Middleware {
+	return func(handler middleware.Handler) middleware.Handler {
+		return func(ctx context.Context, req any) (any, error) {
+			id, err := j.ParseAdmin(bearerToken(ctx))
 			if err != nil {
 				return nil, err
 			}
-			if !exists {
-				return nil, biz.ErrUnauthenticated
+			if _, err := admins.Get(ctx, id); err != nil {
+				return nil, err
 			}
-			return handler(WithUserID(ctx, id), req)
+			return handler(context.WithValue(ctx, adminIDKey{}, id), req)
 		}
 	}
 }
@@ -48,6 +78,12 @@ func WithUserID(ctx context.Context, id uuid.UUID) context.Context {
 // UserID returns the user put in the context by Middleware.
 func UserID(ctx context.Context) (uuid.UUID, bool) {
 	id, ok := ctx.Value(userIDKey{}).(uuid.UUID)
+	return id, ok
+}
+
+// AdminID returns the administrator put in the context by AdminMiddleware.
+func AdminID(ctx context.Context) (uuid.UUID, bool) {
+	id, ok := ctx.Value(adminIDKey{}).(uuid.UUID)
 	return id, ok
 }
 

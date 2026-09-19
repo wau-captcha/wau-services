@@ -30,7 +30,18 @@ type ApiKey struct {
 	SecretKey  string
 	IsActive   bool
 	CreateDate time.Time
+	// Set by an administrator or the scraping check; the key stops working whatever
+	// IsActive says, and its owner cannot lift it.
+	IsSuspended bool
+	// SuspendedByAdmin or SuspendedForScraping while suspended, empty otherwise.
+	SuspendReason string
 }
+
+// Reasons a key can be suspended for, as stored in api_keys.suspend_reason.
+const (
+	SuspendedByAdmin     = "admin"
+	SuspendedForScraping = "scraping"
+)
 
 // ApiKeyPatch holds the fields a partial update touches; nil means "leave as is".
 type ApiKeyPatch struct {

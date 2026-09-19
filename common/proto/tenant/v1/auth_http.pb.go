@@ -18,11 +18,17 @@ var _ = new(context.Context)
 const _ = http.SupportPackageIsVersion3
 
 const OperationAuthServiceGetMe = "/tenant.v1.AuthService/GetMe"
+const OperationAuthServiceSignInAdminWithGoogle = "/tenant.v1.AuthService/SignInAdminWithGoogle"
 const OperationAuthServiceSignInWithGoogle = "/tenant.v1.AuthService/SignInWithGoogle"
 
 type AuthServiceHTTPServer interface {
 	// GetMe GetMe returns the signed-in user. Requires "Authorization: Bearer <access_token>".
 	GetMe(context.Context, *GetMeRequest) (*User, error)
+	// SignInAdminWithGoogle SignInAdminWithGoogle exchanges a Google ID token for an administrator access token.
+	// Only a Google account whose email is in the admins table gets one; nothing is created,
+	// and a dashboard account with the same email is left alone. The token only works for
+	// AdminService, and a user's token never does.
+	SignInAdminWithGoogle(context.Context, *SignInWithGoogleRequest) (*AdminAuthReply, error)
 	// SignInWithGoogle SignInWithGoogle exchanges a Google ID token for an access token.
 	// The first sign-in of a Google account creates its WAU account.
 	SignInWithGoogle(context.Context, *SignInWithGoogleRequest) (*AuthReply, error)
@@ -32,6 +38,7 @@ func RegisterAuthServiceHTTPServer(s *http.Server, srv AuthServiceHTTPServer) {
 	r := s.Route("/")
 	r.Handle("POST", "/v1/auth/google", _AuthService_SignInWithGoogle0_HTTP_Handler(srv))
 	r.Handle("GET", "/v1/me", _AuthService_GetMe0_HTTP_Handler(srv))
+	r.Handle("POST", "/v1/auth/admin/google", _AuthService_SignInAdminWithGoogle0_HTTP_Handler(srv))
 }
 
 func _AuthService_SignInWithGoogle0_HTTP_Handler(srv AuthServiceHTTPServer) func(ctx http.Context) error {
@@ -72,9 +79,33 @@ func _AuthService_GetMe0_HTTP_Handler(srv AuthServiceHTTPServer) func(ctx http.C
 	}
 }
 
+func _AuthService_SignInAdminWithGoogle0_HTTP_Handler(srv AuthServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in SignInWithGoogleRequest
+		if err := ctx.Bind(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationAuthServiceSignInAdminWithGoogle)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.SignInAdminWithGoogle(ctx, req.(*SignInWithGoogleRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*AdminAuthReply)
+		return ctx.Result(200, reply)
+	}
+}
+
 type AuthServiceHTTPClient interface {
 	// GetMe GetMe returns the signed-in user. Requires "Authorization: Bearer <access_token>".
 	GetMe(ctx context.Context, req *GetMeRequest, opts ...http.CallOption) (rsp *User, err error)
+	// SignInAdminWithGoogle SignInAdminWithGoogle exchanges a Google ID token for an administrator access token.
+	// Only a Google account whose email is in the admins table gets one; nothing is created,
+	// and a dashboard account with the same email is left alone. The token only works for
+	// AdminService, and a user's token never does.
+	SignInAdminWithGoogle(ctx context.Context, req *SignInWithGoogleRequest, opts ...http.CallOption) (rsp *AdminAuthReply, err error)
 	// SignInWithGoogle SignInWithGoogle exchanges a Google ID token for an access token.
 	// The first sign-in of a Google account creates its WAU account.
 	SignInWithGoogle(ctx context.Context, req *SignInWithGoogleRequest, opts ...http.CallOption) (rsp *AuthReply, err error)
@@ -99,6 +130,27 @@ func (c *AuthServiceHTTPClientImpl) GetMe(ctx context.Context, in *GetMeRequest,
 		http.PathTemplate(pattern),
 	}, opts...)
 	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// SignInAdminWithGoogle SignInAdminWithGoogle exchanges a Google ID token for an administrator access token.
+// Only a Google account whose email is in the admins table gets one; nothing is created,
+// and a dashboard account with the same email is left alone. The token only works for
+// AdminService, and a user's token never does.
+func (c *AuthServiceHTTPClientImpl) SignInAdminWithGoogle(ctx context.Context, in *SignInWithGoogleRequest, opts ...http.CallOption) (*AdminAuthReply, error) {
+	var out AdminAuthReply
+	pattern := "/v1/auth/admin/google"
+	path := http.BuildPath(pattern, in)
+	opts = append([]http.CallOption{
+		http.Accept("application/protojson"),
+		http.ContentType("application/protojson"),
+		http.Operation(OperationAuthServiceSignInAdminWithGoogle),
+		http.PathTemplate(pattern),
+	}, opts...)
+	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
 	if err != nil {
 		return nil, err
 	}

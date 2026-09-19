@@ -1,10 +1,10 @@
 package biz
 
 import (
+	"cmp"
 	"context"
+	"slices"
 	"time"
-
-	"tenant/internal/conf"
 
 	"github.com/google/uuid"
 )
@@ -20,6 +20,11 @@ type UsageCount struct {
 	Success int64
 }
 
+func (c *UsageCount) add(other UsageCount) {
+	c.Total += other.Total
+	c.Success += other.Success
+}
+
 // DailyUsage is one local day, formatted as YYYY-MM-DD.
 type DailyUsage struct {
 	Date string
@@ -31,48 +36,62 @@ type ChallengeTypeUsage struct {
 	UsageCount
 }
 
+// UsageSeries is the usage of one API key or one challenge type, day by day.
+type UsageSeries struct {
+	ID string
+	UsageCount
+	// The days of the window, oldest first; empty days are zero.
+	Days []DailyUsage
+}
+
 // Usage is a window of verification activity.
 type Usage struct {
 	UsageCount
 	Days           []DailyUsage
 	ChallengeTypes []ChallengeTypeUsage
+	// Busiest first. ByApiKey is empty for the whole system.
+	ByApiKey        []UsageSeries
+	ByChallengeType []UsageSeries
 }
 
-// UsageRepo reads verification records. A null apiKeyID means every key of the
-// user, deleted ones included.
+// UsageFilter narrows usage to one account and/or one key; invalid means "any".
+type UsageFilter struct {
+	UserID   uuid.NullUUID
+	APIKeyID uuid.NullUUID
+}
+
+// UsageRecord is the verifications of one local day, API key and challenge type.
+type UsageRecord struct {
+	Date string
+	// uuid.Nil when usage of the whole system is not split by key.
+	APIKeyID      uuid.UUID
+	ChallengeType string
+	UsageCount
+}
+
+// UsageRepo reads verification records since a moment, grouped in a time zone. Deleted
+// keys are included. With neither a user nor a key the filter covers the whole system,
+// which is not split by key.
 type UsageRepo interface {
-	Daily(ctx context.Context, userID uuid.UUID, apiKeyID uuid.NullUUID, since time.Time, timeZone string) ([]DailyUsage, error)
-	ByChallengeType(ctx context.Context, userID uuid.UUID, apiKeyID uuid.NullUUID, since time.Time) ([]ChallengeTypeUsage, error)
+	Breakdown(ctx context.Context, filter UsageFilter, since time.Time, timeZone string) ([]UsageRecord, error)
 }
 
 // UsageUsecase reports usage over a window of local days.
 type UsageUsecase struct {
 	usage    UsageRepo
 	keys     ApiKeyRepo
-	location *time.Location
-	timeZone string
-	now      func() time.Time
+	calendar *Calendar
 }
 
-func NewUsageUsecase(usage UsageRepo, keys ApiKeyRepo, c *conf.Usage) (*UsageUsecase, error) {
-	zone := c.GetTimeZone()
-	if zone == "" {
-		zone = "UTC"
-	}
-	location, err := time.LoadLocation(zone)
+func NewUsageUsecase(usage UsageRepo, keys ApiKeyRepo, calendar *Calendar) *UsageUsecase {
+	return &UsageUsecase{usage: usage, keys: keys, calendar: calendar}
+}
+
+// Get returns the last `days` days of the user's keys, or of one of them.
+func (uc *UsageUsecase) Get(ctx context.Context, userID uuid.UUID, apiKeyID uuid.NullUUID, days int) (*Usage, error) {
+	days, err := usageDays(days)
 	if err != nil {
 		return nil, err
-	}
-	return &UsageUsecase{usage: usage, keys: keys, location: location, timeZone: zone, now: time.Now}, nil
-}
-
-// Get returns the last `days` days, oldest first, with empty days filled in.
-func (uc *UsageUsecase) Get(ctx context.Context, userID uuid.UUID, apiKeyID uuid.NullUUID, days int) (*Usage, error) {
-	if days == 0 {
-		days = defaultUsageDays
-	}
-	if days < 1 || days > maxUsageDays {
-		return nil, InvalidField("days", "days must be between 1 and 90")
 	}
 	// Reading one key requires owning it; the repo filters by user either way.
 	if apiKeyID.Valid {
@@ -80,30 +99,96 @@ func (uc *UsageUsecase) Get(ctx context.Context, userID uuid.UUID, apiKeyID uuid
 			return nil, err
 		}
 	}
+	return uc.report(ctx, UsageFilter{UserID: uuid.NullUUID{UUID: userID, Valid: true}, APIKeyID: apiKeyID}, days)
+}
 
-	today := uc.now().In(uc.location)
-	start := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, uc.location).AddDate(0, 0, -(days - 1))
-
-	daily, err := uc.usage.Daily(ctx, userID, apiKeyID, start, uc.timeZone)
+// ForAnyone returns usage of any account or key, for administrators.
+func (uc *UsageUsecase) ForAnyone(ctx context.Context, filter UsageFilter, days int) (*Usage, error) {
+	days, err := usageDays(days)
 	if err != nil {
 		return nil, err
 	}
-	byType, err := uc.usage.ByChallengeType(ctx, userID, apiKeyID, start)
+	return uc.report(ctx, filter, days)
+}
+
+func usageDays(days int) (int, error) {
+	if days == 0 {
+		return defaultUsageDays, nil
+	}
+	if days < 1 || days > maxUsageDays {
+		return 0, InvalidField("days", "days must be between 1 and 90")
+	}
+	return days, nil
+}
+
+// report fills every day of the window, oldest first, and folds the records into totals
+// per day, per challenge type and per key.
+func (uc *UsageUsecase) report(ctx context.Context, filter UsageFilter, days int) (*Usage, error) {
+	start := uc.calendar.WindowStart(days)
+	records, err := uc.usage.Breakdown(ctx, filter, start, uc.calendar.Zone())
 	if err != nil {
 		return nil, err
 	}
 
-	counts := make(map[string]UsageCount, len(daily))
-	for _, day := range daily {
-		counts[day.Date] = day.UsageCount
+	dates := make([]string, days)
+	index := make(map[string]int, days)
+	for i := range dates {
+		dates[i] = start.AddDate(0, 0, i).Format(time.DateOnly)
+		index[dates[i]] = i
 	}
-	usage := &Usage{Days: make([]DailyUsage, 0, days), ChallengeTypes: byType}
-	for i := range days {
-		date := start.AddDate(0, 0, i).Format(time.DateOnly)
-		count := counts[date]
-		usage.Days = append(usage.Days, DailyUsage{Date: date, UsageCount: count})
-		usage.Total += count.Total
-		usage.Success += count.Success
+	usage := &Usage{Days: emptyDays(dates)}
+	byKey := map[string]*UsageSeries{}
+	byType := map[string]*UsageSeries{}
+	for _, record := range records {
+		i, ok := index[record.Date]
+		if !ok {
+			continue
+		}
+		usage.add(record.UsageCount)
+		usage.Days[i].add(record.UsageCount)
+		if record.APIKeyID != uuid.Nil {
+			seriesFor(byKey, record.APIKeyID.String(), dates).addDay(i, record.UsageCount)
+		}
+		seriesFor(byType, record.ChallengeType, dates).addDay(i, record.UsageCount)
+	}
+
+	usage.ByApiKey = busiestFirst(byKey)
+	usage.ByChallengeType = busiestFirst(byType)
+	for _, series := range usage.ByChallengeType {
+		usage.ChallengeTypes = append(usage.ChallengeTypes, ChallengeTypeUsage{ChallengeType: series.ID, UsageCount: series.UsageCount})
 	}
 	return usage, nil
+}
+
+func emptyDays(dates []string) []DailyUsage {
+	days := make([]DailyUsage, len(dates))
+	for i, date := range dates {
+		days[i].Date = date
+	}
+	return days
+}
+
+func seriesFor(all map[string]*UsageSeries, id string, dates []string) *UsageSeries {
+	series, ok := all[id]
+	if !ok {
+		series = &UsageSeries{ID: id, Days: emptyDays(dates)}
+		all[id] = series
+	}
+	return series
+}
+
+func (s *UsageSeries) addDay(i int, count UsageCount) {
+	s.add(count)
+	s.Days[i].add(count)
+}
+
+func busiestFirst(all map[string]*UsageSeries) []UsageSeries {
+	list := make([]UsageSeries, 0, len(all))
+	for _, series := range all {
+		list = append(list, *series)
+	}
+	slices.SortFunc(list, func(a, b UsageSeries) int {
+		return cmp.Or(cmp.Compare(b.Total, a.Total), cmp.Compare(a.ID, b.ID))
+	})
+	return list
 }

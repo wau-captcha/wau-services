@@ -3,6 +3,7 @@ package biz
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"slices"
 	"strings"
 	"time"
@@ -36,11 +37,21 @@ var (
 	ErrChallengeTypeUnsupported = errors.BadRequest(v1.ErrorReason_CHALLENGE_TYPE_UNSUPPORTED.String(), "challenge type is not supported")
 	ErrChallengeTypeNotAllowed  = errors.Forbidden(v1.ErrorReason_CHALLENGE_TYPE_NOT_ALLOWED.String(), "challenge type is not allowed")
 	ErrChallengeNotFound        = errors.NotFound(v1.ErrorReason_CHALLENGE_NOT_FOUND.String(), "challenge not found")
+	ErrApiKeySuspended          = errors.Forbidden(v1.ErrorReason_API_KEY_SUSPENDED.String(), "api key is suspended")
+	ErrAccountBanned            = errors.Forbidden(v1.ErrorReason_ACCOUNT_BANNED.String(), "the owner of this api key is banned")
+	ErrDailyQuotaExceeded       = errors.New(http.StatusTooManyRequests,
+		v1.ErrorReason_DAILY_QUOTA_EXCEEDED.String(), "daily verification quota reached")
 )
 
+// Site is an active API key together with what its owner may do.
 type Site struct {
 	APIKeyID       string
+	UserID         string
 	ChallengeTypes []string
+	Suspended      bool
+	OwnerBanned    bool
+	// Successful verifications the owner's tier allows per day.
+	DailyQuota int64
 }
 
 type Media struct {
@@ -54,13 +65,17 @@ type Challenge struct {
 	ID       string
 	Type     string
 	APIKeyID string
-	Answer   string
-	Media    Media
-	TTL      time.Duration
+	// Owner of the key; a correct answer counts against their daily quota.
+	UserID string
+	Answer string
+	Media  Media
+	TTL    time.Duration
 }
 
 type SiteRepo interface {
 	FindBySiteKey(ctx context.Context, siteKey string) (*Site, error)
+	// SuspendForScraping suspends the key unless it already is.
+	SuspendForScraping(ctx context.Context, apiKeyID string) error
 }
 type ChallengeRepo interface {
 	Save(ctx context.Context, c *Challenge) error
@@ -70,15 +85,32 @@ type ChallengeRepo interface {
 type ChallengeUsecase struct {
 	sites      SiteRepo
 	challenges ChallengeRepo
+	counters   CounterRepo
 	ttl        time.Duration
+	location   *time.Location
+	now        func() time.Time
 }
 
-func NewChallengeUsecase(sites SiteRepo, challenges ChallengeRepo, c *conf.Challenge) (*ChallengeUsecase, error) {
+func NewChallengeUsecase(sites SiteRepo, challenges ChallengeRepo, counters CounterRepo, c *conf.Challenge, q *conf.Quota) (*ChallengeUsecase, error) {
 	ttl := c.GetTtl().AsDuration()
 	if ttl <= 0 {
 		return nil, fmt.Errorf("challenge ttl must be positive")
 	}
-	return &ChallengeUsecase{sites: sites, challenges: challenges, ttl: ttl}, nil
+	if q.GetTimeZone() == "" {
+		return nil, fmt.Errorf("quota time_zone is required")
+	}
+	location, err := time.LoadLocation(q.GetTimeZone())
+	if err != nil {
+		return nil, err
+	}
+	return &ChallengeUsecase{
+		sites:      sites,
+		challenges: challenges,
+		counters:   counters,
+		ttl:        ttl,
+		location:   location,
+		now:        time.Now,
+	}, nil
 }
 
 // New issues a challenge of challengeType, image_distort when empty.
@@ -94,8 +126,16 @@ func (uc *ChallengeUsecase) New(ctx context.Context, siteKey, challengeType stri
 	if err != nil {
 		return nil, err
 	}
-	if !slices.Contains(site.ChallengeTypes, challengeType) {
+	switch {
+	case site.OwnerBanned:
+		return nil, ErrAccountBanned
+	case site.Suspended:
+		return nil, ErrApiKeySuspended
+	case !slices.Contains(site.ChallengeTypes, challengeType):
 		return nil, ErrChallengeTypeNotAllowed
+	}
+	if err := uc.admit(ctx, site); err != nil {
+		return nil, err
 	}
 	code := newCode(kind.chars)
 	media, err := kind.render(code)
@@ -106,6 +146,7 @@ func (uc *ChallengeUsecase) New(ctx context.Context, siteKey, challengeType stri
 		ID:       uuid.NewString(),
 		Type:     challengeType,
 		APIKeyID: site.APIKeyID,
+		UserID:   site.UserID,
 		Answer:   code,
 		Media:    media,
 		TTL:      uc.ttl,

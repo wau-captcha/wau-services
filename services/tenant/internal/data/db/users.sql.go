@@ -44,8 +44,23 @@ func (q *Queries) FindUserByGoogleSub(ctx context.Context, googleSub pgtype.Text
 	return user_id, err
 }
 
+const getAccountStatus = `-- name: GetAccountStatus :one
+SELECT is_banned
+FROM users
+WHERE user_id = $1
+`
+
+// Access tokens cannot be revoked, so every request checks that its account still exists
+// and is not banned; no row means the account is gone.
+func (q *Queries) GetAccountStatus(ctx context.Context, userID uuid.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, getAccountStatus, userID)
+	var is_banned bool
+	err := row.Scan(&is_banned)
+	return is_banned, err
+}
+
 const getUserProfile = `-- name: GetUserProfile :one
-SELECT u.user_id, u.username, u.email, u.create_date, u.tier_id, t.tier_name
+SELECT u.user_id, u.username, u.email, u.create_date, u.tier_id, t.tier_name, t.daily_quota, u.is_banned
 FROM users u
 JOIN tiers t ON t.tier_id = u.tier_id
 WHERE u.user_id = $1
@@ -58,6 +73,8 @@ type GetUserProfileRow struct {
 	CreateDate pgtype.Timestamptz
 	TierID     string
 	TierName   string
+	DailyQuota int32
+	IsBanned   bool
 }
 
 func (q *Queries) GetUserProfile(ctx context.Context, userID uuid.UUID) (GetUserProfileRow, error) {
@@ -70,6 +87,8 @@ func (q *Queries) GetUserProfile(ctx context.Context, userID uuid.UUID) (GetUser
 		&i.CreateDate,
 		&i.TierID,
 		&i.TierName,
+		&i.DailyQuota,
+		&i.IsBanned,
 	)
 	return i, err
 }
@@ -118,16 +137,4 @@ type UpdateGoogleProfileParams struct {
 func (q *Queries) UpdateGoogleProfile(ctx context.Context, arg UpdateGoogleProfileParams) error {
 	_, err := q.db.Exec(ctx, updateGoogleProfile, arg.Username, arg.Email, arg.UserID)
 	return err
-}
-
-const userExists = `-- name: UserExists :one
-SELECT EXISTS (SELECT 1 FROM users WHERE user_id = $1)
-`
-
-// Access tokens cannot be revoked, so every request checks that its account still exists.
-func (q *Queries) UserExists(ctx context.Context, userID uuid.UUID) (bool, error) {
-	row := q.db.QueryRow(ctx, userExists, userID)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
 }

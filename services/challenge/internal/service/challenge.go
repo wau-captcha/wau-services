@@ -43,5 +43,5 @@ func (s *ChallengeService) CheckAnswer(ctx context.Context, req *v1.CheckAnswerR
 	if err != nil {
 		return nil, err
 	}
-	return &v1.CheckAnswerReply{Success: ok, ApiKeyId: c.APIKeyID, ChallengeType: c.Type}, nil
+	return &v1.CheckAnswerReply{Success: ok, ApiKeyId: c.APIKeyID, ChallengeType: c.Type, UserId: c.UserID}, nil
 }

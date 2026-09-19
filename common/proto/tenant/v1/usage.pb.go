@@ -10,6 +10,7 @@ import (
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -83,8 +84,12 @@ type Usage struct {
 	// One entry per day in the window, oldest first; empty days are zero.
 	Days           []*DailyUsage         `protobuf:"bytes,3,rep,name=days,proto3" json:"days,omitempty"`
 	ChallengeTypes []*ChallengeTypeUsage `protobuf:"bytes,4,rep,name=challenge_types,json=challengeTypes,proto3" json:"challenge_types,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// One series per API key that was used in the window, busiest first.
+	ByApiKey []*UsageSeries `protobuf:"bytes,5,rep,name=by_api_key,json=byApiKey,proto3" json:"by_api_key,omitempty"`
+	// One series per challenge type that was used in the window, busiest first.
+	ByChallengeType []*UsageSeries `protobuf:"bytes,6,rep,name=by_challenge_type,json=byChallengeType,proto3" json:"by_challenge_type,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *Usage) Reset() {
@@ -145,6 +150,198 @@ func (x *Usage) GetChallengeTypes() []*ChallengeTypeUsage {
 	return nil
 }
 
+func (x *Usage) GetByApiKey() []*UsageSeries {
+	if x != nil {
+		return x.ByApiKey
+	}
+	return nil
+}
+
+func (x *Usage) GetByChallengeType() []*UsageSeries {
+	if x != nil {
+		return x.ByChallengeType
+	}
+	return nil
+}
+
+type UsageSeries struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// An API key id in Usage.by_api_key, a challenge type in Usage.by_challenge_type.
+	Id      string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Total   int64  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	Success int64  `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"`
+	// The same days as Usage.days, oldest first; empty days are zero.
+	Days          []*DailyUsage `protobuf:"bytes,4,rep,name=days,proto3" json:"days,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UsageSeries) Reset() {
+	*x = UsageSeries{}
+	mi := &file_tenant_v1_usage_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UsageSeries) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UsageSeries) ProtoMessage() {}
+
+func (x *UsageSeries) ProtoReflect() protoreflect.Message {
+	mi := &file_tenant_v1_usage_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UsageSeries.ProtoReflect.Descriptor instead.
+func (*UsageSeries) Descriptor() ([]byte, []int) {
+	return file_tenant_v1_usage_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *UsageSeries) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *UsageSeries) GetTotal() int64 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *UsageSeries) GetSuccess() int64 {
+	if x != nil {
+		return x.Success
+	}
+	return 0
+}
+
+func (x *UsageSeries) GetDays() []*DailyUsage {
+	if x != nil {
+		return x.Days
+	}
+	return nil
+}
+
+type GetQuotaRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetQuotaRequest) Reset() {
+	*x = GetQuotaRequest{}
+	mi := &file_tenant_v1_usage_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetQuotaRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetQuotaRequest) ProtoMessage() {}
+
+func (x *GetQuotaRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_tenant_v1_usage_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetQuotaRequest.ProtoReflect.Descriptor instead.
+func (*GetQuotaRequest) Descriptor() ([]byte, []int) {
+	return file_tenant_v1_usage_proto_rawDescGZIP(), []int{3}
+}
+
+type Quota struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Successful verifications today, all keys of the user together.
+	Used int64 `protobuf:"varint,1,opt,name=used,proto3" json:"used,omitempty"`
+	// Successful verifications the tier allows per day; /challenge/new refuses once used reaches it.
+	Limit int64 `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
+	// Local date being counted, "YYYY-MM-DD".
+	Date string `protobuf:"bytes,3,opt,name=date,proto3" json:"date,omitempty"`
+	// When the count starts over: the next local midnight.
+	ResetsAt      *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=resets_at,json=resetsAt,proto3" json:"resets_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Quota) Reset() {
+	*x = Quota{}
+	mi := &file_tenant_v1_usage_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Quota) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Quota) ProtoMessage() {}
+
+func (x *Quota) ProtoReflect() protoreflect.Message {
+	mi := &file_tenant_v1_usage_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Quota.ProtoReflect.Descriptor instead.
+func (*Quota) Descriptor() ([]byte, []int) {
+	return file_tenant_v1_usage_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *Quota) GetUsed() int64 {
+	if x != nil {
+		return x.Used
+	}
+	return 0
+}
+
+func (x *Quota) GetLimit() int64 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *Quota) GetDate() string {
+	if x != nil {
+		return x.Date
+	}
+	return ""
+}
+
+func (x *Quota) GetResetsAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ResetsAt
+	}
+	return nil
+}
+
 type DailyUsage struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Local date, "YYYY-MM-DD".
@@ -157,7 +354,7 @@ type DailyUsage struct {
 
 func (x *DailyUsage) Reset() {
 	*x = DailyUsage{}
-	mi := &file_tenant_v1_usage_proto_msgTypes[2]
+	mi := &file_tenant_v1_usage_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -169,7 +366,7 @@ func (x *DailyUsage) String() string {
 func (*DailyUsage) ProtoMessage() {}
 
 func (x *DailyUsage) ProtoReflect() protoreflect.Message {
-	mi := &file_tenant_v1_usage_proto_msgTypes[2]
+	mi := &file_tenant_v1_usage_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -182,7 +379,7 @@ func (x *DailyUsage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DailyUsage.ProtoReflect.Descriptor instead.
 func (*DailyUsage) Descriptor() ([]byte, []int) {
-	return file_tenant_v1_usage_proto_rawDescGZIP(), []int{2}
+	return file_tenant_v1_usage_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *DailyUsage) GetDate() string {
@@ -217,7 +414,7 @@ type ChallengeTypeUsage struct {
 
 func (x *ChallengeTypeUsage) Reset() {
 	*x = ChallengeTypeUsage{}
-	mi := &file_tenant_v1_usage_proto_msgTypes[3]
+	mi := &file_tenant_v1_usage_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -229,7 +426,7 @@ func (x *ChallengeTypeUsage) String() string {
 func (*ChallengeTypeUsage) ProtoMessage() {}
 
 func (x *ChallengeTypeUsage) ProtoReflect() protoreflect.Message {
-	mi := &file_tenant_v1_usage_proto_msgTypes[3]
+	mi := &file_tenant_v1_usage_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -242,7 +439,7 @@ func (x *ChallengeTypeUsage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChallengeTypeUsage.ProtoReflect.Descriptor instead.
 func (*ChallengeTypeUsage) Descriptor() ([]byte, []int) {
-	return file_tenant_v1_usage_proto_rawDescGZIP(), []int{3}
+	return file_tenant_v1_usage_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ChallengeTypeUsage) GetChallengeType() string {
@@ -270,16 +467,30 @@ var File_tenant_v1_usage_proto protoreflect.FileDescriptor
 
 const file_tenant_v1_usage_proto_rawDesc = "" +
 	"\n" +
-	"\x15tenant/v1/usage.proto\x12\ttenant.v1\x1a\x1cgoogle/api/annotations.proto\"C\n" +
+	"\x15tenant/v1/usage.proto\x12\ttenant.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"C\n" +
 	"\x0fGetUsageRequest\x12\x1c\n" +
 	"\n" +
 	"api_key_id\x18\x01 \x01(\tR\bapiKeyId\x12\x12\n" +
-	"\x04days\x18\x02 \x01(\x05R\x04days\"\xaa\x01\n" +
+	"\x04days\x18\x02 \x01(\x05R\x04days\"\xa4\x02\n" +
 	"\x05Usage\x12\x14\n" +
 	"\x05total\x18\x01 \x01(\x03R\x05total\x12\x18\n" +
 	"\asuccess\x18\x02 \x01(\x03R\asuccess\x12)\n" +
 	"\x04days\x18\x03 \x03(\v2\x15.tenant.v1.DailyUsageR\x04days\x12F\n" +
-	"\x0fchallenge_types\x18\x04 \x03(\v2\x1d.tenant.v1.ChallengeTypeUsageR\x0echallengeTypes\"P\n" +
+	"\x0fchallenge_types\x18\x04 \x03(\v2\x1d.tenant.v1.ChallengeTypeUsageR\x0echallengeTypes\x124\n" +
+	"\n" +
+	"by_api_key\x18\x05 \x03(\v2\x16.tenant.v1.UsageSeriesR\bbyApiKey\x12B\n" +
+	"\x11by_challenge_type\x18\x06 \x03(\v2\x16.tenant.v1.UsageSeriesR\x0fbyChallengeType\"x\n" +
+	"\vUsageSeries\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x03R\x05total\x12\x18\n" +
+	"\asuccess\x18\x03 \x01(\x03R\asuccess\x12)\n" +
+	"\x04days\x18\x04 \x03(\v2\x15.tenant.v1.DailyUsageR\x04days\"\x11\n" +
+	"\x0fGetQuotaRequest\"~\n" +
+	"\x05Quota\x12\x12\n" +
+	"\x04used\x18\x01 \x01(\x03R\x04used\x12\x14\n" +
+	"\x05limit\x18\x02 \x01(\x03R\x05limit\x12\x12\n" +
+	"\x04date\x18\x03 \x01(\tR\x04date\x127\n" +
+	"\tresets_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\bresetsAt\"P\n" +
 	"\n" +
 	"DailyUsage\x12\x12\n" +
 	"\x04date\x18\x01 \x01(\tR\x04date\x12\x14\n" +
@@ -288,9 +499,10 @@ const file_tenant_v1_usage_proto_rawDesc = "" +
 	"\x12ChallengeTypeUsage\x12%\n" +
 	"\x0echallenge_type\x18\x01 \x01(\tR\rchallengeType\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x03R\x05total\x12\x18\n" +
-	"\asuccess\x18\x03 \x01(\x03R\asuccess2[\n" +
+	"\asuccess\x18\x03 \x01(\x03R\asuccess2\xa8\x01\n" +
 	"\fUsageService\x12K\n" +
-	"\bGetUsage\x12\x1a.tenant.v1.GetUsageRequest\x1a\x10.tenant.v1.Usage\"\x11\x82\xd3\xe4\x93\x02\v\x12\t/v1/usageB\x1bZ\x19common/proto/tenant/v1;v1b\x06proto3"
+	"\bGetUsage\x12\x1a.tenant.v1.GetUsageRequest\x1a\x10.tenant.v1.Usage\"\x11\x82\xd3\xe4\x93\x02\v\x12\t/v1/usage\x12K\n" +
+	"\bGetQuota\x12\x1a.tenant.v1.GetQuotaRequest\x1a\x10.tenant.v1.Quota\"\x11\x82\xd3\xe4\x93\x02\v\x12\t/v1/quotaB\x1bZ\x19common/proto/tenant/v1;v1b\x06proto3"
 
 var (
 	file_tenant_v1_usage_proto_rawDescOnce sync.Once
@@ -304,23 +516,33 @@ func file_tenant_v1_usage_proto_rawDescGZIP() []byte {
 	return file_tenant_v1_usage_proto_rawDescData
 }
 
-var file_tenant_v1_usage_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_tenant_v1_usage_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_tenant_v1_usage_proto_goTypes = []any{
-	(*GetUsageRequest)(nil),    // 0: tenant.v1.GetUsageRequest
-	(*Usage)(nil),              // 1: tenant.v1.Usage
-	(*DailyUsage)(nil),         // 2: tenant.v1.DailyUsage
-	(*ChallengeTypeUsage)(nil), // 3: tenant.v1.ChallengeTypeUsage
+	(*GetUsageRequest)(nil),       // 0: tenant.v1.GetUsageRequest
+	(*Usage)(nil),                 // 1: tenant.v1.Usage
+	(*UsageSeries)(nil),           // 2: tenant.v1.UsageSeries
+	(*GetQuotaRequest)(nil),       // 3: tenant.v1.GetQuotaRequest
+	(*Quota)(nil),                 // 4: tenant.v1.Quota
+	(*DailyUsage)(nil),            // 5: tenant.v1.DailyUsage
+	(*ChallengeTypeUsage)(nil),    // 6: tenant.v1.ChallengeTypeUsage
+	(*timestamppb.Timestamp)(nil), // 7: google.protobuf.Timestamp
 }
 var file_tenant_v1_usage_proto_depIdxs = []int32{
-	2, // 0: tenant.v1.Usage.days:type_name -> tenant.v1.DailyUsage
-	3, // 1: tenant.v1.Usage.challenge_types:type_name -> tenant.v1.ChallengeTypeUsage
-	0, // 2: tenant.v1.UsageService.GetUsage:input_type -> tenant.v1.GetUsageRequest
-	1, // 3: tenant.v1.UsageService.GetUsage:output_type -> tenant.v1.Usage
-	3, // [3:4] is the sub-list for method output_type
-	2, // [2:3] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	5, // 0: tenant.v1.Usage.days:type_name -> tenant.v1.DailyUsage
+	6, // 1: tenant.v1.Usage.challenge_types:type_name -> tenant.v1.ChallengeTypeUsage
+	2, // 2: tenant.v1.Usage.by_api_key:type_name -> tenant.v1.UsageSeries
+	2, // 3: tenant.v1.Usage.by_challenge_type:type_name -> tenant.v1.UsageSeries
+	5, // 4: tenant.v1.UsageSeries.days:type_name -> tenant.v1.DailyUsage
+	7, // 5: tenant.v1.Quota.resets_at:type_name -> google.protobuf.Timestamp
+	0, // 6: tenant.v1.UsageService.GetUsage:input_type -> tenant.v1.GetUsageRequest
+	3, // 7: tenant.v1.UsageService.GetQuota:input_type -> tenant.v1.GetQuotaRequest
+	1, // 8: tenant.v1.UsageService.GetUsage:output_type -> tenant.v1.Usage
+	4, // 9: tenant.v1.UsageService.GetQuota:output_type -> tenant.v1.Quota
+	8, // [8:10] is the sub-list for method output_type
+	6, // [6:8] is the sub-list for method input_type
+	6, // [6:6] is the sub-list for extension type_name
+	6, // [6:6] is the sub-list for extension extendee
+	0, // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_tenant_v1_usage_proto_init() }
@@ -334,7 +556,7 @@ func file_tenant_v1_usage_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_tenant_v1_usage_proto_rawDesc), len(file_tenant_v1_usage_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

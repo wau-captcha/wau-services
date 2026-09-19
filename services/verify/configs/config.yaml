@@ -20,3 +20,5 @@ client:
 token:
   secret: ${KRATOS_TOKEN_SECRET}
   ttl: 120s
+quota:
+  time_zone: Asia/Ho_Chi_Minh

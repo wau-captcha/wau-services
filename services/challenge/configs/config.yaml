@@ -15,3 +15,5 @@ data:
     write_timeout: 0.2s
 challenge:
   ttl: 120s
+quota:
+  time_zone: Asia/Ho_Chi_Minh

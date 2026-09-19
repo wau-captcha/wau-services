@@ -15,6 +15,7 @@ const challengeKeyPrefix = "wau:challenge:"
 type challengePO struct {
 	Type     string `json:"type"`
 	APIKeyID string `json:"api_key_id"`
+	UserID   string `json:"user_id"`
 	Answer   string `json:"answer"`
 }
 
@@ -27,7 +28,7 @@ func NewChallengeRepo(data *Data) biz.ChallengeRepo {
 }
 
 func (r *challengeRepo) Save(ctx context.Context, c *biz.Challenge) error {
-	v, err := json.Marshal(challengePO{Type: c.Type, APIKeyID: c.APIKeyID, Answer: c.Answer})
+	v, err := json.Marshal(challengePO{Type: c.Type, APIKeyID: c.APIKeyID, UserID: c.UserID, Answer: c.Answer})
 	if err != nil {
 		return err
 	}
@@ -46,5 +47,5 @@ func (r *challengeRepo) Take(ctx context.Context, id string) (*biz.Challenge, er
 	if err := json.Unmarshal(v, &po); err != nil {
 		return nil, err
 	}
-	return &biz.Challenge{ID: id, Type: po.Type, APIKeyID: po.APIKeyID, Answer: po.Answer}, nil
+	return &biz.Challenge{ID: id, Type: po.Type, APIKeyID: po.APIKeyID, UserID: po.UserID, Answer: po.Answer}, nil
 }

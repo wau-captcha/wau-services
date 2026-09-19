@@ -12,41 +12,44 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const challengeTypeUsage = `-- name: ChallengeTypeUsage :many
-SELECT l.challenge_type_id,
+const systemUsage = `-- name: SystemUsage :many
+SELECT (l.timestamp AT TIME ZONE $1::text)::date AS day,
+       l.challenge_type_id,
        count(*) AS total,
        count(*) FILTER (WHERE l.success) AS success
 FROM usage_logs l
-JOIN api_keys k ON k.api_key_id = l.api_key_id
-WHERE k.user_id = $1::uuid
-  AND l.timestamp >= $2::timestamptz
-  AND ($3::uuid IS NULL OR l.api_key_id = $3::uuid)
-GROUP BY l.challenge_type_id
-ORDER BY total DESC
+WHERE l.timestamp >= $2::timestamptz
+GROUP BY day, l.challenge_type_id
 `
 
-type ChallengeTypeUsageParams struct {
-	UserID   uuid.UUID
+type SystemUsageParams struct {
+	TimeZone string
 	Since    pgtype.Timestamptz
-	APIKeyID uuid.NullUUID
 }
 
-type ChallengeTypeUsageRow struct {
+type SystemUsageRow struct {
+	Day             pgtype.Date
 	ChallengeTypeID string
 	Total           int64
 	Success         int64
 }
 
-func (q *Queries) ChallengeTypeUsage(ctx context.Context, arg ChallengeTypeUsageParams) ([]ChallengeTypeUsageRow, error) {
-	rows, err := q.db.Query(ctx, challengeTypeUsage, arg.UserID, arg.Since, arg.APIKeyID)
+// The whole system has too many keys to break down by key, so only by day and type.
+func (q *Queries) SystemUsage(ctx context.Context, arg SystemUsageParams) ([]SystemUsageRow, error) {
+	rows, err := q.db.Query(ctx, systemUsage, arg.TimeZone, arg.Since)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ChallengeTypeUsageRow
+	var items []SystemUsageRow
 	for rows.Next() {
-		var i ChallengeTypeUsageRow
-		if err := rows.Scan(&i.ChallengeTypeID, &i.Total, &i.Success); err != nil {
+		var i SystemUsageRow
+		if err := rows.Scan(
+			&i.Day,
+			&i.ChallengeTypeID,
+			&i.Total,
+			&i.Success,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -57,49 +60,58 @@ func (q *Queries) ChallengeTypeUsage(ctx context.Context, arg ChallengeTypeUsage
 	return items, nil
 }
 
-const dailyUsage = `-- name: DailyUsage :many
+const usageBreakdown = `-- name: UsageBreakdown :many
 SELECT (l.timestamp AT TIME ZONE $1::text)::date AS day,
+       l.api_key_id,
+       l.challenge_type_id,
        count(*) AS total,
        count(*) FILTER (WHERE l.success) AS success
 FROM usage_logs l
 JOIN api_keys k ON k.api_key_id = l.api_key_id
-WHERE k.user_id = $2::uuid
-  AND l.timestamp >= $3::timestamptz
+WHERE l.timestamp >= $2::timestamptz
+  AND ($3::uuid IS NULL OR k.user_id = $3::uuid)
   AND ($4::uuid IS NULL OR l.api_key_id = $4::uuid)
-GROUP BY day
-ORDER BY day
+GROUP BY day, l.api_key_id, l.challenge_type_id
 `
 
-type DailyUsageParams struct {
+type UsageBreakdownParams struct {
 	TimeZone string
-	UserID   uuid.UUID
 	Since    pgtype.Timestamptz
+	UserID   uuid.NullUUID
 	APIKeyID uuid.NullUUID
 }
 
-type DailyUsageRow struct {
-	Day     pgtype.Date
-	Total   int64
-	Success int64
+type UsageBreakdownRow struct {
+	Day             pgtype.Date
+	APIKeyID        uuid.UUID
+	ChallengeTypeID string
+	Total           int64
+	Success         int64
 }
 
-// Usage of every key of the user, deleted keys included; a null api_key_id
-// means "all keys". Days are grouped in the caller's time zone.
-func (q *Queries) DailyUsage(ctx context.Context, arg DailyUsageParams) ([]DailyUsageRow, error) {
-	rows, err := q.db.Query(ctx, dailyUsage,
+// Verifications per local day, API key and challenge type. A null user_id or api_key_id
+// means "any"; deleted keys are included. Days are grouped in the caller's time zone.
+func (q *Queries) UsageBreakdown(ctx context.Context, arg UsageBreakdownParams) ([]UsageBreakdownRow, error) {
+	rows, err := q.db.Query(ctx, usageBreakdown,
 		arg.TimeZone,
-		arg.UserID,
 		arg.Since,
+		arg.UserID,
 		arg.APIKeyID,
 	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []DailyUsageRow
+	var items []UsageBreakdownRow
 	for rows.Next() {
-		var i DailyUsageRow
-		if err := rows.Scan(&i.Day, &i.Total, &i.Success); err != nil {
+		var i UsageBreakdownRow
+		if err := rows.Scan(
+			&i.Day,
+			&i.APIKeyID,
+			&i.ChallengeTypeID,
+			&i.Total,
+			&i.Success,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

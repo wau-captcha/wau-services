@@ -67,6 +67,186 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/verify.v1.SiteVerifyReply'
+    /v1/admin/api-keys/{api_key_id}/suspended:
+        post:
+            tags:
+                - AdminService
+            description: |-
+                SetApiKeySuspended suspends a key or lifts its suspension. Lifting it also resets
+                 today's scraping counters of the key, so it is not suspended again at once.
+            operationId: AdminService_SetApiKeySuspended
+            parameters:
+                - name: api_key_id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/tenant.v1.SetApiKeySuspendedRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/tenant.v1.AdminApiKey'
+    /v1/admin/me:
+        get:
+            tags:
+                - AdminService
+            description: GetAdmin returns the signed-in administrator.
+            operationId: AdminService_GetAdmin
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/tenant.v1.Admin'
+    /v1/admin/stats:
+        get:
+            tags:
+                - AdminService
+            description: GetStats counts accounts and keys across the system.
+            operationId: AdminService_GetStats
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/tenant.v1.AdminStats'
+    /v1/admin/usage:
+        get:
+            tags:
+                - AdminService
+            description: |-
+                GetUsage reports verifications of the whole system, of one account, or of one key.
+                 by_api_key is only filled in for one account or one key.
+            operationId: AdminService_GetUsage
+            parameters:
+                - name: user_id
+                  in: query
+                  description: Empty means every account.
+                  schema:
+                    type: string
+                - name: api_key_id
+                  in: query
+                  description: Empty means every key in scope.
+                  schema:
+                    type: string
+                - name: days
+                  in: query
+                  description: 1-90 days back; 0 means 30.
+                  schema:
+                    type: integer
+                    format: int32
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/tenant.v1.Usage'
+    /v1/admin/users:
+        get:
+            tags:
+                - AdminService
+            description: ListUsers pages through accounts, newest first.
+            operationId: AdminService_ListUsers
+            parameters:
+                - name: query
+                  in: query
+                  description: Matches email or display name, case-insensitively; empty lists everyone.
+                  schema:
+                    type: string
+                - name: page
+                  in: query
+                  description: 1-based; 0 means 1.
+                  schema:
+                    type: integer
+                    format: int32
+                - name: page_size
+                  in: query
+                  description: 1-100; 0 means 20.
+                  schema:
+                    type: integer
+                    format: int32
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/tenant.v1.UserPage'
+    /v1/admin/users/{user_id}:
+        get:
+            tags:
+                - AdminService
+            operationId: AdminService_GetUser
+            parameters:
+                - name: user_id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/tenant.v1.AdminUser'
+    /v1/admin/users/{user_id}/api-keys:
+        get:
+            tags:
+                - AdminService
+            description: ListUserApiKeys returns the keys of an account that are not deleted, newest first.
+            operationId: AdminService_ListUserApiKeys
+            parameters:
+                - name: user_id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/tenant.v1.AdminApiKeySet'
+    /v1/admin/users/{user_id}/banned:
+        post:
+            tags:
+                - AdminService
+            description: |-
+                SetUserBanned bans or unbans an account. A ban takes effect on the account's next
+                 request: its sessions stop working, it cannot sign in and its keys stop working.
+            operationId: AdminService_SetUserBanned
+            parameters:
+                - name: user_id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/tenant.v1.SetUserBannedRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/tenant.v1.AdminUser'
     /v1/api-keys:
         get:
             tags:
@@ -175,13 +355,30 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/tenant.v1.ApiKey'
+    /v1/auth/admin/google:
+        post:
+            tags:
+                - AuthService
+            description: "SignInAdminWithGoogle exchanges a Google ID token for an administrator access token.\r\n Only a Google account whose email is in the admins table gets one; nothing is created,\r\n and a dashboard account with the same email is left alone. The token only works for\r\n AdminService, and a user's token never does."
+            operationId: AuthService_SignInAdminWithGoogle
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/tenant.v1.SignInWithGoogleRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/tenant.v1.AdminAuthReply'
     /v1/auth/google:
         post:
             tags:
                 - AuthService
-            description: |-
-                SignInWithGoogle exchanges a Google ID token for an access token.
-                 The first sign-in of a Google account creates its WAU account.
+            description: "SignInWithGoogle exchanges a Google ID token for an access token.\r\n The first sign-in of a Google account creates its WAU account."
             operationId: AuthService_SignInWithGoogle
             requestBody:
                 content:
@@ -222,6 +419,19 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/tenant.v1.User'
+    /v1/quota:
+        get:
+            tags:
+                - UsageService
+            description: "GetQuota reports today's successful verifications against the daily quota of the tier.\r\n Requires \"Authorization: Bearer <access_token>\"."
+            operationId: UsageService_GetQuota
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/tenant.v1.Quota'
     /v1/usage:
         get:
             tags:
@@ -275,6 +485,104 @@ components:
                 height:
                     type: integer
                     format: int32
+        tenant.v1.Admin:
+            type: object
+            properties:
+                id:
+                    type: string
+                username:
+                    type: string
+                email:
+                    type: string
+                create_date:
+                    type: string
+                    format: date-time
+            description: "Admin is an administrator: a row of the admins table, added with SQL. It is not a\r\n dashboard user, even when a user has the same email."
+        tenant.v1.AdminApiKey:
+            type: object
+            properties:
+                id:
+                    type: string
+                name:
+                    type: string
+                site_key:
+                    type: string
+                is_active:
+                    type: boolean
+                is_suspended:
+                    type: boolean
+                suspend_reason:
+                    type: string
+                    description: '"admin" or "scraping" while suspended, empty otherwise.'
+                create_date:
+                    type: string
+                    format: date-time
+                challenges_today:
+                    type: string
+                    description: 'Today''s scraping counters: challenges issued and answers checked.'
+                verifications_today:
+                    type: string
+            description: 'AdminApiKey is an API key as administrators see it: never with its secret key.'
+        tenant.v1.AdminApiKeySet:
+            type: object
+            properties:
+                api_keys:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/tenant.v1.AdminApiKey'
+        tenant.v1.AdminAuthReply:
+            type: object
+            properties:
+                access_token:
+                    type: string
+                expires_in:
+                    type: integer
+                    description: Seconds until the token expires.
+                    format: int32
+                admin:
+                    $ref: '#/components/schemas/tenant.v1.Admin'
+        tenant.v1.AdminStats:
+            type: object
+            properties:
+                users:
+                    type: string
+                banned_users:
+                    type: string
+                api_keys:
+                    type: string
+                    description: Keys that are not deleted.
+                suspended_api_keys:
+                    type: string
+                scraping_api_keys:
+                    type: string
+                    description: Suspended automatically for scraping; included in suspended_api_keys.
+        tenant.v1.AdminUser:
+            type: object
+            properties:
+                id:
+                    type: string
+                username:
+                    type: string
+                email:
+                    type: string
+                tier_id:
+                    type: string
+                tier_name:
+                    type: string
+                create_date:
+                    type: string
+                    format: date-time
+                is_banned:
+                    type: boolean
+                api_key_count:
+                    type: integer
+                    description: Keys that are not deleted.
+                    format: int32
+                quota_used:
+                    type: string
+                    description: Successful verifications today, and the daily quota of the tier.
+                daily_quota:
+                    type: string
         tenant.v1.ApiKey:
             type: object
             properties:
@@ -294,6 +602,12 @@ components:
                 create_date:
                     type: string
                     format: date-time
+                is_suspended:
+                    type: boolean
+                    description: "Blocked by an administrator or automatically; the key stops working whatever\r\n is_active says, and only an administrator can lift it."
+                suspend_reason:
+                    type: string
+                    description: '"admin" or "scraping" while suspended, empty otherwise.'
         tenant.v1.ApiKeySet:
             type: object
             properties:
@@ -357,6 +671,40 @@ components:
                     type: string
                 success:
                     type: string
+        tenant.v1.Quota:
+            type: object
+            properties:
+                used:
+                    type: string
+                    description: Successful verifications today, all keys of the user together.
+                limit:
+                    type: string
+                    description: Successful verifications the tier allows per day; /challenge/new refuses once used reaches it.
+                date:
+                    type: string
+                    description: Local date being counted, "YYYY-MM-DD".
+                resets_at:
+                    type: string
+                    description: 'When the count starts over: the next local midnight.'
+                    format: date-time
+        tenant.v1.SetApiKeySuspendedRequest:
+            required:
+                - api_key_id
+            type: object
+            properties:
+                api_key_id:
+                    type: string
+                suspended:
+                    type: boolean
+        tenant.v1.SetUserBannedRequest:
+            required:
+                - user_id
+            type: object
+            properties:
+                user_id:
+                    type: string
+                banned:
+                    type: boolean
         tenant.v1.SignInWithGoogleRequest:
             required:
                 - id_token
@@ -396,6 +744,31 @@ components:
                     type: array
                     items:
                         $ref: '#/components/schemas/tenant.v1.ChallengeTypeUsage'
+                by_api_key:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/tenant.v1.UsageSeries'
+                    description: One series per API key that was used in the window, busiest first.
+                by_challenge_type:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/tenant.v1.UsageSeries'
+                    description: One series per challenge type that was used in the window, busiest first.
+        tenant.v1.UsageSeries:
+            type: object
+            properties:
+                id:
+                    type: string
+                    description: An API key id in Usage.by_api_key, a challenge type in Usage.by_challenge_type.
+                total:
+                    type: string
+                success:
+                    type: string
+                days:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/tenant.v1.DailyUsage'
+                    description: The same days as Usage.days, oldest first; empty days are zero.
         tenant.v1.User:
             type: object
             properties:
@@ -413,6 +786,17 @@ components:
                 create_date:
                     type: string
                     format: date-time
+        tenant.v1.UserPage:
+            type: object
+            properties:
+                users:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/tenant.v1.AdminUser'
+                total_size:
+                    type: integer
+                    description: Accounts matching the query across all pages.
+                    format: int32
         verify.v1.SiteVerifyReply:
             type: object
             properties:
@@ -448,19 +832,20 @@ components:
                     type: string
                     description: Text read from the challenge image.
 tags:
-    - name: ApiKeyService
+    - name: AdminService
       description: |-
-        ApiKeyService manages the captcha keys of the signed-in user.
-         Every RPC requires "Authorization: Bearer <access_token>".
+        AdminService lets administrators oversee every account.
+         Every RPC requires "Authorization: Bearer <access_token>" from
+         AuthService.SignInAdminWithGoogle; any other token gets UNAUTHENTICATED.
+    - name: ApiKeyService
+      description: "ApiKeyService manages the captcha keys of the signed-in user.\r\n Every RPC requires \"Authorization: Bearer <access_token>\"."
     - name: AuthService
-      description: AuthService signs dashboard users in with their Google account.
+      description: "AuthService signs people in with their Google account: dashboard users, and apart from\r\n them the administrators of the admins table. The two get different access tokens."
     - name: CatalogService
       description: CatalogService lists what the tier of the signed-in user may use.
     - name: ChallengeService
       description: ChallengeService issues challenges and checks their answers.
     - name: UsageService
-      description: |-
-        UsageService reports how often the keys of the signed-in user were exercised.
-         One record is one answer check done by the verify service.
+      description: "UsageService reports how often the keys of the signed-in user were exercised.\r\n One record is one answer check done by the verify service."
     - name: VerifyService
       description: VerifyService turns solved challenges into one-time tokens and validates them for site backends.

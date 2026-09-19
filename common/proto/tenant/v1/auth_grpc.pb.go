@@ -19,21 +19,28 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AuthService_SignInWithGoogle_FullMethodName = "/tenant.v1.AuthService/SignInWithGoogle"
-	AuthService_GetMe_FullMethodName            = "/tenant.v1.AuthService/GetMe"
+	AuthService_SignInWithGoogle_FullMethodName      = "/tenant.v1.AuthService/SignInWithGoogle"
+	AuthService_GetMe_FullMethodName                 = "/tenant.v1.AuthService/GetMe"
+	AuthService_SignInAdminWithGoogle_FullMethodName = "/tenant.v1.AuthService/SignInAdminWithGoogle"
 )
 
 // AuthServiceClient is the client API for AuthService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// AuthService signs dashboard users in with their Google account.
+// AuthService signs people in with their Google account: dashboard users, and apart from
+// them the administrators of the admins table. The two get different access tokens.
 type AuthServiceClient interface {
 	// SignInWithGoogle exchanges a Google ID token for an access token.
 	// The first sign-in of a Google account creates its WAU account.
 	SignInWithGoogle(ctx context.Context, in *SignInWithGoogleRequest, opts ...grpc.CallOption) (*AuthReply, error)
 	// GetMe returns the signed-in user. Requires "Authorization: Bearer <access_token>".
 	GetMe(ctx context.Context, in *GetMeRequest, opts ...grpc.CallOption) (*User, error)
+	// SignInAdminWithGoogle exchanges a Google ID token for an administrator access token.
+	// Only a Google account whose email is in the admins table gets one; nothing is created,
+	// and a dashboard account with the same email is left alone. The token only works for
+	// AdminService, and a user's token never does.
+	SignInAdminWithGoogle(ctx context.Context, in *SignInWithGoogleRequest, opts ...grpc.CallOption) (*AdminAuthReply, error)
 }
 
 type authServiceClient struct {
@@ -64,17 +71,33 @@ func (c *authServiceClient) GetMe(ctx context.Context, in *GetMeRequest, opts ..
 	return out, nil
 }
 
+func (c *authServiceClient) SignInAdminWithGoogle(ctx context.Context, in *SignInWithGoogleRequest, opts ...grpc.CallOption) (*AdminAuthReply, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminAuthReply)
+	err := c.cc.Invoke(ctx, AuthService_SignInAdminWithGoogle_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AuthServiceServer is the server API for AuthService service.
 // All implementations must embed UnimplementedAuthServiceServer
 // for forward compatibility.
 //
-// AuthService signs dashboard users in with their Google account.
+// AuthService signs people in with their Google account: dashboard users, and apart from
+// them the administrators of the admins table. The two get different access tokens.
 type AuthServiceServer interface {
 	// SignInWithGoogle exchanges a Google ID token for an access token.
 	// The first sign-in of a Google account creates its WAU account.
 	SignInWithGoogle(context.Context, *SignInWithGoogleRequest) (*AuthReply, error)
 	// GetMe returns the signed-in user. Requires "Authorization: Bearer <access_token>".
 	GetMe(context.Context, *GetMeRequest) (*User, error)
+	// SignInAdminWithGoogle exchanges a Google ID token for an administrator access token.
+	// Only a Google account whose email is in the admins table gets one; nothing is created,
+	// and a dashboard account with the same email is left alone. The token only works for
+	// AdminService, and a user's token never does.
+	SignInAdminWithGoogle(context.Context, *SignInWithGoogleRequest) (*AdminAuthReply, error)
 	mustEmbedUnimplementedAuthServiceServer()
 }
 
@@ -90,6 +113,9 @@ func (UnimplementedAuthServiceServer) SignInWithGoogle(context.Context, *SignInW
 }
 func (UnimplementedAuthServiceServer) GetMe(context.Context, *GetMeRequest) (*User, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetMe not implemented")
+}
+func (UnimplementedAuthServiceServer) SignInAdminWithGoogle(context.Context, *SignInWithGoogleRequest) (*AdminAuthReply, error) {
+	return nil, status.Error(codes.Unimplemented, "method SignInAdminWithGoogle not implemented")
 }
 func (UnimplementedAuthServiceServer) mustEmbedUnimplementedAuthServiceServer() {}
 func (UnimplementedAuthServiceServer) testEmbeddedByValue()                     {}
@@ -148,6 +174,24 @@ func _AuthService_GetMe_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AuthService_SignInAdminWithGoogle_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SignInWithGoogleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).SignInAdminWithGoogle(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_SignInAdminWithGoogle_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).SignInAdminWithGoogle(ctx, req.(*SignInWithGoogleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AuthService_ServiceDesc is the grpc.ServiceDesc for AuthService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -162,6 +206,10 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetMe",
 			Handler:    _AuthService_GetMe_Handler,
+		},
+		{
+			MethodName: "SignInAdminWithGoogle",
+			Handler:    _AuthService_SignInAdminWithGoogle_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

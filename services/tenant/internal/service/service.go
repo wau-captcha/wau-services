@@ -11,11 +11,20 @@ import (
 )
 
 // ProviderSet is service providers.
-var ProviderSet = wire.NewSet(NewAuthService, NewApiKeyService, NewUsageService, NewCatalogService)
+var ProviderSet = wire.NewSet(NewAuthService, NewApiKeyService, NewUsageService, NewCatalogService, NewAdminService)
 
 // currentUser reads the caller put in the context by the auth middleware.
 func currentUser(ctx context.Context) (uuid.UUID, error) {
 	id, ok := auth.UserID(ctx)
+	if !ok {
+		return uuid.Nil, biz.ErrUnauthenticated
+	}
+	return id, nil
+}
+
+// currentAdmin reads the administrator put in the context by the admin middleware.
+func currentAdmin(ctx context.Context) (uuid.UUID, error) {
+	id, ok := auth.AdminID(ctx)
 	if !ok {
 		return uuid.Nil, biz.ErrUnauthenticated
 	}

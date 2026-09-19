@@ -1,6 +1,10 @@
 -- name: GetSiteBySiteKey :one
 SELECT
     k.api_key_id,
+    k.user_id,
+    k.is_suspended,
+    u.is_banned,
+    t.daily_quota,
     ARRAY(
         SELECT ct.challenge_type_id
         FROM tier_challenge_types tct
@@ -15,3 +19,11 @@ JOIN tiers t ON t.tier_id = u.tier_id
 WHERE k.site_key = $1
   AND k.is_active
   AND NOT k.is_deleted;
+
+-- A key already suspended keeps the reason it was suspended for.
+-- name: SuspendAPIKeyForScraping :exec
+UPDATE api_keys
+SET is_suspended = true,
+    suspend_reason = 'scraping'
+WHERE api_key_id = $1
+  AND NOT is_suspended;

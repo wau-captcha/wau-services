@@ -38,6 +38,12 @@ const (
 	ErrorReason_GOOGLE_EMAIL_UNVERIFIED ErrorReason = 10
 	// An existing account already uses this email and cannot be linked to the Google account.
 	ErrorReason_GOOGLE_ACCOUNT_CONFLICT ErrorReason = 11
+	// An administrator banned this account: it cannot sign in and its sessions no longer work.
+	ErrorReason_ACCOUNT_BANNED ErrorReason = 12
+	// Administrator sign-in with a Google account that is not in the admins table, or whose
+	// address Google does not own (only Gmail and Google Workspace addresses are accepted).
+	ErrorReason_PERMISSION_DENIED ErrorReason = 13
+	ErrorReason_USER_NOT_FOUND    ErrorReason = 14
 )
 
 // Enum value maps for ErrorReason.
@@ -52,6 +58,9 @@ var (
 		9:  "GOOGLE_TOKEN_INVALID",
 		10: "GOOGLE_EMAIL_UNVERIFIED",
 		11: "GOOGLE_ACCOUNT_CONFLICT",
+		12: "ACCOUNT_BANNED",
+		13: "PERMISSION_DENIED",
+		14: "USER_NOT_FOUND",
 	}
 	ErrorReason_value = map[string]int32{
 		"ERROR_REASON_UNSPECIFIED": 0,
@@ -63,6 +72,9 @@ var (
 		"GOOGLE_TOKEN_INVALID":     9,
 		"GOOGLE_EMAIL_UNVERIFIED":  10,
 		"GOOGLE_ACCOUNT_CONFLICT":  11,
+		"ACCOUNT_BANNED":           12,
+		"PERMISSION_DENIED":        13,
+		"USER_NOT_FOUND":           14,
 	}
 )
 
@@ -97,7 +109,7 @@ var File_tenant_v1_error_reason_proto protoreflect.FileDescriptor
 
 const file_tenant_v1_error_reason_proto_rawDesc = "" +
 	"\n" +
-	"\x1ctenant/v1/error_reason.proto\x12\ttenant.v1*\xae\x02\n" +
+	"\x1ctenant/v1/error_reason.proto\x12\ttenant.v1*\xed\x02\n" +
 	"\vErrorReason\x12\x1c\n" +
 	"\x18ERROR_REASON_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10INVALID_ARGUMENT\x10\x01\x12\x13\n" +
@@ -108,7 +120,10 @@ const file_tenant_v1_error_reason_proto_rawDesc = "" +
 	"\x14GOOGLE_TOKEN_INVALID\x10\t\x12\x1b\n" +
 	"\x17GOOGLE_EMAIL_UNVERIFIED\x10\n" +
 	"\x12\x1b\n" +
-	"\x17GOOGLE_ACCOUNT_CONFLICT\x10\v\"\x04\b\x02\x10\x02\"\x04\b\x03\x10\x03\"\x04\b\x04\x10\x04*\x0eUSERNAME_TAKEN*\vEMAIL_TAKEN*\x13INVALID_CREDENTIALSB\x1bZ\x19common/proto/tenant/v1;v1b\x06proto3"
+	"\x17GOOGLE_ACCOUNT_CONFLICT\x10\v\x12\x12\n" +
+	"\x0eACCOUNT_BANNED\x10\f\x12\x15\n" +
+	"\x11PERMISSION_DENIED\x10\r\x12\x12\n" +
+	"\x0eUSER_NOT_FOUND\x10\x0e\"\x04\b\x02\x10\x02\"\x04\b\x03\x10\x03\"\x04\b\x04\x10\x04*\x0eUSERNAME_TAKEN*\vEMAIL_TAKEN*\x13INVALID_CREDENTIALSB\x1bZ\x19common/proto/tenant/v1;v1b\x06proto3"
 
 var (
 	file_tenant_v1_error_reason_proto_rawDescOnce sync.Once

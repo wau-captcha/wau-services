@@ -231,6 +231,8 @@ type CheckAnswerReply struct {
 	// API key the challenge was issued for.
 	ApiKeyId      string `protobuf:"bytes,2,opt,name=api_key_id,json=apiKeyId,proto3" json:"api_key_id,omitempty"`
 	ChallengeType string `protobuf:"bytes,3,opt,name=challenge_type,json=challengeType,proto3" json:"challenge_type,omitempty"`
+	// Owner of the API key, whose daily quota a correct answer counts against.
+	UserId        string `protobuf:"bytes,4,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -286,6 +288,13 @@ func (x *CheckAnswerReply) GetChallengeType() string {
 	return ""
 }
 
+func (x *CheckAnswerReply) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
 var File_challenge_v1_challenge_proto protoreflect.FileDescriptor
 
 const file_challenge_v1_challenge_proto_rawDesc = "" +
@@ -305,12 +314,13 @@ const file_challenge_v1_challenge_proto_rawDesc = "" +
 	"\x06height\x18\a \x01(\x05R\x06height\"Y\n" +
 	"\x12CheckAnswerRequest\x12&\n" +
 	"\fchallenge_id\x18\x01 \x01(\tB\x03\xe0A\x02R\vchallengeId\x12\x1b\n" +
-	"\x06answer\x18\x02 \x01(\tB\x03\xe0A\x02R\x06answer\"q\n" +
+	"\x06answer\x18\x02 \x01(\tB\x03\xe0A\x02R\x06answer\"\x8a\x01\n" +
 	"\x10CheckAnswerReply\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x1c\n" +
 	"\n" +
 	"api_key_id\x18\x02 \x01(\tR\bapiKeyId\x12%\n" +
-	"\x0echallenge_type\x18\x03 \x01(\tR\rchallengeType2\xc7\x01\n" +
+	"\x0echallenge_type\x18\x03 \x01(\tR\rchallengeType\x12\x17\n" +
+	"\auser_id\x18\x04 \x01(\tR\x06userId2\xc7\x01\n" +
 	"\x10ChallengeService\x12b\n" +
 	"\fNewChallenge\x12!.challenge.v1.NewChallengeRequest\x1a\x17.challenge.v1.Challenge\"\x16\x82\xd3\xe4\x93\x02\x10\x12\x0e/challenge/new\x12O\n" +
 	"\vCheckAnswer\x12 .challenge.v1.CheckAnswerRequest\x1a\x1e.challenge.v1.CheckAnswerReplyB\x1eZ\x1ccommon/proto/challenge/v1;v1b\x06proto3"

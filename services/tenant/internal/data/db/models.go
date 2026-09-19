@@ -10,12 +10,21 @@ import (
 )
 
 type APIKey struct {
-	APIKeyID   uuid.UUID
-	SiteKey    string
-	SecretKey  string
-	IsActive   bool
-	IsDeleted  bool
+	APIKeyID      uuid.UUID
+	SiteKey       string
+	SecretKey     string
+	IsActive      bool
+	IsDeleted     bool
+	CreateDate    pgtype.Timestamptz
+	UserID        uuid.UUID
+	IsSuspended   bool
+	SuspendReason pgtype.Text
+	Name          string
+}
+
+type Admin struct {
+	AdminID    uuid.UUID
+	Username   string
+	Email      string
 	CreateDate pgtype.Timestamptz
-	UserID     uuid.UUID
-	Name       string
 }

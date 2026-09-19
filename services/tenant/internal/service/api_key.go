@@ -137,11 +137,13 @@ func patchFromMask(mask *fieldmaskpb.FieldMask, key *v1.ApiKey) (biz.ApiKeyPatch
 
 func convertApiKey(key *biz.ApiKey) *v1.ApiKey {
 	return &v1.ApiKey{
-		Id:         key.ID.String(),
-		Name:       key.Name,
-		SiteKey:    key.SiteKey,
-		SecretKey:  key.SecretKey,
-		IsActive:   key.IsActive,
-		CreateDate: timestamppb.New(key.CreateDate),
+		Id:            key.ID.String(),
+		Name:          key.Name,
+		SiteKey:       key.SiteKey,
+		SecretKey:     key.SecretKey,
+		IsActive:      key.IsActive,
+		CreateDate:    timestamppb.New(key.CreateDate),
+		IsSuspended:   key.IsSuspended,
+		SuspendReason: key.SuspendReason,
 	}
 }

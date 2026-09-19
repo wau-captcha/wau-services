@@ -13,14 +13,27 @@ import (
 	"github.com/go-kratos/kratos/v3/log"
 )
 
-// ErrSecretKeyInvalid is returned when a secret key is unknown, inactive or deleted.
-var ErrSecretKeyInvalid = errors.Unauthorized(v1.ErrorReason_SECRET_KEY_INVALID.String(), "secret key is invalid")
+var (
+	// ErrSecretKeyInvalid is returned when a secret key is unknown, inactive or deleted.
+	ErrSecretKeyInvalid = errors.Unauthorized(v1.ErrorReason_SECRET_KEY_INVALID.String(), "secret key is invalid")
+	ErrApiKeySuspended  = errors.Forbidden(v1.ErrorReason_API_KEY_SUSPENDED.String(), "api key is suspended")
+	ErrAccountBanned    = errors.Forbidden(v1.ErrorReason_ACCOUNT_BANNED.String(), "the owner of this api key is banned")
+)
 
 // Solution is a checked challenge answer.
 type Solution struct {
 	Success       bool
 	APIKeyID      string
 	ChallengeType string
+	// Owner of the API key; empty for challenges issued before owners were recorded.
+	UserID string
+}
+
+// Site is the active API key behind a secret key.
+type Site struct {
+	APIKeyID    string
+	Suspended   bool
+	OwnerBanned bool
 }
 
 // Grant is what a token proves: a challenge solved for a site.
@@ -50,7 +63,7 @@ type GrantRepo interface {
 
 // SiteRepo resolves secret keys and records usage.
 type SiteRepo interface {
-	FindAPIKeyID(ctx context.Context, secretKey string) (string, error)
+	FindBySecretKey(ctx context.Context, secretKey string) (*Site, error)
 	RecordUsage(ctx context.Context, apiKeyID, challengeType string, success bool) error
 }
 
@@ -59,21 +72,35 @@ type VerifyUsecase struct {
 	challenges ChallengeClient
 	grants     GrantRepo
 	sites      SiteRepo
+	counters   CounterRepo
 	secret     []byte
 	ttl        time.Duration
+	location   *time.Location
+	now        func() time.Time
 }
 
 // NewVerifyUsecase creates a VerifyUsecase.
-func NewVerifyUsecase(challenges ChallengeClient, grants GrantRepo, sites SiteRepo, c *conf.Token) (*VerifyUsecase, error) {
+func NewVerifyUsecase(challenges ChallengeClient, grants GrantRepo, sites SiteRepo, counters CounterRepo,
+	c *conf.Token, q *conf.Quota) (*VerifyUsecase, error) {
 	if c.GetSecret() == "" || c.GetTtl().AsDuration() <= 0 {
 		return nil, fmt.Errorf("token secret and positive ttl are required")
+	}
+	if q.GetTimeZone() == "" {
+		return nil, fmt.Errorf("quota time_zone is required")
+	}
+	location, err := time.LoadLocation(q.GetTimeZone())
+	if err != nil {
+		return nil, err
 	}
 	return &VerifyUsecase{
 		challenges: challenges,
 		grants:     grants,
 		sites:      sites,
+		counters:   counters,
 		secret:     []byte(c.GetSecret()),
 		ttl:        c.GetTtl().AsDuration(),
+		location:   location,
+		now:        time.Now,
 	}, nil
 }
 
@@ -86,10 +113,11 @@ func (uc *VerifyUsecase) VerifyChallenge(ctx context.Context, challengeID, answe
 	if err := uc.sites.RecordUsage(ctx, sol.APIKeyID, sol.ChallengeType, sol.Success); err != nil {
 		log.ErrorContext(ctx, "failed recording usage", "err", err)
 	}
+	uc.count(ctx, sol)
 	if !sol.Success {
 		return nil, nil
 	}
-	now := time.Now()
+	now := uc.now()
 	id, token := newToken(uc.secret, now.Add(uc.ttl))
 	g := &Grant{APIKeyID: sol.APIKeyID, ChallengeType: sol.ChallengeType, SolvedAt: now}
 	if err := uc.grants.Save(ctx, id, g, uc.ttl); err != nil {
@@ -100,17 +128,24 @@ func (uc *VerifyUsecase) VerifyChallenge(ctx context.Context, challengeID, answe
 
 // SiteVerify consumes a token for the site owning secretKey. It returns nil
 // when the token is invalid, expired, already used or issued for another site.
+// A suspended key, or a key whose owner is banned, cannot redeem tokens.
 func (uc *VerifyUsecase) SiteVerify(ctx context.Context, secretKey, token string) (*Grant, error) {
-	apiKeyID, err := uc.sites.FindAPIKeyID(ctx, secretKey)
+	site, err := uc.sites.FindBySecretKey(ctx, secretKey)
 	if err != nil {
 		return nil, err
 	}
-	id, ok := parseToken(uc.secret, token, time.Now())
+	switch {
+	case site.OwnerBanned:
+		return nil, ErrAccountBanned
+	case site.Suspended:
+		return nil, ErrApiKeySuspended
+	}
+	id, ok := parseToken(uc.secret, token, uc.now())
 	if !ok {
 		return nil, nil
 	}
 	g, err := uc.grants.Take(ctx, id)
-	if err != nil || g == nil || g.APIKeyID != apiKeyID {
+	if err != nil || g == nil || g.APIKeyID != site.APIKeyID {
 		return nil, err
 	}
 	return g, nil

@@ -10,4 +10,10 @@ enum ErrorReason {
   CHALLENGE_TYPE_NOT_ALLOWED = 2;
   CHALLENGE_NOT_FOUND = 3;
   CHALLENGE_TYPE_UNSUPPORTED = 4;
+  // Suspended by an administrator or automatically for scraping.
+  API_KEY_SUSPENDED = 5;
+  // The owner of the key was banned by an administrator.
+  ACCOUNT_BANNED = 6;
+  // The owner used up the successful verifications their tier allows today.
+  DAILY_QUOTA_EXCEEDED = 7;
 }

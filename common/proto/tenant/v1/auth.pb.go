@@ -259,6 +259,137 @@ func (x *User) GetCreateDate() *timestamppb.Timestamp {
 	return nil
 }
 
+type AdminAuthReply struct {
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	AccessToken string                 `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
+	// Seconds until the token expires.
+	ExpiresIn     int32  `protobuf:"varint,2,opt,name=expires_in,json=expiresIn,proto3" json:"expires_in,omitempty"`
+	Admin         *Admin `protobuf:"bytes,3,opt,name=admin,proto3" json:"admin,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminAuthReply) Reset() {
+	*x = AdminAuthReply{}
+	mi := &file_tenant_v1_auth_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminAuthReply) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminAuthReply) ProtoMessage() {}
+
+func (x *AdminAuthReply) ProtoReflect() protoreflect.Message {
+	mi := &file_tenant_v1_auth_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminAuthReply.ProtoReflect.Descriptor instead.
+func (*AdminAuthReply) Descriptor() ([]byte, []int) {
+	return file_tenant_v1_auth_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *AdminAuthReply) GetAccessToken() string {
+	if x != nil {
+		return x.AccessToken
+	}
+	return ""
+}
+
+func (x *AdminAuthReply) GetExpiresIn() int32 {
+	if x != nil {
+		return x.ExpiresIn
+	}
+	return 0
+}
+
+func (x *AdminAuthReply) GetAdmin() *Admin {
+	if x != nil {
+		return x.Admin
+	}
+	return nil
+}
+
+// Admin is an administrator: a row of the admins table, added with SQL. It is not a
+// dashboard user, even when a user has the same email.
+type Admin struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Username      string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
+	Email         string                 `protobuf:"bytes,3,opt,name=email,proto3" json:"email,omitempty"`
+	CreateDate    *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=create_date,json=createDate,proto3" json:"create_date,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Admin) Reset() {
+	*x = Admin{}
+	mi := &file_tenant_v1_auth_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Admin) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Admin) ProtoMessage() {}
+
+func (x *Admin) ProtoReflect() protoreflect.Message {
+	mi := &file_tenant_v1_auth_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Admin.ProtoReflect.Descriptor instead.
+func (*Admin) Descriptor() ([]byte, []int) {
+	return file_tenant_v1_auth_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *Admin) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Admin) GetUsername() string {
+	if x != nil {
+		return x.Username
+	}
+	return ""
+}
+
+func (x *Admin) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+func (x *Admin) GetCreateDate() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreateDate
+	}
+	return nil
+}
+
 var File_tenant_v1_auth_proto protoreflect.FileDescriptor
 
 const file_tenant_v1_auth_proto_rawDesc = "" +
@@ -272,7 +403,7 @@ const file_tenant_v1_auth_proto_rawDesc = "" +
 	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\x12\x1d\n" +
 	"\n" +
 	"expires_in\x18\x02 \x01(\x05R\texpiresIn\x12#\n" +
-	"\x04user\x18\x03 \x01(\v2\x0f.tenant.v1.UserR\x04user\"\xbb\x01\n" +
+	"\x04user\x18\x03 \x01(\v2\x0f.tenant.v1.UserR\x04user\"\xcb\x01\n" +
 	"\x04User\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
 	"\busername\x18\x02 \x01(\tR\busername\x12\x14\n" +
@@ -280,10 +411,22 @@ const file_tenant_v1_auth_proto_rawDesc = "" +
 	"\atier_id\x18\x04 \x01(\tR\x06tierId\x12\x1b\n" +
 	"\ttier_name\x18\x05 \x01(\tR\btierName\x12;\n" +
 	"\vcreate_date\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"createDate2\xba\x01\n" +
+	"createDateJ\x04\b\a\x10\bR\bis_admin\"z\n" +
+	"\x0eAdminAuthReply\x12!\n" +
+	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\x12\x1d\n" +
+	"\n" +
+	"expires_in\x18\x02 \x01(\x05R\texpiresIn\x12&\n" +
+	"\x05admin\x18\x03 \x01(\v2\x10.tenant.v1.AdminR\x05admin\"\x86\x01\n" +
+	"\x05Admin\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
+	"\busername\x18\x02 \x01(\tR\busername\x12\x14\n" +
+	"\x05email\x18\x03 \x01(\tR\x05email\x12;\n" +
+	"\vcreate_date\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"createDate2\xb4\x02\n" +
 	"\vAuthService\x12h\n" +
 	"\x10SignInWithGoogle\x12\".tenant.v1.SignInWithGoogleRequest\x1a\x14.tenant.v1.AuthReply\"\x1a\x82\xd3\xe4\x93\x02\x14:\x01*\"\x0f/v1/auth/google\x12A\n" +
-	"\x05GetMe\x12\x17.tenant.v1.GetMeRequest\x1a\x0f.tenant.v1.User\"\x0e\x82\xd3\xe4\x93\x02\b\x12\x06/v1/meB\x1bZ\x19common/proto/tenant/v1;v1b\x06proto3"
+	"\x05GetMe\x12\x17.tenant.v1.GetMeRequest\x1a\x0f.tenant.v1.User\"\x0e\x82\xd3\xe4\x93\x02\b\x12\x06/v1/me\x12x\n" +
+	"\x15SignInAdminWithGoogle\x12\".tenant.v1.SignInWithGoogleRequest\x1a\x19.tenant.v1.AdminAuthReply\" \x82\xd3\xe4\x93\x02\x1a:\x01*\"\x15/v1/auth/admin/googleB\x1bZ\x19common/proto/tenant/v1;v1b\x06proto3"
 
 var (
 	file_tenant_v1_auth_proto_rawDescOnce sync.Once
@@ -297,26 +440,32 @@ func file_tenant_v1_auth_proto_rawDescGZIP() []byte {
 	return file_tenant_v1_auth_proto_rawDescData
 }
 
-var file_tenant_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_tenant_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_tenant_v1_auth_proto_goTypes = []any{
 	(*SignInWithGoogleRequest)(nil), // 0: tenant.v1.SignInWithGoogleRequest
 	(*GetMeRequest)(nil),            // 1: tenant.v1.GetMeRequest
 	(*AuthReply)(nil),               // 2: tenant.v1.AuthReply
 	(*User)(nil),                    // 3: tenant.v1.User
-	(*timestamppb.Timestamp)(nil),   // 4: google.protobuf.Timestamp
+	(*AdminAuthReply)(nil),          // 4: tenant.v1.AdminAuthReply
+	(*Admin)(nil),                   // 5: tenant.v1.Admin
+	(*timestamppb.Timestamp)(nil),   // 6: google.protobuf.Timestamp
 }
 var file_tenant_v1_auth_proto_depIdxs = []int32{
 	3, // 0: tenant.v1.AuthReply.user:type_name -> tenant.v1.User
-	4, // 1: tenant.v1.User.create_date:type_name -> google.protobuf.Timestamp
-	0, // 2: tenant.v1.AuthService.SignInWithGoogle:input_type -> tenant.v1.SignInWithGoogleRequest
-	1, // 3: tenant.v1.AuthService.GetMe:input_type -> tenant.v1.GetMeRequest
-	2, // 4: tenant.v1.AuthService.SignInWithGoogle:output_type -> tenant.v1.AuthReply
-	3, // 5: tenant.v1.AuthService.GetMe:output_type -> tenant.v1.User
-	4, // [4:6] is the sub-list for method output_type
-	2, // [2:4] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	6, // 1: tenant.v1.User.create_date:type_name -> google.protobuf.Timestamp
+	5, // 2: tenant.v1.AdminAuthReply.admin:type_name -> tenant.v1.Admin
+	6, // 3: tenant.v1.Admin.create_date:type_name -> google.protobuf.Timestamp
+	0, // 4: tenant.v1.AuthService.SignInWithGoogle:input_type -> tenant.v1.SignInWithGoogleRequest
+	1, // 5: tenant.v1.AuthService.GetMe:input_type -> tenant.v1.GetMeRequest
+	0, // 6: tenant.v1.AuthService.SignInAdminWithGoogle:input_type -> tenant.v1.SignInWithGoogleRequest
+	2, // 7: tenant.v1.AuthService.SignInWithGoogle:output_type -> tenant.v1.AuthReply
+	3, // 8: tenant.v1.AuthService.GetMe:output_type -> tenant.v1.User
+	4, // 9: tenant.v1.AuthService.SignInAdminWithGoogle:output_type -> tenant.v1.AdminAuthReply
+	7, // [7:10] is the sub-list for method output_type
+	4, // [4:7] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_tenant_v1_auth_proto_init() }
@@ -330,7 +479,7 @@ func file_tenant_v1_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_tenant_v1_auth_proto_rawDesc), len(file_tenant_v1_auth_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

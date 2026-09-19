@@ -28,7 +28,16 @@ message Data {
     // PostgreSQL DSN. Keep credentials out of version control.
     string source = 1;
   }
+  message Redis {
+    // Comma-separated Redis Cluster seed nodes (host:port).
+    string addrs = 1;
+    string password = 2;
+    google.protobuf.Duration read_timeout = 3;
+    google.protobuf.Duration write_timeout = 4;
+  }
   Database database = 1;
+  // Read for the daily quota counters that challenge and verify keep.
+  Redis redis = 2;
 }
 
 message Auth {

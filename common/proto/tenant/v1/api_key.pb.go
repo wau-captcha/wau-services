@@ -33,9 +33,14 @@ type ApiKey struct {
 	// Public key used by the site frontend.
 	SiteKey string `protobuf:"bytes,3,opt,name=site_key,json=siteKey,proto3" json:"site_key,omitempty"`
 	// Private key used by the site backend on /siteverify.
-	SecretKey     string                 `protobuf:"bytes,4,opt,name=secret_key,json=secretKey,proto3" json:"secret_key,omitempty"`
-	IsActive      bool                   `protobuf:"varint,5,opt,name=is_active,json=isActive,proto3" json:"is_active,omitempty"`
-	CreateDate    *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=create_date,json=createDate,proto3" json:"create_date,omitempty"`
+	SecretKey  string                 `protobuf:"bytes,4,opt,name=secret_key,json=secretKey,proto3" json:"secret_key,omitempty"`
+	IsActive   bool                   `protobuf:"varint,5,opt,name=is_active,json=isActive,proto3" json:"is_active,omitempty"`
+	CreateDate *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=create_date,json=createDate,proto3" json:"create_date,omitempty"`
+	// Blocked by an administrator or automatically; the key stops working whatever
+	// is_active says, and only an administrator can lift it.
+	IsSuspended bool `protobuf:"varint,7,opt,name=is_suspended,json=isSuspended,proto3" json:"is_suspended,omitempty"`
+	// "admin" or "scraping" while suspended, empty otherwise.
+	SuspendReason string `protobuf:"bytes,8,opt,name=suspend_reason,json=suspendReason,proto3" json:"suspend_reason,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -110,6 +115,20 @@ func (x *ApiKey) GetCreateDate() *timestamppb.Timestamp {
 		return x.CreateDate
 	}
 	return nil
+}
+
+func (x *ApiKey) GetIsSuspended() bool {
+	if x != nil {
+		return x.IsSuspended
+	}
+	return false
+}
+
+func (x *ApiKey) GetSuspendReason() string {
+	if x != nil {
+		return x.SuspendReason
+	}
+	return ""
 }
 
 type ListApiKeysRequest struct {
@@ -433,7 +452,7 @@ var File_tenant_v1_api_key_proto protoreflect.FileDescriptor
 
 const file_tenant_v1_api_key_proto_rawDesc = "" +
 	"\n" +
-	"\x17tenant/v1/api_key.proto\x12\ttenant.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xc0\x01\n" +
+	"\x17tenant/v1/api_key.proto\x12\ttenant.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x8a\x02\n" +
 	"\x06ApiKey\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x19\n" +
@@ -442,7 +461,9 @@ const file_tenant_v1_api_key_proto_rawDesc = "" +
 	"secret_key\x18\x04 \x01(\tR\tsecretKey\x12\x1b\n" +
 	"\tis_active\x18\x05 \x01(\bR\bisActive\x12;\n" +
 	"\vcreate_date\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"createDate\"\x14\n" +
+	"createDate\x12!\n" +
+	"\fis_suspended\x18\a \x01(\bR\visSuspended\x12%\n" +
+	"\x0esuspend_reason\x18\b \x01(\tR\rsuspendReason\"\x14\n" +
 	"\x12ListApiKeysRequest\"[\n" +
 	"\tApiKeySet\x12,\n" +
 	"\bapi_keys\x18\x01 \x03(\v2\x11.tenant.v1.ApiKeyR\aapiKeys\x12 \n" +

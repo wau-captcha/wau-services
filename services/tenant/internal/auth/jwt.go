@@ -13,7 +13,10 @@ import (
 )
 
 const (
-	issuer       = "wau-tenant"
+	// Users and administrators get tokens from different issuers, so neither kind is
+	// accepted where the other is expected.
+	userIssuer   = "wau-tenant"
+	adminIssuer  = "wau-tenant-admin"
 	minSecretLen = 32
 )
 
@@ -38,10 +41,29 @@ func NewJWT(c *conf.Auth) (*JWT, error) {
 
 // Issue returns a token for userID and how long it stays valid.
 func (j *JWT) Issue(userID uuid.UUID) (string, time.Duration, error) {
+	return j.issue(userIssuer, userID)
+}
+
+// IssueAdmin returns an administrator token for adminID and how long it stays valid.
+func (j *JWT) IssueAdmin(adminID uuid.UUID) (string, time.Duration, error) {
+	return j.issue(adminIssuer, adminID)
+}
+
+// Parse returns the user behind a user token.
+func (j *JWT) Parse(token string) (uuid.UUID, error) {
+	return j.parse(token, userIssuer)
+}
+
+// ParseAdmin returns the administrator behind an administrator token.
+func (j *JWT) ParseAdmin(token string) (uuid.UUID, error) {
+	return j.parse(token, adminIssuer)
+}
+
+func (j *JWT) issue(iss string, id uuid.UUID) (string, time.Duration, error) {
 	now := j.now()
 	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
-		Subject:   userID.String(),
-		Issuer:    issuer,
+		Subject:   id.String(),
+		Issuer:    iss,
 		IssuedAt:  jwt.NewNumericDate(now),
 		ExpiresAt: jwt.NewNumericDate(now.Add(j.ttl)),
 	}).SignedString(j.secret)
@@ -51,14 +73,14 @@ func (j *JWT) Issue(userID uuid.UUID) (string, time.Duration, error) {
 	return token, j.ttl, nil
 }
 
-// Parse returns the user behind a token. Every failure maps to the same error so
+// parse returns the subject of a token from iss. Every failure maps to the same error so
 // the response never says which part of the token was wrong.
-func (j *JWT) Parse(token string) (uuid.UUID, error) {
+func (j *JWT) parse(token, iss string) (uuid.UUID, error) {
 	var claims jwt.RegisteredClaims
 	_, err := jwt.ParseWithClaims(token, &claims,
 		func(*jwt.Token) (any, error) { return j.secret, nil },
 		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
-		jwt.WithIssuer(issuer),
+		jwt.WithIssuer(iss),
 		jwt.WithExpirationRequired(),
 		jwt.WithTimeFunc(j.now),
 	)

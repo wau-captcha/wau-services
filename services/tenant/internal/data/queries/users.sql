@@ -29,11 +29,14 @@ SET username = COALESCE(NULLIF(@username::text, ''), u.username),
 WHERE u.user_id = @user_id;
 
 -- name: GetUserProfile :one
-SELECT u.user_id, u.username, u.email, u.create_date, u.tier_id, t.tier_name
+SELECT u.user_id, u.username, u.email, u.create_date, u.tier_id, t.tier_name, t.daily_quota, u.is_banned
 FROM users u
 JOIN tiers t ON t.tier_id = u.tier_id
 WHERE u.user_id = $1;
 
--- Access tokens cannot be revoked, so every request checks that its account still exists.
--- name: UserExists :one
-SELECT EXISTS (SELECT 1 FROM users WHERE user_id = $1);
+-- Access tokens cannot be revoked, so every request checks that its account still exists
+-- and is not banned; no row means the account is gone.
+-- name: GetAccountStatus :one
+SELECT is_banned
+FROM users
+WHERE user_id = $1;

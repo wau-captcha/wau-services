@@ -23,4 +23,10 @@ enum ErrorReason {
   GOOGLE_EMAIL_UNVERIFIED = 10;
   // An existing account already uses this email and cannot be linked to the Google account.
   GOOGLE_ACCOUNT_CONFLICT = 11;
+  // An administrator banned this account: it cannot sign in and its sessions no longer work.
+  ACCOUNT_BANNED = 12;
+  // Administrator sign-in with a Google account that is not in the admins table, or whose
+  // address Google does not own (only Gmail and Google Workspace addresses are accepted).
+  PERMISSION_DENIED = 13;
+  USER_NOT_FOUND = 14;
 }

@@ -9,6 +9,7 @@ message Bootstrap {
   Server server = 1;
   Data data = 2;
   Challenge challenge = 3;
+  Quota quota = 4;
 }
 
 message Server {
@@ -45,4 +46,9 @@ message Data {
 message Challenge {
   // Lifetime of an unsolved challenge.
   google.protobuf.Duration ttl = 1;
+}
+
+message Quota {
+  // IANA zone whose calendar days the daily counters follow; the same in every service.
+  string time_zone = 1;
 }

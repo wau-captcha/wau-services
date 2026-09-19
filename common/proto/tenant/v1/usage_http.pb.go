@@ -17,9 +17,13 @@ var _ = new(context.Context)
 
 const _ = http.SupportPackageIsVersion3
 
+const OperationUsageServiceGetQuota = "/tenant.v1.UsageService/GetQuota"
 const OperationUsageServiceGetUsage = "/tenant.v1.UsageService/GetUsage"
 
 type UsageServiceHTTPServer interface {
+	// GetQuota GetQuota reports today's successful verifications against the daily quota of the tier.
+	// Requires "Authorization: Bearer <access_token>".
+	GetQuota(context.Context, *GetQuotaRequest) (*Quota, error)
 	// GetUsage GetUsage requires "Authorization: Bearer <access_token>".
 	GetUsage(context.Context, *GetUsageRequest) (*Usage, error)
 }
@@ -27,6 +31,7 @@ type UsageServiceHTTPServer interface {
 func RegisterUsageServiceHTTPServer(s *http.Server, srv UsageServiceHTTPServer) {
 	r := s.Route("/")
 	r.Handle("GET", "/v1/usage", _UsageService_GetUsage0_HTTP_Handler(srv))
+	r.Handle("GET", "/v1/quota", _UsageService_GetQuota0_HTTP_Handler(srv))
 }
 
 func _UsageService_GetUsage0_HTTP_Handler(srv UsageServiceHTTPServer) func(ctx http.Context) error {
@@ -48,7 +53,29 @@ func _UsageService_GetUsage0_HTTP_Handler(srv UsageServiceHTTPServer) func(ctx h
 	}
 }
 
+func _UsageService_GetQuota0_HTTP_Handler(srv UsageServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in GetQuotaRequest
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationUsageServiceGetQuota)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.GetQuota(ctx, req.(*GetQuotaRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*Quota)
+		return ctx.Result(200, reply)
+	}
+}
+
 type UsageServiceHTTPClient interface {
+	// GetQuota GetQuota reports today's successful verifications against the daily quota of the tier.
+	// Requires "Authorization: Bearer <access_token>".
+	GetQuota(ctx context.Context, req *GetQuotaRequest, opts ...http.CallOption) (rsp *Quota, err error)
 	// GetUsage GetUsage requires "Authorization: Bearer <access_token>".
 	GetUsage(ctx context.Context, req *GetUsageRequest, opts ...http.CallOption) (rsp *Usage, err error)
 }
@@ -59,6 +86,24 @@ type UsageServiceHTTPClientImpl struct {
 
 func NewUsageServiceHTTPClient(client *http.Client) UsageServiceHTTPClient {
 	return &UsageServiceHTTPClientImpl{client}
+}
+
+// GetQuota GetQuota reports today's successful verifications against the daily quota of the tier.
+// Requires "Authorization: Bearer <access_token>".
+func (c *UsageServiceHTTPClientImpl) GetQuota(ctx context.Context, in *GetQuotaRequest, opts ...http.CallOption) (*Quota, error) {
+	var out Quota
+	pattern := "/v1/quota"
+	path := http.BuildPath(pattern, in, http.WithQueryParams())
+	opts = append([]http.CallOption{
+		http.Accept("application/protojson"),
+		http.Operation(OperationUsageServiceGetQuota),
+		http.PathTemplate(pattern),
+	}, opts...)
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 // GetUsage GetUsage requires "Authorization: Bearer <access_token>".

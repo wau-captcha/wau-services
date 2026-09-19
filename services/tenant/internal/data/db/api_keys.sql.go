@@ -18,7 +18,7 @@ SELECT $1::uuid, $2::text, $3::text, $4::text
 WHERE (
     SELECT count(*) FROM api_keys WHERE user_id = $1::uuid AND NOT is_deleted
 ) < $5::bigint
-RETURNING api_key_id, site_key, secret_key, is_active, is_deleted, create_date, user_id, name
+RETURNING api_key_id, site_key, secret_key, is_active, is_deleted, create_date, user_id, is_suspended, suspend_reason, name
 `
 
 type CreateAPIKeyParams struct {
@@ -48,6 +48,8 @@ func (q *Queries) CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) (API
 		&i.IsDeleted,
 		&i.CreateDate,
 		&i.UserID,
+		&i.IsSuspended,
+		&i.SuspendReason,
 		&i.Name,
 	)
 	return i, err
@@ -76,7 +78,7 @@ func (q *Queries) DeleteAPIKey(ctx context.Context, arg DeleteAPIKeyParams) (int
 }
 
 const getAPIKey = `-- name: GetAPIKey :one
-SELECT api_key_id, site_key, secret_key, is_active, is_deleted, create_date, user_id, name
+SELECT api_key_id, site_key, secret_key, is_active, is_deleted, create_date, user_id, is_suspended, suspend_reason, name
 FROM api_keys
 WHERE api_key_id = $1
   AND user_id = $2
@@ -99,13 +101,15 @@ func (q *Queries) GetAPIKey(ctx context.Context, arg GetAPIKeyParams) (APIKey, e
 		&i.IsDeleted,
 		&i.CreateDate,
 		&i.UserID,
+		&i.IsSuspended,
+		&i.SuspendReason,
 		&i.Name,
 	)
 	return i, err
 }
 
 const listAPIKeys = `-- name: ListAPIKeys :many
-SELECT api_key_id, site_key, secret_key, is_active, is_deleted, create_date, user_id, name
+SELECT api_key_id, site_key, secret_key, is_active, is_deleted, create_date, user_id, is_suspended, suspend_reason, name
 FROM api_keys
 WHERE user_id = $1
   AND NOT is_deleted
@@ -129,6 +133,8 @@ func (q *Queries) ListAPIKeys(ctx context.Context, userID uuid.UUID) ([]APIKey, 
 			&i.IsDeleted,
 			&i.CreateDate,
 			&i.UserID,
+			&i.IsSuspended,
+			&i.SuspendReason,
 			&i.Name,
 		); err != nil {
 			return nil, err
@@ -147,7 +153,7 @@ SET secret_key = $1
 WHERE api_key_id = $2
   AND user_id = $3
   AND NOT is_deleted
-RETURNING api_key_id, site_key, secret_key, is_active, is_deleted, create_date, user_id, name
+RETURNING api_key_id, site_key, secret_key, is_active, is_deleted, create_date, user_id, is_suspended, suspend_reason, name
 `
 
 type RotateAPIKeySecretParams struct {
@@ -167,6 +173,8 @@ func (q *Queries) RotateAPIKeySecret(ctx context.Context, arg RotateAPIKeySecret
 		&i.IsDeleted,
 		&i.CreateDate,
 		&i.UserID,
+		&i.IsSuspended,
+		&i.SuspendReason,
 		&i.Name,
 	)
 	return i, err
@@ -179,7 +187,7 @@ SET name = COALESCE($1::text, name),
 WHERE api_key_id = $3
   AND user_id = $4
   AND NOT is_deleted
-RETURNING api_key_id, site_key, secret_key, is_active, is_deleted, create_date, user_id, name
+RETURNING api_key_id, site_key, secret_key, is_active, is_deleted, create_date, user_id, is_suspended, suspend_reason, name
 `
 
 type UpdateAPIKeyParams struct {
@@ -205,6 +213,8 @@ func (q *Queries) UpdateAPIKey(ctx context.Context, arg UpdateAPIKeyParams) (API
 		&i.IsDeleted,
 		&i.CreateDate,
 		&i.UserID,
+		&i.IsSuspended,
+		&i.SuspendReason,
 		&i.Name,
 	)
 	return i, err

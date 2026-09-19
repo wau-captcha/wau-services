@@ -17,13 +17,14 @@ import (
 )
 
 import (
+	_ "common/codec"
 	_ "go.uber.org/automaxprocs"
 )
 
 // Injectors from wire.go:
 
 // wireApp init kratos application.
-func wireApp(confServer *conf.Server, confData *conf.Data, client *conf.Client, token *conf.Token, logger *slog.Logger) (*kratos.App, func(), error) {
+func wireApp(confServer *conf.Server, confData *conf.Data, client *conf.Client, token *conf.Token, quota *conf.Quota, logger *slog.Logger) (*kratos.App, func(), error) {
 	challengeServiceClient, cleanup, err := data.NewChallengeServiceClient(client)
 	if err != nil {
 		return nil, nil, err
@@ -36,7 +37,8 @@ func wireApp(confServer *conf.Server, confData *conf.Data, client *conf.Client, 
 	}
 	grantRepo := data.NewGrantRepo(dataData)
 	siteRepo := data.NewSiteRepo(dataData)
-	verifyUsecase, err := biz.NewVerifyUsecase(challengeClient, grantRepo, siteRepo, token)
+	counterRepo := data.NewCounterRepo(dataData)
+	verifyUsecase, err := biz.NewVerifyUsecase(challengeClient, grantRepo, siteRepo, counterRepo, token, quota)
 	if err != nil {
 		cleanup2()
 		cleanup()

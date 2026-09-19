@@ -29,6 +29,12 @@ const (
 	ErrorReason_CHALLENGE_TYPE_NOT_ALLOWED ErrorReason = 2
 	ErrorReason_CHALLENGE_NOT_FOUND        ErrorReason = 3
 	ErrorReason_CHALLENGE_TYPE_UNSUPPORTED ErrorReason = 4
+	// Suspended by an administrator or automatically for scraping.
+	ErrorReason_API_KEY_SUSPENDED ErrorReason = 5
+	// The owner of the key was banned by an administrator.
+	ErrorReason_ACCOUNT_BANNED ErrorReason = 6
+	// The owner used up the successful verifications their tier allows today.
+	ErrorReason_DAILY_QUOTA_EXCEEDED ErrorReason = 7
 )
 
 // Enum value maps for ErrorReason.
@@ -39,6 +45,9 @@ var (
 		2: "CHALLENGE_TYPE_NOT_ALLOWED",
 		3: "CHALLENGE_NOT_FOUND",
 		4: "CHALLENGE_TYPE_UNSUPPORTED",
+		5: "API_KEY_SUSPENDED",
+		6: "ACCOUNT_BANNED",
+		7: "DAILY_QUOTA_EXCEEDED",
 	}
 	ErrorReason_value = map[string]int32{
 		"ERROR_REASON_UNSPECIFIED":   0,
@@ -46,6 +55,9 @@ var (
 		"CHALLENGE_TYPE_NOT_ALLOWED": 2,
 		"CHALLENGE_NOT_FOUND":        3,
 		"CHALLENGE_TYPE_UNSUPPORTED": 4,
+		"API_KEY_SUSPENDED":          5,
+		"ACCOUNT_BANNED":             6,
+		"DAILY_QUOTA_EXCEEDED":       7,
 	}
 )
 
@@ -80,13 +92,16 @@ var File_challenge_v1_error_reason_proto protoreflect.FileDescriptor
 
 const file_challenge_v1_error_reason_proto_rawDesc = "" +
 	"\n" +
-	"\x1fchallenge/v1/error_reason.proto\x12\fchallenge.v1*\x9a\x01\n" +
+	"\x1fchallenge/v1/error_reason.proto\x12\fchallenge.v1*\xdf\x01\n" +
 	"\vErrorReason\x12\x1c\n" +
 	"\x18ERROR_REASON_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10SITE_KEY_INVALID\x10\x01\x12\x1e\n" +
 	"\x1aCHALLENGE_TYPE_NOT_ALLOWED\x10\x02\x12\x17\n" +
 	"\x13CHALLENGE_NOT_FOUND\x10\x03\x12\x1e\n" +
-	"\x1aCHALLENGE_TYPE_UNSUPPORTED\x10\x04B\x1eZ\x1ccommon/proto/challenge/v1;v1b\x06proto3"
+	"\x1aCHALLENGE_TYPE_UNSUPPORTED\x10\x04\x12\x15\n" +
+	"\x11API_KEY_SUSPENDED\x10\x05\x12\x12\n" +
+	"\x0eACCOUNT_BANNED\x10\x06\x12\x18\n" +
+	"\x14DAILY_QUOTA_EXCEEDED\x10\aB\x1eZ\x1ccommon/proto/challenge/v1;v1b\x06proto3"
 
 var (
 	file_challenge_v1_error_reason_proto_rawDescOnce sync.Once

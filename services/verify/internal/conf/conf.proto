@@ -10,6 +10,7 @@ message Bootstrap {
   Data data = 2;
   Client client = 3;
   Token token = 4;
+  Quota quota = 5;
 }
 
 message Server {
@@ -56,4 +57,9 @@ message Token {
   string secret = 1;
   // Lifetime of an issued token.
   google.protobuf.Duration ttl = 2;
+}
+
+message Quota {
+  // IANA zone whose calendar days the daily counters follow; the same in every service.
+  string time_zone = 1;
 }

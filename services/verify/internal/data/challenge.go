@@ -26,5 +26,6 @@ func (c *challengeClient) CheckAnswer(ctx context.Context, challengeID, answer s
 		Success:       reply.GetSuccess(),
 		APIKeyID:      reply.GetApiKeyId(),
 		ChallengeType: reply.GetChallengeType(),
+		UserID:        reply.GetUserId(),
 	}, nil
 }

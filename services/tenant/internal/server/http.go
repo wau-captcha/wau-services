@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"strings"
 
 	"tenant/internal/auth"
 	"tenant/internal/biz"
@@ -24,17 +25,20 @@ func NewHTTPServer(
 	c *conf.Server,
 	jwt *auth.JWT,
 	users biz.UserRepo,
+	admins biz.AdminAccountRepo,
 	authService *service.AuthService,
 	apiKeys *service.ApiKeyService,
 	usage *service.UsageService,
 	catalog *service.CatalogService,
+	admin *service.AdminService,
 ) *http.Server {
 	var opts = []http.ServerOption{
 		http.Filter(filter.CORS),
 		http.Middleware(
 			recovery.Recovery(),
 			sanitizeErrors(),
-			selector.Server(auth.Middleware(jwt, users)).Match(protected).Build(),
+			selector.Server(auth.Middleware(jwt, users)).Match(userOperation).Build(),
+			selector.Server(auth.AdminMiddleware(jwt, admins)).Prefix(adminOperations).Build(),
 			validate.Validator(func(req any) error {
 				if msg, ok := req.(proto.Message); ok {
 					return fieldbehavior.ValidateRequiredFields(msg)
@@ -57,10 +61,20 @@ func NewHTTPServer(
 	v1.RegisterApiKeyServiceHTTPServer(srv, apiKeys)
 	v1.RegisterUsageServiceHTTPServer(srv, usage)
 	v1.RegisterCatalogServiceHTTPServer(srv, catalog)
+	v1.RegisterAdminServiceHTTPServer(srv, admin)
 	return srv
 }
 
-// protected requires an access token everywhere but on sign-in.
-func protected(_ context.Context, operation string) bool {
-	return operation != v1.OperationAuthServiceSignInWithGoogle
+// adminOperations prefixes every AdminService operation; they take administrator tokens.
+const adminOperations = "/tenant.v1.AdminService/"
+
+// signIn operations hand out tokens, so they need none.
+var signIn = map[string]bool{
+	v1.OperationAuthServiceSignInWithGoogle:      true,
+	v1.OperationAuthServiceSignInAdminWithGoogle: true,
+}
+
+// userOperation requires a user's token everywhere but on sign-in and in AdminService.
+func userOperation(_ context.Context, operation string) bool {
+	return !signIn[operation] && !strings.HasPrefix(operation, adminOperations)
 }

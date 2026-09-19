@@ -105,12 +105,14 @@ func (r *apiKeyRepo) Delete(ctx context.Context, userID, id uuid.UUID) error {
 
 func toApiKey(row db.APIKey) *biz.ApiKey {
 	return &biz.ApiKey{
-		ID:         row.APIKeyID,
-		Name:       row.Name,
-		SiteKey:    row.SiteKey,
-		SecretKey:  row.SecretKey,
-		IsActive:   row.IsActive,
-		CreateDate: row.CreateDate.Time,
+		ID:            row.APIKeyID,
+		Name:          row.Name,
+		SiteKey:       row.SiteKey,
+		SecretKey:     row.SecretKey,
+		IsActive:      row.IsActive,
+		CreateDate:    row.CreateDate.Time,
+		IsSuspended:   row.IsSuspended,
+		SuspendReason: row.SuspendReason.String,
 	}
 }
 

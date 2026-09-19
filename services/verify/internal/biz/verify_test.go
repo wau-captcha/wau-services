@@ -30,26 +30,39 @@ func (f fakeGrants) Take(_ context.Context, id string) (*Grant, error) {
 	return g, nil
 }
 
-// fakeSites maps secret keys to API key ids.
-type fakeSites map[string]string
+// fakeSites maps secret keys to sites.
+type fakeSites map[string]*Site
 
-func (f fakeSites) FindAPIKeyID(_ context.Context, secretKey string) (string, error) {
-	if id, ok := f[secretKey]; ok {
-		return id, nil
+func (f fakeSites) FindBySecretKey(_ context.Context, secretKey string) (*Site, error) {
+	if s, ok := f[secretKey]; ok {
+		return s, nil
 	}
-	return "", ErrSecretKeyInvalid
+	return nil, ErrSecretKeyInvalid
 }
 
 func (fakeSites) RecordUsage(context.Context, string, string, bool) error { return nil }
 
 func newTestUsecase(t *testing.T, sol *Solution) *VerifyUsecase {
 	t.Helper()
-	uc, err := NewVerifyUsecase(fakeChallenges{sol}, fakeGrants{}, fakeSites{"sk_a": "a", "sk_b": "b"},
-		&conf.Token{Secret: "secret", Ttl: durationpb.New(time.Minute)})
+	uc, _ := newCountingUsecase(t, sol)
+	return uc
+}
+
+func newCountingUsecase(t *testing.T, sol *Solution) (*VerifyUsecase, *fakeCounters) {
+	t.Helper()
+	counters := &fakeCounters{verified: map[string]int{}, succeeded: map[string]int{}}
+	sites := fakeSites{
+		"sk_a":         {APIKeyID: "a"},
+		"sk_b":         {APIKeyID: "b"},
+		"sk_suspended": {APIKeyID: "s", Suspended: true},
+		"sk_banned":    {APIKeyID: "x", OwnerBanned: true, Suspended: true},
+	}
+	uc, err := NewVerifyUsecase(fakeChallenges{sol}, fakeGrants{}, sites, counters,
+		&conf.Token{Secret: "secret", Ttl: durationpb.New(time.Minute)}, &conf.Quota{TimeZone: "Asia/Ho_Chi_Minh"})
 	if err != nil {
 		t.Fatalf("NewVerifyUsecase() error = %v", err)
 	}
-	return uc
+	return uc, counters
 }
 
 func TestVerifyUsecase(t *testing.T) {

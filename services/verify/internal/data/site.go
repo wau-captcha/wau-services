@@ -19,15 +19,15 @@ func NewSiteRepo(data *Data) biz.SiteRepo {
 	return &siteRepo{data: data}
 }
 
-func (r *siteRepo) FindAPIKeyID(ctx context.Context, secretKey string) (string, error) {
-	id, err := r.data.queries.GetAPIKeyIDBySecretKey(ctx, secretKey)
+func (r *siteRepo) FindBySecretKey(ctx context.Context, secretKey string) (*biz.Site, error) {
+	row, err := r.data.queries.GetSiteBySecretKey(ctx, secretKey)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return "", biz.ErrSecretKeyInvalid
+		return nil, biz.ErrSecretKeyInvalid
 	}
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return id.String(), nil
+	return &biz.Site{APIKeyID: row.APIKeyID.String(), Suspended: row.IsSuspended, OwnerBanned: row.IsBanned}, nil
 }
 
 func (r *siteRepo) RecordUsage(ctx context.Context, apiKeyID, challengeType string, success bool) error {

@@ -5,6 +5,11 @@ server:
 data:
   database:
     source: ${KRATOS_DATABASE_SOURCE}
+  redis:
+    addrs: ${KRATOS_REDIS_ADDRS}
+    password: ${KRATOS_REDIS_PASSWORD}
+    read_timeout: 0.2s
+    write_timeout: 0.2s
 auth:
   secret: ${KRATOS_AUTH_SECRET}
   ttl: 86400s

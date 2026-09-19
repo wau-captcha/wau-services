@@ -26,6 +26,10 @@ type ErrorReason int32
 const (
 	ErrorReason_ERROR_REASON_UNSPECIFIED ErrorReason = 0
 	ErrorReason_SECRET_KEY_INVALID       ErrorReason = 1
+	// Suspended by an administrator or automatically for scraping.
+	ErrorReason_API_KEY_SUSPENDED ErrorReason = 2
+	// The owner of the key was banned by an administrator.
+	ErrorReason_ACCOUNT_BANNED ErrorReason = 3
 )
 
 // Enum value maps for ErrorReason.
@@ -33,10 +37,14 @@ var (
 	ErrorReason_name = map[int32]string{
 		0: "ERROR_REASON_UNSPECIFIED",
 		1: "SECRET_KEY_INVALID",
+		2: "API_KEY_SUSPENDED",
+		3: "ACCOUNT_BANNED",
 	}
 	ErrorReason_value = map[string]int32{
 		"ERROR_REASON_UNSPECIFIED": 0,
 		"SECRET_KEY_INVALID":       1,
+		"API_KEY_SUSPENDED":        2,
+		"ACCOUNT_BANNED":           3,
 	}
 )
 
@@ -71,10 +79,12 @@ var File_verify_v1_error_reason_proto protoreflect.FileDescriptor
 
 const file_verify_v1_error_reason_proto_rawDesc = "" +
 	"\n" +
-	"\x1cverify/v1/error_reason.proto\x12\tverify.v1*C\n" +
+	"\x1cverify/v1/error_reason.proto\x12\tverify.v1*n\n" +
 	"\vErrorReason\x12\x1c\n" +
 	"\x18ERROR_REASON_UNSPECIFIED\x10\x00\x12\x16\n" +
-	"\x12SECRET_KEY_INVALID\x10\x01B\x1bZ\x19common/proto/verify/v1;v1b\x06proto3"
+	"\x12SECRET_KEY_INVALID\x10\x01\x12\x15\n" +
+	"\x11API_KEY_SUSPENDED\x10\x02\x12\x12\n" +
+	"\x0eACCOUNT_BANNED\x10\x03B\x1bZ\x19common/proto/verify/v1;v1b\x06proto3"
 
 var (
 	file_verify_v1_error_reason_proto_rawDescOnce sync.Once

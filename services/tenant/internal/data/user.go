@@ -77,11 +77,20 @@ func (r *userRepo) Profile(ctx context.Context, id uuid.UUID) (*biz.User, error)
 		TierID:     row.TierID,
 		TierName:   row.TierName,
 		CreateDate: row.CreateDate.Time,
+		DailyQuota: int64(row.DailyQuota),
+		IsBanned:   row.IsBanned,
 	}, nil
 }
 
-func (r *userRepo) Exists(ctx context.Context, id uuid.UUID) (bool, error) {
-	return r.data.queries.UserExists(ctx, id)
+func (r *userRepo) Status(ctx context.Context, id uuid.UUID) (biz.AccountStatus, error) {
+	banned, err := r.data.queries.GetAccountStatus(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return biz.AccountStatus{}, nil
+	}
+	if err != nil {
+		return biz.AccountStatus{}, err
+	}
+	return biz.AccountStatus{Exists: true, Banned: banned}, nil
 }
 
 func googleSub(sub string) pgtype.Text { return pgtype.Text{String: sub, Valid: true} }

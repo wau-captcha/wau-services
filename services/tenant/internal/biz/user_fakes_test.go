@@ -27,6 +27,7 @@ func (f *fakeVerifier) Verify(_ context.Context, token, nonce string) (*GoogleId
 type memUser struct {
 	id               uuid.UUID
 	sub, email, name string
+	banned           bool
 }
 
 // fakeUsers mimics the SQL in data/queries/users.sql.
@@ -97,11 +98,16 @@ func (f *fakeUsers) Profile(_ context.Context, id uuid.UUID) (*User, error) {
 	if u == nil {
 		return nil, ErrUnauthenticated
 	}
-	return &User{ID: u.id, Username: u.name, Email: u.email, TierID: "free", TierName: "Free"}, nil
+	return &User{ID: u.id, Username: u.name, Email: u.email, TierID: "free", TierName: "Free",
+		DailyQuota: 1000, IsBanned: u.banned}, nil
 }
 
-func (f *fakeUsers) Exists(_ context.Context, id uuid.UUID) (bool, error) {
-	return f.find(func(u *memUser) bool { return u.id == id }) != nil, nil
+func (f *fakeUsers) Status(_ context.Context, id uuid.UUID) (AccountStatus, error) {
+	u := f.find(func(u *memUser) bool { return u.id == id })
+	if u == nil {
+		return AccountStatus{}, nil
+	}
+	return AccountStatus{Exists: true, Banned: u.banned}, nil
 }
 
 type fakeTokens struct{}

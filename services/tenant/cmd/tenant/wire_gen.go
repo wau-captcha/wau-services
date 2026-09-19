@@ -36,27 +36,35 @@ func wireApp(confServer *conf.Server, confData *conf.Data, confAuth *conf.Auth, 
 		return nil, nil, err
 	}
 	userRepo := data.NewUserRepo(dataData)
+	adminAccountRepo := data.NewAdminAccountRepo(dataData)
 	authGoogle, err := auth.NewGoogle(google)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
 	}
 	authUsecase := biz.NewAuthUsecase(userRepo, authGoogle, jwt)
-	authService := service.NewAuthService(authUsecase)
+	adminAuthUsecase := biz.NewAdminAuthUsecase(adminAccountRepo, authGoogle, jwt)
+	authService := service.NewAuthService(authUsecase, adminAuthUsecase)
 	apiKeyRepo := data.NewApiKeyRepo(dataData)
 	apiKeyUsecase := biz.NewApiKeyUsecase(apiKeyRepo, apiKey)
 	apiKeyService := service.NewApiKeyService(apiKeyUsecase)
 	usageRepo := data.NewUsageRepo(dataData)
-	usageUsecase, err := biz.NewUsageUsecase(usageRepo, apiKeyRepo, usage)
+	calendar, err := biz.NewCalendar(usage)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
 	}
-	usageService := service.NewUsageService(usageUsecase)
+	usageUsecase := biz.NewUsageUsecase(usageRepo, apiKeyRepo, calendar)
+	counterRepo := data.NewCounterRepo(dataData)
+	quotaUsecase := biz.NewQuotaUsecase(userRepo, counterRepo, calendar)
+	usageService := service.NewUsageService(usageUsecase, quotaUsecase)
 	catalogRepo := data.NewCatalogRepo(dataData)
 	catalogUsecase := biz.NewCatalogUsecase(catalogRepo)
 	catalogService := service.NewCatalogService(catalogUsecase)
-	httpServer := server.NewHTTPServer(confServer, jwt, userRepo, authService, apiKeyService, usageService, catalogService)
+	adminRepo := data.NewAdminRepo(dataData)
+	adminUsecase := biz.NewAdminUsecase(adminRepo, counterRepo, usageUsecase, calendar)
+	adminService := service.NewAdminService(adminUsecase, adminAuthUsecase)
+	httpServer := server.NewHTTPServer(confServer, jwt, userRepo, adminAccountRepo, authService, apiKeyService, usageService, catalogService, adminService)
 	app := newApp(logger, httpServer)
 	return app, func() {
 		cleanup()

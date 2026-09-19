@@ -3,6 +3,7 @@ syntax = "proto3";
 package tenant.v1;
 
 import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
 
 option go_package = "common/proto/tenant/v1;v1";
 
@@ -12,6 +13,12 @@ service UsageService {
   // GetUsage requires "Authorization: Bearer <access_token>".
   rpc GetUsage(GetUsageRequest) returns (Usage) {
     option (google.api.http) = {get: "/v1/usage"};
+  }
+
+  // GetQuota reports today's successful verifications against the daily quota of the tier.
+  // Requires "Authorization: Bearer <access_token>".
+  rpc GetQuota(GetQuotaRequest) returns (Quota) {
+    option (google.api.http) = {get: "/v1/quota"};
   }
 }
 
@@ -28,6 +35,32 @@ message Usage {
   // One entry per day in the window, oldest first; empty days are zero.
   repeated DailyUsage days = 3;
   repeated ChallengeTypeUsage challenge_types = 4;
+  // One series per API key that was used in the window, busiest first.
+  repeated UsageSeries by_api_key = 5;
+  // One series per challenge type that was used in the window, busiest first.
+  repeated UsageSeries by_challenge_type = 6;
+}
+
+message UsageSeries {
+  // An API key id in Usage.by_api_key, a challenge type in Usage.by_challenge_type.
+  string id = 1;
+  int64 total = 2;
+  int64 success = 3;
+  // The same days as Usage.days, oldest first; empty days are zero.
+  repeated DailyUsage days = 4;
+}
+
+message GetQuotaRequest {}
+
+message Quota {
+  // Successful verifications today, all keys of the user together.
+  int64 used = 1;
+  // Successful verifications the tier allows per day; /challenge/new refuses once used reaches it.
+  int64 limit = 2;
+  // Local date being counted, "YYYY-MM-DD".
+  string date = 3;
+  // When the count starts over: the next local midnight.
+  google.protobuf.Timestamp resets_at = 4;
 }
 
 message DailyUsage {

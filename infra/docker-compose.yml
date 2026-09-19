@@ -127,7 +127,10 @@ services:
     volumes:
       - redis-node-06-data:/data
 
+  redis-cluster-init:
     image: redis:8.10-alpine
+    container_name: wau-redis-cluster-init
+    restart: "no"
     network_mode: service:redis-node-01
     depends_on:
       redis-node-01:
