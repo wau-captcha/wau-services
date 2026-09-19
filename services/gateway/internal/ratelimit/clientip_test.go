@@ -26,7 +26,7 @@ func TestClientIP(t *testing.T) {
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			request := httptest.NewRequest(http.MethodGet, "/v1/auth/login", nil)
+			request := httptest.NewRequest(http.MethodGet, "/v1/auth/google", nil)
 			request.RemoteAddr = tt.remoteAddr
 			if tt.forwarded != "" {
 				request.Header.Set("X-Forwarded-For", tt.forwarded)

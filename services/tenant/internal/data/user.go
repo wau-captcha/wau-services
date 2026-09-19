@@ -3,7 +3,6 @@ package data
 import (
 	"context"
 	"errors"
-	"strings"
 
 	"tenant/internal/biz"
 	"tenant/internal/data/db"
@@ -11,10 +10,16 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
-// uniqueViolation is the PostgreSQL SQLSTATE for a duplicate key.
-const uniqueViolation = "23505"
+const (
+	// uniqueViolation is the PostgreSQL SQLSTATE for a duplicate key.
+	uniqueViolation = "23505"
+
+	usersEmailKey     = "users_email_key"
+	usersGoogleSubKey = "users_google_sub_key"
+)
 
 type userRepo struct {
 	data *Data
@@ -22,31 +27,38 @@ type userRepo struct {
 
 func NewUserRepo(data *Data) biz.UserRepo { return &userRepo{data: data} }
 
-func (r *userRepo) Create(ctx context.Context, username, email, passwordHash string) (uuid.UUID, error) {
-	id, err := r.data.queries.CreateUser(ctx, db.CreateUserParams{
-		Username: username,
-		Email:    email,
-		Password: passwordHash,
-	})
-	if err != nil {
-		return uuid.Nil, takenError(err)
-	}
-	return id, nil
+func (r *userRepo) FindByGoogleSub(ctx context.Context, sub string) (uuid.UUID, error) {
+	id, err := r.data.queries.FindUserByGoogleSub(ctx, googleSub(sub))
+	return id, notFound(err)
 }
 
-func (r *userRepo) FindCredentials(ctx context.Context, identifier string) (uuid.UUID, string, error) {
-	if strings.Contains(identifier, "@") {
-		row, err := r.data.queries.GetUserCredentialsByEmail(ctx, identifier)
-		if err != nil {
-			return uuid.Nil, "", credentialsError(err)
-		}
-		return row.UserID, row.Password, nil
+func (r *userRepo) LinkGoogleAccount(ctx context.Context, email, sub, name string) (uuid.UUID, error) {
+	id, err := r.data.queries.LinkGoogleAccount(ctx, db.LinkGoogleAccountParams{
+		GoogleSub: googleSub(sub),
+		Username:  name,
+		Email:     email,
+	})
+	return id, uniqueError(notFound(err))
+}
+
+func (r *userRepo) CreateGoogleUser(ctx context.Context, sub, email, name string) (uuid.UUID, error) {
+	id, err := r.data.queries.CreateGoogleUser(ctx, db.CreateGoogleUserParams{
+		GoogleSub: googleSub(sub),
+		Email:     email,
+		Username:  name,
+	})
+	return id, uniqueError(err)
+}
+
+func (r *userRepo) UpdateGoogleProfile(ctx context.Context, id uuid.UUID, email, name string) error {
+	params := db.UpdateGoogleProfileParams{UserID: id, Email: email, Username: name}
+	err := r.data.queries.UpdateGoogleProfile(ctx, params)
+	if errors.Is(uniqueError(err), biz.ErrGoogleAccountConflict) {
+		// Another account took the address in the meantime; keep the stored one.
+		params.Email = ""
+		err = r.data.queries.UpdateGoogleProfile(ctx, params)
 	}
-	row, err := r.data.queries.GetUserCredentialsByUsername(ctx, identifier)
-	if err != nil {
-		return uuid.Nil, "", credentialsError(err)
-	}
-	return row.UserID, row.Password, nil
+	return err
 }
 
 func (r *userRepo) Profile(ctx context.Context, id uuid.UUID) (*biz.User, error) {
@@ -68,23 +80,29 @@ func (r *userRepo) Profile(ctx context.Context, id uuid.UUID) (*biz.User, error)
 	}, nil
 }
 
-// takenError maps the unique indexes of users onto domain errors.
-func takenError(err error) error {
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation {
-		switch pgErr.ConstraintName {
-		case "users_username_key":
-			return biz.ErrUsernameTaken
-		case "users_email_key":
-			return biz.ErrEmailTaken
-		}
+func (r *userRepo) Exists(ctx context.Context, id uuid.UUID) (bool, error) {
+	return r.data.queries.UserExists(ctx, id)
+}
+
+func googleSub(sub string) pgtype.Text { return pgtype.Text{String: sub, Valid: true} }
+
+func notFound(err error) error {
+	if errors.Is(err, pgx.ErrNoRows) {
+		return biz.ErrUserNotFound
 	}
 	return err
 }
 
-func credentialsError(err error) error {
-	if errors.Is(err, pgx.ErrNoRows) {
-		return biz.ErrInvalidCredentials
+// uniqueError maps the unique indexes of users onto domain errors.
+func uniqueError(err error) error {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation {
+		switch pgErr.ConstraintName {
+		case usersEmailKey:
+			return biz.ErrGoogleAccountConflict
+		case usersGoogleSubKey:
+			return biz.ErrGoogleSubTaken
+		}
 	}
 	return err
 }

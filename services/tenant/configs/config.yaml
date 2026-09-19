@@ -1,13 +1,18 @@
 server:
   http:
-    addr: 0.0.0.0:8002
+    addr: ${KRATOS_HTTP_ADDR}
     timeout: 2s
 data:
   database:
-    source: ${DATABASE_SOURCE:postgres://postgres:postgres@127.0.0.1:5432/wau?sslmode=disable}
+    source: ${KRATOS_DATABASE_SOURCE}
 auth:
-  secret: ${AUTH_SECRET:}
+  secret: ${KRATOS_AUTH_SECRET}
   ttl: 86400s
+google:
+  # OAuth client ID of the dashboard; ID tokens must be issued for it.
+  client_id: ${KRATOS_GOOGLE_CLIENT_ID}
+  jwks_url: ${KRATOS_GOOGLE_JWKS_URL}
+  issuers: [accounts.google.com, https://accounts.google.com]
 api_key:
   max_per_user: 10
 usage:

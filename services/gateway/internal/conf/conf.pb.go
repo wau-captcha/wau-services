@@ -187,8 +187,8 @@ type RateLimit struct {
 	Prefixes []string             `protobuf:"bytes,1,rep,name=prefixes,proto3" json:"prefixes,omitempty"`
 	Requests int32                `protobuf:"varint,2,opt,name=requests,proto3" json:"requests,omitempty"`
 	Window   *durationpb.Duration `protobuf:"bytes,3,opt,name=window,proto3" json:"window,omitempty"`
-	// CIDR blocks whose X-Forwarded-For header may be believed.
-	TrustedProxies []string `protobuf:"bytes,4,rep,name=trusted_proxies,json=trustedProxies,proto3" json:"trusted_proxies,omitempty"`
+	// Comma-separated CIDR blocks whose X-Forwarded-For header may be believed.
+	TrustedProxies string `protobuf:"bytes,4,opt,name=trusted_proxies,json=trustedProxies,proto3" json:"trusted_proxies,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -244,11 +244,11 @@ func (x *RateLimit) GetWindow() *durationpb.Duration {
 	return nil
 }
 
-func (x *RateLimit) GetTrustedProxies() []string {
+func (x *RateLimit) GetTrustedProxies() string {
 	if x != nil {
 		return x.TrustedProxies
 	}
-	return nil
+	return ""
 }
 
 type Server_HTTP struct {
@@ -336,7 +336,7 @@ const file_conf_conf_proto_rawDesc = "" +
 	"\bprefixes\x18\x01 \x03(\tR\bprefixes\x12\x1a\n" +
 	"\brequests\x18\x02 \x01(\x05R\brequests\x121\n" +
 	"\x06window\x18\x03 \x01(\v2\x19.google.protobuf.DurationR\x06window\x12'\n" +
-	"\x0ftrusted_proxies\x18\x04 \x03(\tR\x0etrustedProxiesB\x1cZ\x1agateway/internal/conf;confb\x06proto3"
+	"\x0ftrusted_proxies\x18\x04 \x01(\tR\x0etrustedProxiesB\x1cZ\x1agateway/internal/conf;confb\x06proto3"
 
 var (
 	file_conf_conf_proto_rawDescOnce sync.Once

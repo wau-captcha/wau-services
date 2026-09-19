@@ -7,12 +7,9 @@ import (
 )
 
 // Errors crossing the API boundary. Reasons mirror v1.ErrorReason so clients can
-// branch on them; messages stay generic on purpose.
+// branch on them; messages stay generic on purpose. Google sign-in errors live in google.go.
 var (
 	ErrInvalidArgument    = errors.BadRequest(v1.ErrorReason_INVALID_ARGUMENT.String(), "invalid argument")
-	ErrUsernameTaken      = errors.Conflict(v1.ErrorReason_USERNAME_TAKEN.String(), "username is already taken")
-	ErrEmailTaken         = errors.Conflict(v1.ErrorReason_EMAIL_TAKEN.String(), "email is already registered")
-	ErrInvalidCredentials = errors.Unauthorized(v1.ErrorReason_INVALID_CREDENTIALS.String(), "identifier or password is wrong")
 	ErrUnauthenticated    = errors.Unauthorized(v1.ErrorReason_UNAUTHENTICATED.String(), "access token is missing or invalid")
 	ErrApiKeyNotFound     = errors.NotFound(v1.ErrorReason_API_KEY_NOT_FOUND.String(), "api key not found")
 	ErrApiKeyLimitReached = errors.Forbidden(v1.ErrorReason_API_KEY_LIMIT_REACHED.String(), "api key limit reached")

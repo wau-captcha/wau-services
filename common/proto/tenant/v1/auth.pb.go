@@ -23,31 +23,30 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type RegisterRequest struct {
+type SignInWithGoogleRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// 3-32 characters, lowercase letters, digits and underscore.
-	Username string `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
-	Email    string `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`
-	// 8-72 bytes.
-	Password      string `protobuf:"bytes,3,opt,name=password,proto3" json:"password,omitempty"`
+	// The `credential` returned by Google Identity Services.
+	IdToken string `protobuf:"bytes,1,opt,name=id_token,json=idToken,proto3" json:"id_token,omitempty"`
+	// The nonce given to Google Identity Services for this sign-in; it must match the token.
+	Nonce         string `protobuf:"bytes,2,opt,name=nonce,proto3" json:"nonce,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *RegisterRequest) Reset() {
-	*x = RegisterRequest{}
+func (x *SignInWithGoogleRequest) Reset() {
+	*x = SignInWithGoogleRequest{}
 	mi := &file_tenant_v1_auth_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *RegisterRequest) String() string {
+func (x *SignInWithGoogleRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*RegisterRequest) ProtoMessage() {}
+func (*SignInWithGoogleRequest) ProtoMessage() {}
 
-func (x *RegisterRequest) ProtoReflect() protoreflect.Message {
+func (x *SignInWithGoogleRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_tenant_v1_auth_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -59,81 +58,21 @@ func (x *RegisterRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use RegisterRequest.ProtoReflect.Descriptor instead.
-func (*RegisterRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use SignInWithGoogleRequest.ProtoReflect.Descriptor instead.
+func (*SignInWithGoogleRequest) Descriptor() ([]byte, []int) {
 	return file_tenant_v1_auth_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *RegisterRequest) GetUsername() string {
+func (x *SignInWithGoogleRequest) GetIdToken() string {
 	if x != nil {
-		return x.Username
+		return x.IdToken
 	}
 	return ""
 }
 
-func (x *RegisterRequest) GetEmail() string {
+func (x *SignInWithGoogleRequest) GetNonce() string {
 	if x != nil {
-		return x.Email
-	}
-	return ""
-}
-
-func (x *RegisterRequest) GetPassword() string {
-	if x != nil {
-		return x.Password
-	}
-	return ""
-}
-
-type LoginRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Username, or email when it contains "@".
-	Identifier    string `protobuf:"bytes,1,opt,name=identifier,proto3" json:"identifier,omitempty"`
-	Password      string `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *LoginRequest) Reset() {
-	*x = LoginRequest{}
-	mi := &file_tenant_v1_auth_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *LoginRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*LoginRequest) ProtoMessage() {}
-
-func (x *LoginRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tenant_v1_auth_proto_msgTypes[1]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use LoginRequest.ProtoReflect.Descriptor instead.
-func (*LoginRequest) Descriptor() ([]byte, []int) {
-	return file_tenant_v1_auth_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *LoginRequest) GetIdentifier() string {
-	if x != nil {
-		return x.Identifier
-	}
-	return ""
-}
-
-func (x *LoginRequest) GetPassword() string {
-	if x != nil {
-		return x.Password
+		return x.Nonce
 	}
 	return ""
 }
@@ -146,7 +85,7 @@ type GetMeRequest struct {
 
 func (x *GetMeRequest) Reset() {
 	*x = GetMeRequest{}
-	mi := &file_tenant_v1_auth_proto_msgTypes[2]
+	mi := &file_tenant_v1_auth_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -158,7 +97,7 @@ func (x *GetMeRequest) String() string {
 func (*GetMeRequest) ProtoMessage() {}
 
 func (x *GetMeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tenant_v1_auth_proto_msgTypes[2]
+	mi := &file_tenant_v1_auth_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -171,7 +110,7 @@ func (x *GetMeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMeRequest.ProtoReflect.Descriptor instead.
 func (*GetMeRequest) Descriptor() ([]byte, []int) {
-	return file_tenant_v1_auth_proto_rawDescGZIP(), []int{2}
+	return file_tenant_v1_auth_proto_rawDescGZIP(), []int{1}
 }
 
 type AuthReply struct {
@@ -186,7 +125,7 @@ type AuthReply struct {
 
 func (x *AuthReply) Reset() {
 	*x = AuthReply{}
-	mi := &file_tenant_v1_auth_proto_msgTypes[3]
+	mi := &file_tenant_v1_auth_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -198,7 +137,7 @@ func (x *AuthReply) String() string {
 func (*AuthReply) ProtoMessage() {}
 
 func (x *AuthReply) ProtoReflect() protoreflect.Message {
-	mi := &file_tenant_v1_auth_proto_msgTypes[3]
+	mi := &file_tenant_v1_auth_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -211,7 +150,7 @@ func (x *AuthReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AuthReply.ProtoReflect.Descriptor instead.
 func (*AuthReply) Descriptor() ([]byte, []int) {
-	return file_tenant_v1_auth_proto_rawDescGZIP(), []int{3}
+	return file_tenant_v1_auth_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *AuthReply) GetAccessToken() string {
@@ -236,8 +175,9 @@ func (x *AuthReply) GetUser() *User {
 }
 
 type User struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Display name taken from the Google profile; not used to sign in and not unique.
 	Username      string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
 	Email         string                 `protobuf:"bytes,3,opt,name=email,proto3" json:"email,omitempty"`
 	TierId        string                 `protobuf:"bytes,4,opt,name=tier_id,json=tierId,proto3" json:"tier_id,omitempty"`
@@ -249,7 +189,7 @@ type User struct {
 
 func (x *User) Reset() {
 	*x = User{}
-	mi := &file_tenant_v1_auth_proto_msgTypes[4]
+	mi := &file_tenant_v1_auth_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -261,7 +201,7 @@ func (x *User) String() string {
 func (*User) ProtoMessage() {}
 
 func (x *User) ProtoReflect() protoreflect.Message {
-	mi := &file_tenant_v1_auth_proto_msgTypes[4]
+	mi := &file_tenant_v1_auth_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -274,7 +214,7 @@ func (x *User) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use User.ProtoReflect.Descriptor instead.
 func (*User) Descriptor() ([]byte, []int) {
-	return file_tenant_v1_auth_proto_rawDescGZIP(), []int{4}
+	return file_tenant_v1_auth_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *User) GetId() string {
@@ -323,16 +263,10 @@ var File_tenant_v1_auth_proto protoreflect.FileDescriptor
 
 const file_tenant_v1_auth_proto_rawDesc = "" +
 	"\n" +
-	"\x14tenant/v1/auth.proto\x12\ttenant.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"n\n" +
-	"\x0fRegisterRequest\x12\x1f\n" +
-	"\busername\x18\x01 \x01(\tB\x03\xe0A\x02R\busername\x12\x19\n" +
-	"\x05email\x18\x02 \x01(\tB\x03\xe0A\x02R\x05email\x12\x1f\n" +
-	"\bpassword\x18\x03 \x01(\tB\x03\xe0A\x02R\bpassword\"T\n" +
-	"\fLoginRequest\x12#\n" +
-	"\n" +
-	"identifier\x18\x01 \x01(\tB\x03\xe0A\x02R\n" +
-	"identifier\x12\x1f\n" +
-	"\bpassword\x18\x02 \x01(\tB\x03\xe0A\x02R\bpassword\"\x0e\n" +
+	"\x14tenant/v1/auth.proto\x12\ttenant.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"T\n" +
+	"\x17SignInWithGoogleRequest\x12\x1e\n" +
+	"\bid_token\x18\x01 \x01(\tB\x03\xe0A\x02R\aidToken\x12\x19\n" +
+	"\x05nonce\x18\x02 \x01(\tB\x03\xe0A\x02R\x05nonce\"\x0e\n" +
 	"\fGetMeRequest\"r\n" +
 	"\tAuthReply\x12!\n" +
 	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\x12\x1d\n" +
@@ -346,10 +280,9 @@ const file_tenant_v1_auth_proto_rawDesc = "" +
 	"\atier_id\x18\x04 \x01(\tR\x06tierId\x12\x1b\n" +
 	"\ttier_name\x18\x05 \x01(\tR\btierName\x12;\n" +
 	"\vcreate_date\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"createDate2\xff\x01\n" +
-	"\vAuthService\x12Z\n" +
-	"\bRegister\x12\x1a.tenant.v1.RegisterRequest\x1a\x14.tenant.v1.AuthReply\"\x1c\x82\xd3\xe4\x93\x02\x16:\x01*\"\x11/v1/auth/register\x12Q\n" +
-	"\x05Login\x12\x17.tenant.v1.LoginRequest\x1a\x14.tenant.v1.AuthReply\"\x19\x82\xd3\xe4\x93\x02\x13:\x01*\"\x0e/v1/auth/login\x12A\n" +
+	"createDate2\xba\x01\n" +
+	"\vAuthService\x12h\n" +
+	"\x10SignInWithGoogle\x12\".tenant.v1.SignInWithGoogleRequest\x1a\x14.tenant.v1.AuthReply\"\x1a\x82\xd3\xe4\x93\x02\x14:\x01*\"\x0f/v1/auth/google\x12A\n" +
 	"\x05GetMe\x12\x17.tenant.v1.GetMeRequest\x1a\x0f.tenant.v1.User\"\x0e\x82\xd3\xe4\x93\x02\b\x12\x06/v1/meB\x1bZ\x19common/proto/tenant/v1;v1b\x06proto3"
 
 var (
@@ -364,26 +297,23 @@ func file_tenant_v1_auth_proto_rawDescGZIP() []byte {
 	return file_tenant_v1_auth_proto_rawDescData
 }
 
-var file_tenant_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_tenant_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_tenant_v1_auth_proto_goTypes = []any{
-	(*RegisterRequest)(nil),       // 0: tenant.v1.RegisterRequest
-	(*LoginRequest)(nil),          // 1: tenant.v1.LoginRequest
-	(*GetMeRequest)(nil),          // 2: tenant.v1.GetMeRequest
-	(*AuthReply)(nil),             // 3: tenant.v1.AuthReply
-	(*User)(nil),                  // 4: tenant.v1.User
-	(*timestamppb.Timestamp)(nil), // 5: google.protobuf.Timestamp
+	(*SignInWithGoogleRequest)(nil), // 0: tenant.v1.SignInWithGoogleRequest
+	(*GetMeRequest)(nil),            // 1: tenant.v1.GetMeRequest
+	(*AuthReply)(nil),               // 2: tenant.v1.AuthReply
+	(*User)(nil),                    // 3: tenant.v1.User
+	(*timestamppb.Timestamp)(nil),   // 4: google.protobuf.Timestamp
 }
 var file_tenant_v1_auth_proto_depIdxs = []int32{
-	4, // 0: tenant.v1.AuthReply.user:type_name -> tenant.v1.User
-	5, // 1: tenant.v1.User.create_date:type_name -> google.protobuf.Timestamp
-	0, // 2: tenant.v1.AuthService.Register:input_type -> tenant.v1.RegisterRequest
-	1, // 3: tenant.v1.AuthService.Login:input_type -> tenant.v1.LoginRequest
-	2, // 4: tenant.v1.AuthService.GetMe:input_type -> tenant.v1.GetMeRequest
-	3, // 5: tenant.v1.AuthService.Register:output_type -> tenant.v1.AuthReply
-	3, // 6: tenant.v1.AuthService.Login:output_type -> tenant.v1.AuthReply
-	4, // 7: tenant.v1.AuthService.GetMe:output_type -> tenant.v1.User
-	5, // [5:8] is the sub-list for method output_type
-	2, // [2:5] is the sub-list for method input_type
+	3, // 0: tenant.v1.AuthReply.user:type_name -> tenant.v1.User
+	4, // 1: tenant.v1.User.create_date:type_name -> google.protobuf.Timestamp
+	0, // 2: tenant.v1.AuthService.SignInWithGoogle:input_type -> tenant.v1.SignInWithGoogleRequest
+	1, // 3: tenant.v1.AuthService.GetMe:input_type -> tenant.v1.GetMeRequest
+	2, // 4: tenant.v1.AuthService.SignInWithGoogle:output_type -> tenant.v1.AuthReply
+	3, // 5: tenant.v1.AuthService.GetMe:output_type -> tenant.v1.User
+	4, // [4:6] is the sub-list for method output_type
+	2, // [2:4] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name
 	2, // [2:2] is the sub-list for extension extendee
 	0, // [0:2] is the sub-list for field type_name
@@ -400,7 +330,7 @@ func file_tenant_v1_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_tenant_v1_auth_proto_rawDesc), len(file_tenant_v1_auth_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -459,8 +459,8 @@ func (x *Data_Database) GetSource() string {
 
 type Data_Redis struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Redis Cluster seed nodes.
-	Addrs         []string             `protobuf:"bytes,1,rep,name=addrs,proto3" json:"addrs,omitempty"`
+	// Comma-separated Redis Cluster seed nodes (host:port).
+	Addrs         string               `protobuf:"bytes,1,opt,name=addrs,proto3" json:"addrs,omitempty"`
 	Password      string               `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
 	ReadTimeout   *durationpb.Duration `protobuf:"bytes,3,opt,name=read_timeout,json=readTimeout,proto3" json:"read_timeout,omitempty"`
 	WriteTimeout  *durationpb.Duration `protobuf:"bytes,4,opt,name=write_timeout,json=writeTimeout,proto3" json:"write_timeout,omitempty"`
@@ -498,11 +498,11 @@ func (*Data_Redis) Descriptor() ([]byte, []int) {
 	return file_conf_conf_proto_rawDescGZIP(), []int{2, 1}
 }
 
-func (x *Data_Redis) GetAddrs() []string {
+func (x *Data_Redis) GetAddrs() string {
 	if x != nil {
 		return x.Addrs
 	}
-	return nil
+	return ""
 }
 
 func (x *Data_Redis) GetPassword() string {
@@ -606,7 +606,7 @@ const file_conf_conf_proto_rawDesc = "" +
 	"\bDatabase\x12\x16\n" +
 	"\x06source\x18\x01 \x01(\tR\x06source\x1a\xb7\x01\n" +
 	"\x05Redis\x12\x14\n" +
-	"\x05addrs\x18\x01 \x03(\tR\x05addrs\x12\x1a\n" +
+	"\x05addrs\x18\x01 \x01(\tR\x05addrs\x12\x1a\n" +
 	"\bpassword\x18\x02 \x01(\tR\bpassword\x12<\n" +
 	"\fread_timeout\x18\x03 \x01(\v2\x19.google.protobuf.DurationR\vreadTimeout\x12>\n" +
 	"\rwrite_timeout\x18\x04 \x01(\v2\x19.google.protobuf.DurationR\fwriteTimeout\"\x98\x01\n" +

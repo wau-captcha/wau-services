@@ -19,16 +19,8 @@ type AuthService struct {
 
 func NewAuthService(uc *biz.AuthUsecase) *AuthService { return &AuthService{uc: uc} }
 
-func (s *AuthService) Register(ctx context.Context, req *v1.RegisterRequest) (*v1.AuthReply, error) {
-	session, err := s.uc.Register(ctx, req.GetUsername(), req.GetEmail(), req.GetPassword())
-	if err != nil {
-		return nil, err
-	}
-	return convertSession(session), nil
-}
-
-func (s *AuthService) Login(ctx context.Context, req *v1.LoginRequest) (*v1.AuthReply, error) {
-	session, err := s.uc.Login(ctx, req.GetIdentifier(), req.GetPassword())
+func (s *AuthService) SignInWithGoogle(ctx context.Context, req *v1.SignInWithGoogleRequest) (*v1.AuthReply, error) {
+	session, err := s.uc.SignInWithGoogle(ctx, req.GetIdToken(), req.GetNonce())
 	if err != nil {
 		return nil, err
 	}

@@ -10,11 +10,11 @@ import (
 	"challenge/internal/conf"
 
 	_ "common/codec"
+	"common/envconf"
 
 	"github.com/go-kratos/kratos/contrib/otel/v3/tracing"
 	"github.com/go-kratos/kratos/v3"
 	"github.com/go-kratos/kratos/v3/config"
-	"github.com/go-kratos/kratos/v3/config/env"
 	"github.com/go-kratos/kratos/v3/config/file"
 	"github.com/go-kratos/kratos/v3/log"
 	"github.com/go-kratos/kratos/v3/transport/grpc"
@@ -68,10 +68,9 @@ func main() {
 	)
 	log.SetDefault(logger)
 	c := config.New(
-		config.WithSource(
-			file.NewSource(flagconf),
-			env.NewSource("KRATOS"),
-		),
+		config.WithSource(file.NewSource(flagconf)),
+		// ${NAME} placeholders are filled from the environment; the file holds no fallback values.
+		config.WithResolver(envconf.Resolve),
 	)
 	defer c.Close()
 

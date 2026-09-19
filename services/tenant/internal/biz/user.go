@@ -2,17 +2,18 @@ package biz
 
 import (
 	"context"
-	"net/mail"
-	"regexp"
+	"errors"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 )
 
 // User is a dashboard account with the tier it belongs to.
 type User struct {
-	ID         uuid.UUID
+	ID uuid.UUID
+	// Username is the display name taken from Google; it is not unique and not used to sign in.
 	Username   string
 	Email      string
 	TierID     string
@@ -27,19 +28,28 @@ type Session struct {
 	User        *User
 }
 
+// Repository outcomes that are handled inside the service and never reach clients.
+var (
+	ErrUserNotFound   = errors.New("user not found")
+	ErrGoogleSubTaken = errors.New("google account already has a user")
+)
+
 // UserRepo stores accounts.
 type UserRepo interface {
-	Create(ctx context.Context, username, email, passwordHash string) (uuid.UUID, error)
-	// FindCredentials looks the account up by email when the identifier holds "@",
-	// by username otherwise.
-	FindCredentials(ctx context.Context, identifier string) (uuid.UUID, string, error)
+	// FindByGoogleSub returns ErrUserNotFound when no account belongs to the Google account.
+	FindByGoogleSub(ctx context.Context, sub string) (uuid.UUID, error)
+	// LinkGoogleAccount attaches the Google account to the account with this email if it has
+	// none yet; ErrUserNotFound otherwise.
+	LinkGoogleAccount(ctx context.Context, email, sub, name string) (uuid.UUID, error)
+	// CreateGoogleUser returns ErrGoogleAccountConflict when the email is taken and
+	// ErrGoogleSubTaken when the Google account already has a user.
+	CreateGoogleUser(ctx context.Context, sub, email, name string) (uuid.UUID, error)
+	// UpdateGoogleProfile refreshes the display name, and the email unless another account
+	// uses it. Empty values leave the stored ones unchanged.
+	UpdateGoogleProfile(ctx context.Context, id uuid.UUID, email, name string) error
 	Profile(ctx context.Context, id uuid.UUID) (*User, error)
-}
-
-// PasswordHasher hashes passwords and checks them.
-type PasswordHasher interface {
-	Hash(password string) (string, error)
-	Compare(hash, password string) bool
+	// Exists reports whether the account is still there; tokens outlive a deleted account.
+	Exists(ctx context.Context, id uuid.UUID) (bool, error)
 }
 
 // TokenIssuer mints access tokens.
@@ -47,67 +57,46 @@ type TokenIssuer interface {
 	Issue(userID uuid.UUID) (string, time.Duration, error)
 }
 
-// AuthUsecase registers users and signs them in.
+// AuthUsecase signs users in with Google.
 type AuthUsecase struct {
 	users  UserRepo
-	hasher PasswordHasher
+	google GoogleVerifier
 	tokens TokenIssuer
 }
 
-func NewAuthUsecase(users UserRepo, hasher PasswordHasher, tokens TokenIssuer) *AuthUsecase {
-	return &AuthUsecase{users: users, hasher: hasher, tokens: tokens}
+func NewAuthUsecase(users UserRepo, google GoogleVerifier, tokens TokenIssuer) *AuthUsecase {
+	return &AuthUsecase{users: users, google: google, tokens: tokens}
 }
 
-const (
-	minPasswordLen = 8
-	// bcrypt reads at most 72 bytes.
-	maxPasswordLen = 72
-	maxEmailLen    = 254
-)
+const maxDisplayNameLen = 64
 
-var usernamePattern = regexp.MustCompile(`^[a-z0-9_]{3,32}$`)
+// SignInWithGoogle turns a Google ID token into a session, creating the account on the
+// first sign-in of that Google account.
+func (uc *AuthUsecase) SignInWithGoogle(ctx context.Context, idToken, nonce string) (*Session, error) {
+	identity, err := uc.google.Verify(ctx, idToken, nonce)
+	if err != nil {
+		return nil, err
+	}
+	name := displayName(identity)
 
-// dummyHash is compared against when an identifier is unknown, so a failed login
-// costs the same work either way and does not reveal which accounts exist.
-const dummyHash = "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"
-
-// Register creates an account and signs it in.
-func (uc *AuthUsecase) Register(ctx context.Context, username, email, password string) (*Session, error) {
-	username, err := normalizeUsername(username)
-	if err != nil {
+	id, err := uc.users.FindByGoogleSub(ctx, identity.Subject)
+	switch {
+	case err == nil:
+		// Keep the display name and email in step with the Google profile. An unverified
+		// address is never stored: it could block the real owner from signing up.
+		email := ""
+		if identity.EmailVerified {
+			email = identity.Email
+		}
+		if err := uc.users.UpdateGoogleProfile(ctx, id, email, name); err != nil {
+			return nil, err
+		}
+	case errors.Is(err, ErrUserNotFound):
+		if id, err = uc.firstSignIn(ctx, identity, name); err != nil {
+			return nil, err
+		}
+	default:
 		return nil, err
-	}
-	email, err = normalizeEmail(email)
-	if err != nil {
-		return nil, err
-	}
-	if err := validatePassword(password); err != nil {
-		return nil, err
-	}
-	hash, err := uc.hasher.Hash(password)
-	if err != nil {
-		return nil, err
-	}
-	id, err := uc.users.Create(ctx, username, email, hash)
-	if err != nil {
-		return nil, err
-	}
-	return uc.session(ctx, id)
-}
-
-// Login accepts a username or an email.
-func (uc *AuthUsecase) Login(ctx context.Context, identifier, password string) (*Session, error) {
-	identifier = strings.ToLower(strings.TrimSpace(identifier))
-	if identifier == "" || password == "" {
-		return nil, ErrInvalidCredentials
-	}
-	id, hash, err := uc.users.FindCredentials(ctx, identifier)
-	if err != nil {
-		uc.hasher.Compare(dummyHash, password)
-		return nil, ErrInvalidCredentials
-	}
-	if !uc.hasher.Compare(hash, password) {
-		return nil, ErrInvalidCredentials
 	}
 	return uc.session(ctx, id)
 }
@@ -115,6 +104,37 @@ func (uc *AuthUsecase) Login(ctx context.Context, identifier, password string) (
 // Me returns the signed-in account.
 func (uc *AuthUsecase) Me(ctx context.Context, userID uuid.UUID) (*User, error) {
 	return uc.users.Profile(ctx, userID)
+}
+
+func (uc *AuthUsecase) firstSignIn(ctx context.Context, identity *GoogleIdentity, name string) (uuid.UUID, error) {
+	if !identity.EmailVerified {
+		return uuid.Nil, ErrGoogleEmailUnverified
+	}
+	id, err := uc.claimOrCreate(ctx, identity, name)
+	if errors.Is(err, ErrGoogleSubTaken) || errors.Is(err, ErrGoogleAccountConflict) {
+		// A concurrent first sign-in of the same Google account may have got there first;
+		// PostgreSQL then reports whichever unique index it checked first.
+		existing, findErr := uc.users.FindByGoogleSub(ctx, identity.Subject)
+		switch {
+		case findErr == nil:
+			return existing, nil
+		case !errors.Is(findErr, ErrUserNotFound):
+			return uuid.Nil, findErr
+		}
+	}
+	return id, err
+}
+
+func (uc *AuthUsecase) claimOrCreate(ctx context.Context, identity *GoogleIdentity, name string) (uuid.UUID, error) {
+	// Accounts from before Google sign-in are only claimed through addresses Google owns;
+	// for any other address Google cannot vouch that the person still controls it.
+	if identity.EmailAuthoritative {
+		id, err := uc.users.LinkGoogleAccount(ctx, identity.Email, identity.Subject, name)
+		if !errors.Is(err, ErrUserNotFound) {
+			return id, err
+		}
+	}
+	return uc.users.CreateGoogleUser(ctx, identity.Subject, identity.Email, name)
 }
 
 func (uc *AuthUsecase) session(ctx context.Context, id uuid.UUID) (*Session, error) {
@@ -129,27 +149,14 @@ func (uc *AuthUsecase) session(ctx context.Context, id uuid.UUID) (*Session, err
 	return &Session{AccessToken: token, ExpiresIn: ttl, User: user}, nil
 }
 
-func normalizeUsername(username string) (string, error) {
-	username = strings.ToLower(strings.TrimSpace(username))
-	if !usernamePattern.MatchString(username) {
-		return "", InvalidField("username", "username must be 3-32 characters of a-z, 0-9 or _")
+// displayName prefers the Google profile name and falls back to the email's local part.
+func displayName(identity *GoogleIdentity) string {
+	name := strings.TrimSpace(identity.Name)
+	if name == "" {
+		name, _, _ = strings.Cut(identity.Email, "@")
 	}
-	return username, nil
-}
-
-func normalizeEmail(email string) (string, error) {
-	email = strings.ToLower(strings.TrimSpace(email))
-	address, err := mail.ParseAddress(email)
-	// Reject anything but a bare address, e.g. "Ann <a@b.com>".
-	if err != nil || address.Address != email || len(email) > maxEmailLen {
-		return "", InvalidField("email", "email is not a valid address")
+	if utf8.RuneCountInString(name) > maxDisplayNameLen {
+		name = string([]rune(name)[:maxDisplayNameLen])
 	}
-	return email, nil
-}
-
-func validatePassword(password string) error {
-	if len(password) < minPasswordLen || len(password) > maxPasswordLen {
-		return InvalidField("password", "password must be 8-72 bytes")
-	}
-	return nil
+	return name
 }

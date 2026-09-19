@@ -19,21 +19,19 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AuthService_Register_FullMethodName = "/tenant.v1.AuthService/Register"
-	AuthService_Login_FullMethodName    = "/tenant.v1.AuthService/Login"
-	AuthService_GetMe_FullMethodName    = "/tenant.v1.AuthService/GetMe"
+	AuthService_SignInWithGoogle_FullMethodName = "/tenant.v1.AuthService/SignInWithGoogle"
+	AuthService_GetMe_FullMethodName            = "/tenant.v1.AuthService/GetMe"
 )
 
 // AuthServiceClient is the client API for AuthService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// AuthService registers dashboard users and signs them in.
+// AuthService signs dashboard users in with their Google account.
 type AuthServiceClient interface {
-	// Register creates an account and returns an access token for it.
-	Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*AuthReply, error)
-	// Login exchanges a username or email plus password for an access token.
-	Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*AuthReply, error)
+	// SignInWithGoogle exchanges a Google ID token for an access token.
+	// The first sign-in of a Google account creates its WAU account.
+	SignInWithGoogle(ctx context.Context, in *SignInWithGoogleRequest, opts ...grpc.CallOption) (*AuthReply, error)
 	// GetMe returns the signed-in user. Requires "Authorization: Bearer <access_token>".
 	GetMe(ctx context.Context, in *GetMeRequest, opts ...grpc.CallOption) (*User, error)
 }
@@ -46,20 +44,10 @@ func NewAuthServiceClient(cc grpc.ClientConnInterface) AuthServiceClient {
 	return &authServiceClient{cc}
 }
 
-func (c *authServiceClient) Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*AuthReply, error) {
+func (c *authServiceClient) SignInWithGoogle(ctx context.Context, in *SignInWithGoogleRequest, opts ...grpc.CallOption) (*AuthReply, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(AuthReply)
-	err := c.cc.Invoke(ctx, AuthService_Register_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *authServiceClient) Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*AuthReply, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(AuthReply)
-	err := c.cc.Invoke(ctx, AuthService_Login_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, AuthService_SignInWithGoogle_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -80,12 +68,11 @@ func (c *authServiceClient) GetMe(ctx context.Context, in *GetMeRequest, opts ..
 // All implementations must embed UnimplementedAuthServiceServer
 // for forward compatibility.
 //
-// AuthService registers dashboard users and signs them in.
+// AuthService signs dashboard users in with their Google account.
 type AuthServiceServer interface {
-	// Register creates an account and returns an access token for it.
-	Register(context.Context, *RegisterRequest) (*AuthReply, error)
-	// Login exchanges a username or email plus password for an access token.
-	Login(context.Context, *LoginRequest) (*AuthReply, error)
+	// SignInWithGoogle exchanges a Google ID token for an access token.
+	// The first sign-in of a Google account creates its WAU account.
+	SignInWithGoogle(context.Context, *SignInWithGoogleRequest) (*AuthReply, error)
 	// GetMe returns the signed-in user. Requires "Authorization: Bearer <access_token>".
 	GetMe(context.Context, *GetMeRequest) (*User, error)
 	mustEmbedUnimplementedAuthServiceServer()
@@ -98,11 +85,8 @@ type AuthServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedAuthServiceServer struct{}
 
-func (UnimplementedAuthServiceServer) Register(context.Context, *RegisterRequest) (*AuthReply, error) {
-	return nil, status.Error(codes.Unimplemented, "method Register not implemented")
-}
-func (UnimplementedAuthServiceServer) Login(context.Context, *LoginRequest) (*AuthReply, error) {
-	return nil, status.Error(codes.Unimplemented, "method Login not implemented")
+func (UnimplementedAuthServiceServer) SignInWithGoogle(context.Context, *SignInWithGoogleRequest) (*AuthReply, error) {
+	return nil, status.Error(codes.Unimplemented, "method SignInWithGoogle not implemented")
 }
 func (UnimplementedAuthServiceServer) GetMe(context.Context, *GetMeRequest) (*User, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetMe not implemented")
@@ -128,38 +112,20 @@ func RegisterAuthServiceServer(s grpc.ServiceRegistrar, srv AuthServiceServer) {
 	s.RegisterService(&AuthService_ServiceDesc, srv)
 }
 
-func _AuthService_Register_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RegisterRequest)
+func _AuthService_SignInWithGoogle_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SignInWithGoogleRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(AuthServiceServer).Register(ctx, in)
+		return srv.(AuthServiceServer).SignInWithGoogle(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: AuthService_Register_FullMethodName,
+		FullMethod: AuthService_SignInWithGoogle_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AuthServiceServer).Register(ctx, req.(*RegisterRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _AuthService_Login_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(LoginRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AuthServiceServer).Login(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: AuthService_Login_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AuthServiceServer).Login(ctx, req.(*LoginRequest))
+		return srv.(AuthServiceServer).SignInWithGoogle(ctx, req.(*SignInWithGoogleRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -190,12 +156,8 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*AuthServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Register",
-			Handler:    _AuthService_Register_Handler,
-		},
-		{
-			MethodName: "Login",
-			Handler:    _AuthService_Login_Handler,
+			MethodName: "SignInWithGoogle",
+			Handler:    _AuthService_SignInWithGoogle_Handler,
 		},
 		{
 			MethodName: "GetMe",

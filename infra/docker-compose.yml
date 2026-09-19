@@ -1,8 +1,5 @@
 name: wau-infra
 
-# Redis nodes 02-06 share redis-node-01's network namespace. Each node listens on its
-# own port and announces 127.0.0.1, which is reachable both by the other nodes and,
-# through the published ports, by services running on the host.
 x-redis-node-common: &redis-node-common
   image: redis:8.10-alpine
   healthcheck:
@@ -130,8 +127,6 @@ services:
     volumes:
       - redis-node-06-data:/data
 
-  # Creates the cluster once; skipped when it is already healthy.
-  redis-cluster-init:
     image: redis:8.10-alpine
     network_mode: service:redis-node-01
     depends_on:

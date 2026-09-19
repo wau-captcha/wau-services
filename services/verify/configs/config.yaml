@@ -1,28 +1,22 @@
 server:
   http:
-    addr: 0.0.0.0:8001
+    addr: ${KRATOS_HTTP_ADDR}
     timeout: 1s
   grpc:
-    addr: 0.0.0.0:9001
+    addr: ${KRATOS_GRPC_ADDR}
     timeout: 1s
 data:
   database:
-    source: ${DATABASE_SOURCE:postgres://postgres:postgres@127.0.0.1:5432/wau?sslmode=disable}
+    source: ${KRATOS_DATABASE_SOURCE}
   redis:
-    addrs:
-      - 127.0.0.1:7001
-      - 127.0.0.1:7002
-      - 127.0.0.1:7003
-      - 127.0.0.1:7004
-      - 127.0.0.1:7005
-      - 127.0.0.1:7006
-    password: ${REDIS_PASSWORD:}
+    addrs: ${KRATOS_REDIS_ADDRS}
+    password: ${KRATOS_REDIS_PASSWORD}
     read_timeout: 0.2s
     write_timeout: 0.2s
 client:
   challenge:
-    endpoint: 127.0.0.1:9000
+    endpoint: ${KRATOS_CHALLENGE_GRPC_ENDPOINT}
     timeout: 0.5s
 token:
-  secret: ${TOKEN_SECRET:}
+  secret: ${KRATOS_TOKEN_SECRET}
   ttl: 120s

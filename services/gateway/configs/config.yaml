@@ -1,21 +1,19 @@
 server:
   http:
-    addr: 0.0.0.0:8080
+    addr: ${KRATOS_HTTP_ADDR}
     timeout: 5s
 routes:
   - prefix: /v1/
-    upstream: ${TENANT_UPSTREAM:http://127.0.0.1:8002}
+    upstream: ${KRATOS_TENANT_UPSTREAM}
   - prefix: /challenge/new
-    upstream: ${CHALLENGE_UPSTREAM:http://127.0.0.1:8000}
+    upstream: ${KRATOS_CHALLENGE_UPSTREAM}
   - prefix: /challenge/verify
-    upstream: ${VERIFY_UPSTREAM:http://127.0.0.1:8001}
+    upstream: ${KRATOS_VERIFY_UPSTREAM}
   - prefix: /siteverify
-    upstream: ${VERIFY_UPSTREAM:http://127.0.0.1:8001}
+    upstream: ${KRATOS_VERIFY_UPSTREAM}
 rate_limit:
   prefixes:
     - /v1/auth/
   requests: 20
   window: 60s
-  trusted_proxies:
-    - 127.0.0.0/8
-    - ::1/128
+  trusted_proxies: ${KRATOS_TRUSTED_PROXIES}

@@ -175,36 +175,19 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/tenant.v1.ApiKey'
-    /v1/auth/login:
+    /v1/auth/google:
         post:
             tags:
                 - AuthService
-            description: Login exchanges a username or email plus password for an access token.
-            operationId: AuthService_Login
+            description: |-
+                SignInWithGoogle exchanges a Google ID token for an access token.
+                 The first sign-in of a Google account creates its WAU account.
+            operationId: AuthService_SignInWithGoogle
             requestBody:
                 content:
                     application/json:
                         schema:
-                            $ref: '#/components/schemas/tenant.v1.LoginRequest'
-                required: true
-            responses:
-                "200":
-                    description: OK
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/tenant.v1.AuthReply'
-    /v1/auth/register:
-        post:
-            tags:
-                - AuthService
-            description: Register creates an account and returns an access token for it.
-            operationId: AuthService_Register
-            requestBody:
-                content:
-                    application/json:
-                        schema:
-                            $ref: '#/components/schemas/tenant.v1.RegisterRequest'
+                            $ref: '#/components/schemas/tenant.v1.SignInWithGoogleRequest'
                 required: true
             responses:
                 "200":
@@ -374,32 +357,18 @@ components:
                     type: string
                 success:
                     type: string
-        tenant.v1.LoginRequest:
+        tenant.v1.SignInWithGoogleRequest:
             required:
-                - identifier
-                - password
+                - id_token
+                - nonce
             type: object
             properties:
-                identifier:
+                id_token:
                     type: string
-                    description: Username, or email when it contains "@".
-                password:
+                    description: The `credential` returned by Google Identity Services.
+                nonce:
                     type: string
-        tenant.v1.RegisterRequest:
-            required:
-                - username
-                - email
-                - password
-            type: object
-            properties:
-                username:
-                    type: string
-                    description: 3-32 characters, lowercase letters, digits and underscore.
-                email:
-                    type: string
-                password:
-                    type: string
-                    description: 8-72 bytes.
+                    description: The nonce given to Google Identity Services for this sign-in; it must match the token.
         tenant.v1.UpdateApiKeyRequest:
             required:
                 - api_key
@@ -434,6 +403,7 @@ components:
                     type: string
                 username:
                     type: string
+                    description: Display name taken from the Google profile; not used to sign in and not unique.
                 email:
                     type: string
                 tier_id:
@@ -483,7 +453,7 @@ tags:
         ApiKeyService manages the captcha keys of the signed-in user.
          Every RPC requires "Authorization: Bearer <access_token>".
     - name: AuthService
-      description: AuthService registers dashboard users and signs them in.
+      description: AuthService signs dashboard users in with their Google account.
     - name: CatalogService
       description: CatalogService lists what the tier of the signed-in user may use.
     - name: ChallengeService

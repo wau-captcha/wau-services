@@ -15,7 +15,6 @@ require (
 	github.com/joho/godotenv v1.5.1
 	go.einride.tech/aip v0.86.3
 	go.uber.org/automaxprocs v1.6.0
-	golang.org/x/crypto v0.57.0
 	google.golang.org/protobuf v1.36.12
 )
 

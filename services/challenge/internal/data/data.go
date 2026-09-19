@@ -6,6 +6,8 @@ import (
 	"challenge/internal/conf"
 	"challenge/internal/data/db"
 
+	"common/envconf"
+
 	"github.com/go-kratos/kratos/v3/log"
 	"github.com/google/wire"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -26,7 +28,7 @@ func NewData(c *conf.Data) (*Data, func(), error) {
 	}
 	r := c.GetRedis()
 	rdb := redis.NewClusterClient(&redis.ClusterOptions{
-		Addrs:        r.GetAddrs(),
+		Addrs:        envconf.List(r.GetAddrs()),
 		Password:     r.GetPassword(),
 		ReadTimeout:  r.GetReadTimeout().AsDuration(),
 		WriteTimeout: r.GetWriteTimeout().AsDuration(),

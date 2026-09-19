@@ -1,23 +1,16 @@
 server:
   http:
-    addr: 0.0.0.0:8000
-    # motion_noise encodes a multi-megabyte GIF (~0.3s on a dev machine); leave headroom under load.
+    addr: ${KRATOS_HTTP_ADDR}
     timeout: 3s
   grpc:
-    addr: 0.0.0.0:9000
+    addr: ${KRATOS_GRPC_ADDR}
     timeout: 1s
 data:
   database:
-    source: ${DATABASE_SOURCE:postgres://postgres:postgres@127.0.0.1:5432/wau?sslmode=disable}
+    source: ${KRATOS_DATABASE_SOURCE}
   redis:
-    addrs:
-      - 127.0.0.1:7001
-      - 127.0.0.1:7002
-      - 127.0.0.1:7003
-      - 127.0.0.1:7004
-      - 127.0.0.1:7005
-      - 127.0.0.1:7006
-    password: ${REDIS_PASSWORD:}
+    addrs: ${KRATOS_REDIS_ADDRS}
+    password: ${KRATOS_REDIS_PASSWORD}
     read_timeout: 0.2s
     write_timeout: 0.2s
 challenge:

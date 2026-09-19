@@ -47,12 +47,12 @@ func TestMiddlewareLimitsOnlyConfiguredPrefixes(t *testing.T) {
 		return recorder
 	}
 
-	if code := send("/v1/auth/login").Code; code != http.StatusOK {
-		t.Fatalf("first login status = %d, want 200", code)
+	if code := send("/v1/auth/google").Code; code != http.StatusOK {
+		t.Fatalf("first sign-in status = %d, want 200", code)
 	}
-	blocked := send("/v1/auth/login")
+	blocked := send("/v1/auth/google")
 	if blocked.Code != http.StatusTooManyRequests {
-		t.Fatalf("second login status = %d, want 429", blocked.Code)
+		t.Fatalf("second sign-in status = %d, want 429", blocked.Code)
 	}
 	if blocked.Header().Get("Retry-After") == "" {
 		t.Fatal("Retry-After header is missing")

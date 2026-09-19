@@ -8,20 +8,13 @@ import "google/protobuf/timestamp.proto";
 
 option go_package = "common/proto/tenant/v1;v1";
 
-// AuthService registers dashboard users and signs them in.
+// AuthService signs dashboard users in with their Google account.
 service AuthService {
-  // Register creates an account and returns an access token for it.
-  rpc Register(RegisterRequest) returns (AuthReply) {
+  // SignInWithGoogle exchanges a Google ID token for an access token.
+  // The first sign-in of a Google account creates its WAU account.
+  rpc SignInWithGoogle(SignInWithGoogleRequest) returns (AuthReply) {
     option (google.api.http) = {
-      post: "/v1/auth/register"
-      body: "*"
-    };
-  }
-
-  // Login exchanges a username or email plus password for an access token.
-  rpc Login(LoginRequest) returns (AuthReply) {
-    option (google.api.http) = {
-      post: "/v1/auth/login"
+      post: "/v1/auth/google"
       body: "*"
     };
   }
@@ -32,18 +25,11 @@ service AuthService {
   }
 }
 
-message RegisterRequest {
-  // 3-32 characters, lowercase letters, digits and underscore.
-  string username = 1 [(google.api.field_behavior) = REQUIRED];
-  string email = 2 [(google.api.field_behavior) = REQUIRED];
-  // 8-72 bytes.
-  string password = 3 [(google.api.field_behavior) = REQUIRED];
-}
-
-message LoginRequest {
-  // Username, or email when it contains "@".
-  string identifier = 1 [(google.api.field_behavior) = REQUIRED];
-  string password = 2 [(google.api.field_behavior) = REQUIRED];
+message SignInWithGoogleRequest {
+  // The `credential` returned by Google Identity Services.
+  string id_token = 1 [(google.api.field_behavior) = REQUIRED];
+  // The nonce given to Google Identity Services for this sign-in; it must match the token.
+  string nonce = 2 [(google.api.field_behavior) = REQUIRED];
 }
 
 message GetMeRequest {}
@@ -57,6 +43,7 @@ message AuthReply {
 
 message User {
   string id = 1;
+  // Display name taken from the Google profile; not used to sign in and not unique.
   string username = 2;
   string email = 3;
   string tier_id = 4;

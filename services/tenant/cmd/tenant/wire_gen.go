@@ -26,7 +26,7 @@ import (
 // Injectors from wire.go:
 
 // wireApp init kratos application.
-func wireApp(confServer *conf.Server, confData *conf.Data, confAuth *conf.Auth, apiKey *conf.ApiKey, usage *conf.Usage, logger *slog.Logger) (*kratos.App, func(), error) {
+func wireApp(confServer *conf.Server, confData *conf.Data, confAuth *conf.Auth, google *conf.Google, apiKey *conf.ApiKey, usage *conf.Usage, logger *slog.Logger) (*kratos.App, func(), error) {
 	jwt, err := auth.NewJWT(confAuth)
 	if err != nil {
 		return nil, nil, err
@@ -36,8 +36,12 @@ func wireApp(confServer *conf.Server, confData *conf.Data, confAuth *conf.Auth, 
 		return nil, nil, err
 	}
 	userRepo := data.NewUserRepo(dataData)
-	bcrypt := auth.NewBcrypt()
-	authUsecase := biz.NewAuthUsecase(userRepo, bcrypt, jwt)
+	authGoogle, err := auth.NewGoogle(google)
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
+	authUsecase := biz.NewAuthUsecase(userRepo, authGoogle, jwt)
 	authService := service.NewAuthService(authUsecase)
 	apiKeyRepo := data.NewApiKeyRepo(dataData)
 	apiKeyUsecase := biz.NewApiKeyUsecase(apiKeyRepo, apiKey)
@@ -52,7 +56,7 @@ func wireApp(confServer *conf.Server, confData *conf.Data, confAuth *conf.Auth, 
 	catalogRepo := data.NewCatalogRepo(dataData)
 	catalogUsecase := biz.NewCatalogUsecase(catalogRepo)
 	catalogService := service.NewCatalogService(catalogUsecase)
-	httpServer := server.NewHTTPServer(confServer, jwt, authService, apiKeyService, usageService, catalogService)
+	httpServer := server.NewHTTPServer(confServer, jwt, userRepo, authService, apiKeyService, usageService, catalogService)
 	app := newApp(logger, httpServer)
 	return app, func() {
 		cleanup()

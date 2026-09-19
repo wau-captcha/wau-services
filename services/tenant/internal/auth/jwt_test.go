@@ -167,14 +167,25 @@ func contextWithAuthorization(value string) context.Context {
 	return transport.NewServerContext(context.Background(), &fakeTransport{header: header})
 }
 
+// fakeAccounts holds the users that still exist.
+type fakeAccounts struct {
+	ids map[uuid.UUID]bool
+	err error
+}
+
+func (f fakeAccounts) Exists(_ context.Context, id uuid.UUID) (bool, error) {
+	return f.ids[id], f.err
+}
+
 func TestMiddleware(t *testing.T) {
 	j := testJWT(t)
 	id := uuid.New()
 	token, _, _ := j.Issue(id)
+	accounts := fakeAccounts{ids: map[uuid.UUID]bool{id: true}}
 
 	t.Run("valid bearer", func(t *testing.T) {
 		var seen uuid.UUID
-		handler := Middleware(j)(func(ctx context.Context, _ any) (any, error) {
+		handler := Middleware(j, accounts)(func(ctx context.Context, _ any) (any, error) {
 			seen, _ = UserID(ctx)
 			return nil, nil
 		})
@@ -186,15 +197,17 @@ func TestMiddleware(t *testing.T) {
 		}
 	})
 
+	deletedToken, _, _ := j.Issue(uuid.New())
 	rejected := map[string]string{
-		"missing":      "",
-		"wrong scheme": "Basic " + token,
-		"bad token":    "Bearer not-a-token",
+		"missing":         "",
+		"wrong scheme":    "Basic " + token,
+		"bad token":       "Bearer not-a-token",
+		"deleted account": "Bearer " + deletedToken,
 	}
 	for name, value := range rejected {
 		t.Run(name, func(t *testing.T) {
 			called := false
-			handler := Middleware(j)(func(context.Context, any) (any, error) {
+			handler := Middleware(j, accounts)(func(context.Context, any) (any, error) {
 				called = true
 				return nil, nil
 			})
@@ -207,4 +220,15 @@ func TestMiddleware(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("account lookup fails", func(t *testing.T) {
+		lookupErr := errors.New(500, "DB", "down")
+		handler := Middleware(j, fakeAccounts{err: lookupErr})(func(context.Context, any) (any, error) {
+			t.Fatal("handler ran although the account could not be checked")
+			return nil, nil
+		})
+		if _, err := handler(contextWithAuthorization("Bearer "+token), nil); !errors.Is(err, lookupErr) {
+			t.Fatalf("err = %v, want the lookup error", err)
+		}
+	})
 }

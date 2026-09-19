@@ -9,7 +9,7 @@ import (
 // ProviderSet is auth providers.
 var ProviderSet = wire.NewSet(
 	NewJWT,
-	NewBcrypt,
+	NewGoogle,
 	wire.Bind(new(biz.TokenIssuer), new(*JWT)),
-	wire.Bind(new(biz.PasswordHasher), new(*Bcrypt)),
+	wire.Bind(new(biz.GoogleVerifier), new(*Google)),
 )

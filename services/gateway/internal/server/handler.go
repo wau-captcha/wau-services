@@ -8,6 +8,8 @@ import (
 	"gateway/internal/conf"
 	"gateway/internal/proxy"
 	"gateway/internal/ratelimit"
+
+	"common/envconf"
 )
 
 // NewHandler builds the proxy described by the config, wrapped in the rate limit
@@ -33,7 +35,7 @@ func NewHandler(bc *conf.Bootstrap) (http.Handler, error) {
 	if len(limit.GetPrefixes()) == 0 || limit.GetRequests() <= 0 || limit.GetWindow().AsDuration() <= 0 {
 		return handler, nil
 	}
-	trusted, err := ratelimit.ParsePrefixes(limit.GetTrustedProxies())
+	trusted, err := ratelimit.ParsePrefixes(envconf.List(limit.GetTrustedProxies()))
 	if err != nil {
 		return nil, err
 	}

@@ -10,11 +10,11 @@ import (
 	"tenant/internal/conf"
 
 	_ "common/codec"
+	"common/envconf"
 
 	"github.com/go-kratos/kratos/contrib/otel/v3/tracing"
 	"github.com/go-kratos/kratos/v3"
 	"github.com/go-kratos/kratos/v3/config"
-	"github.com/go-kratos/kratos/v3/config/env"
 	"github.com/go-kratos/kratos/v3/config/file"
 	"github.com/go-kratos/kratos/v3/log"
 	"github.com/go-kratos/kratos/v3/transport/http"
@@ -71,10 +71,9 @@ func main() {
 	)
 	log.SetDefault(logger)
 	c := config.New(
-		config.WithSource(
-			file.NewSource(flagconf),
-			env.NewSource("KRATOS"),
-		),
+		config.WithSource(file.NewSource(flagconf)),
+		// ${NAME} placeholders are filled from the environment; the file holds no fallback values.
+		config.WithResolver(envconf.Resolve),
 	)
 	defer c.Close()
 
@@ -87,7 +86,7 @@ func main() {
 		panic(err)
 	}
 
-	app, cleanup, err := wireApp(bc.Server, bc.Data, bc.Auth, bc.ApiKey, bc.Usage, logger)
+	app, cleanup, err := wireApp(bc.Server, bc.Data, bc.Auth, bc.Google, bc.ApiKey, bc.Usage, logger)
 	if err != nil {
 		panic(err)
 	}

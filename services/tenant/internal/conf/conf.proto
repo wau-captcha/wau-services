@@ -11,6 +11,7 @@ message Bootstrap {
   Auth auth = 3;
   ApiKey api_key = 4;
   Usage usage = 5;
+  Google google = 6;
 }
 
 message Server {
@@ -45,4 +46,13 @@ message ApiKey {
 message Usage {
   // IANA name used to group usage records by local day.
   string time_zone = 1;
+}
+
+message Google {
+  // OAuth client ID of the dashboard; ID tokens must be issued for it.
+  string client_id = 1;
+  // Google's signing keys in JWK format.
+  string jwks_url = 2;
+  // Accepted "iss" values.
+  repeated string issuers = 3;
 }

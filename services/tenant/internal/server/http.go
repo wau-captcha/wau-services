@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"tenant/internal/auth"
+	"tenant/internal/biz"
 	"tenant/internal/conf"
 	"tenant/internal/service"
 
@@ -22,6 +23,7 @@ import (
 func NewHTTPServer(
 	c *conf.Server,
 	jwt *auth.JWT,
+	users biz.UserRepo,
 	authService *service.AuthService,
 	apiKeys *service.ApiKeyService,
 	usage *service.UsageService,
@@ -32,7 +34,7 @@ func NewHTTPServer(
 		http.Middleware(
 			recovery.Recovery(),
 			sanitizeErrors(),
-			selector.Server(auth.Middleware(jwt)).Match(protected).Build(),
+			selector.Server(auth.Middleware(jwt, users)).Match(protected).Build(),
 			validate.Validator(func(req any) error {
 				if msg, ok := req.(proto.Message); ok {
 					return fieldbehavior.ValidateRequiredFields(msg)
@@ -58,12 +60,7 @@ func NewHTTPServer(
 	return srv
 }
 
-// protected requires an access token everywhere but on registration and login.
+// protected requires an access token everywhere but on sign-in.
 func protected(_ context.Context, operation string) bool {
-	switch operation {
-	case v1.OperationAuthServiceRegister, v1.OperationAuthServiceLogin:
-		return false
-	default:
-		return true
-	}
+	return operation != v1.OperationAuthServiceSignInWithGoogle
 }

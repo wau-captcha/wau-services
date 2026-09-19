@@ -77,8 +77,8 @@ func TestLongestPrefixWins(t *testing.T) {
 		{Prefix: "/v1/auth/", Upstream: auth.url(t)},
 	})
 
-	if got := call(handler, http.MethodGet, "/v1/auth/login").Body.String(); got != "auth" {
-		t.Fatalf("/v1/auth/login went to %q, want auth", got)
+	if got := call(handler, http.MethodGet, "/v1/auth/google").Body.String(); got != "auth" {
+		t.Fatalf("/v1/auth/google went to %q, want auth", got)
 	}
 	if got := call(handler, http.MethodGet, "/v1/me").Body.String(); got != "tenant" {
 		t.Fatalf("/v1/me went to %q, want tenant", got)

@@ -16,11 +16,11 @@ CREATE TABLE tiers (
 
 CREATE TABLE users (
     user_id     UUID PRIMARY KEY DEFAULT uuidv7(),
-    username    TEXT NOT NULL UNIQUE,
-    password    TEXT NOT NULL,
+    username    TEXT NOT NULL,
     email       TEXT NOT NULL UNIQUE,
     create_date TIMESTAMPTZ NOT NULL DEFAULT now(),
-    tier_id     TEXT NOT NULL REFERENCES tiers(tier_id) DEFAULT 'free'
+    tier_id     TEXT NOT NULL REFERENCES tiers(tier_id) DEFAULT 'free',
+    google_sub  TEXT UNIQUE
 );
 
 CREATE INDEX idx_users_tier_id ON users(tier_id);

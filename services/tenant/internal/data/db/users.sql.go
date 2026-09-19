@@ -12,59 +12,36 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const createUser = `-- name: CreateUser :one
-INSERT INTO users (username, email, password)
+const createGoogleUser = `-- name: CreateGoogleUser :one
+INSERT INTO users (google_sub, email, username)
 VALUES ($1, $2, $3)
 RETURNING user_id
 `
 
-type CreateUserParams struct {
-	Username string
-	Email    string
-	Password string
+type CreateGoogleUserParams struct {
+	GoogleSub pgtype.Text
+	Email     string
+	Username  string
 }
 
-func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (uuid.UUID, error) {
-	row := q.db.QueryRow(ctx, createUser, arg.Username, arg.Email, arg.Password)
+func (q *Queries) CreateGoogleUser(ctx context.Context, arg CreateGoogleUserParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, createGoogleUser, arg.GoogleSub, arg.Email, arg.Username)
 	var user_id uuid.UUID
 	err := row.Scan(&user_id)
 	return user_id, err
 }
 
-const getUserCredentialsByEmail = `-- name: GetUserCredentialsByEmail :one
-SELECT user_id, password
+const findUserByGoogleSub = `-- name: FindUserByGoogleSub :one
+SELECT user_id
 FROM users
-WHERE email = $1
+WHERE google_sub = $1
 `
 
-type GetUserCredentialsByEmailRow struct {
-	UserID   uuid.UUID
-	Password string
-}
-
-func (q *Queries) GetUserCredentialsByEmail(ctx context.Context, email string) (GetUserCredentialsByEmailRow, error) {
-	row := q.db.QueryRow(ctx, getUserCredentialsByEmail, email)
-	var i GetUserCredentialsByEmailRow
-	err := row.Scan(&i.UserID, &i.Password)
-	return i, err
-}
-
-const getUserCredentialsByUsername = `-- name: GetUserCredentialsByUsername :one
-SELECT user_id, password
-FROM users
-WHERE username = $1
-`
-
-type GetUserCredentialsByUsernameRow struct {
-	UserID   uuid.UUID
-	Password string
-}
-
-func (q *Queries) GetUserCredentialsByUsername(ctx context.Context, username string) (GetUserCredentialsByUsernameRow, error) {
-	row := q.db.QueryRow(ctx, getUserCredentialsByUsername, username)
-	var i GetUserCredentialsByUsernameRow
-	err := row.Scan(&i.UserID, &i.Password)
-	return i, err
+func (q *Queries) FindUserByGoogleSub(ctx context.Context, googleSub pgtype.Text) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, findUserByGoogleSub, googleSub)
+	var user_id uuid.UUID
+	err := row.Scan(&user_id)
+	return user_id, err
 }
 
 const getUserProfile = `-- name: GetUserProfile :one
@@ -95,4 +72,62 @@ func (q *Queries) GetUserProfile(ctx context.Context, userID uuid.UUID) (GetUser
 		&i.TierName,
 	)
 	return i, err
+}
+
+const linkGoogleAccount = `-- name: LinkGoogleAccount :one
+UPDATE users
+SET google_sub = $1,
+    username = $2
+WHERE email = $3
+  AND google_sub IS NULL
+RETURNING user_id
+`
+
+type LinkGoogleAccountParams struct {
+	GoogleSub pgtype.Text
+	Username  string
+	Email     string
+}
+
+// Claims an account created before Google sign-in; accounts already linked are left alone.
+func (q *Queries) LinkGoogleAccount(ctx context.Context, arg LinkGoogleAccountParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, linkGoogleAccount, arg.GoogleSub, arg.Username, arg.Email)
+	var user_id uuid.UUID
+	err := row.Scan(&user_id)
+	return user_id, err
+}
+
+const updateGoogleProfile = `-- name: UpdateGoogleProfile :exec
+UPDATE users AS u
+SET username = COALESCE(NULLIF($1::text, ''), u.username),
+    email = CASE
+        WHEN $2::text = '' THEN u.email
+        WHEN EXISTS (SELECT 1 FROM users o WHERE o.email = $2::text AND o.user_id <> u.user_id) THEN u.email
+        ELSE $2::text
+    END
+WHERE u.user_id = $3
+`
+
+type UpdateGoogleProfileParams struct {
+	Username string
+	Email    string
+	UserID   uuid.UUID
+}
+
+// Empty values keep what is stored; the email only changes when no other account uses it.
+func (q *Queries) UpdateGoogleProfile(ctx context.Context, arg UpdateGoogleProfileParams) error {
+	_, err := q.db.Exec(ctx, updateGoogleProfile, arg.Username, arg.Email, arg.UserID)
+	return err
+}
+
+const userExists = `-- name: UserExists :one
+SELECT EXISTS (SELECT 1 FROM users WHERE user_id = $1)
+`
+
+// Access tokens cannot be revoked, so every request checks that its account still exists.
+func (q *Queries) UserExists(ctx context.Context, userID uuid.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, userExists, userID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }

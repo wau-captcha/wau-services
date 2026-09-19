@@ -27,40 +27,42 @@ const (
 	ErrorReason_ERROR_REASON_UNSPECIFIED ErrorReason = 0
 	// Request data broke a validation rule; metadata "field" names it.
 	ErrorReason_INVALID_ARGUMENT ErrorReason = 1
-	ErrorReason_USERNAME_TAKEN   ErrorReason = 2
-	ErrorReason_EMAIL_TAKEN      ErrorReason = 3
-	// Unknown identifier or wrong password; deliberately not distinguished.
-	ErrorReason_INVALID_CREDENTIALS ErrorReason = 4
-	ErrorReason_UNAUTHENTICATED     ErrorReason = 5
+	ErrorReason_UNAUTHENTICATED  ErrorReason = 5
 	// Missing, deleted, or owned by another user.
 	ErrorReason_API_KEY_NOT_FOUND     ErrorReason = 6
 	ErrorReason_API_KEY_LIMIT_REACHED ErrorReason = 7
 	ErrorReason_INTERNAL              ErrorReason = 8
+	// The Google ID token is malformed, expired, meant for another app, or its nonce does not match.
+	ErrorReason_GOOGLE_TOKEN_INVALID ErrorReason = 9
+	// Google has not verified the email of this account, so no WAU account is created for it.
+	ErrorReason_GOOGLE_EMAIL_UNVERIFIED ErrorReason = 10
+	// An existing account already uses this email and cannot be linked to the Google account.
+	ErrorReason_GOOGLE_ACCOUNT_CONFLICT ErrorReason = 11
 )
 
 // Enum value maps for ErrorReason.
 var (
 	ErrorReason_name = map[int32]string{
-		0: "ERROR_REASON_UNSPECIFIED",
-		1: "INVALID_ARGUMENT",
-		2: "USERNAME_TAKEN",
-		3: "EMAIL_TAKEN",
-		4: "INVALID_CREDENTIALS",
-		5: "UNAUTHENTICATED",
-		6: "API_KEY_NOT_FOUND",
-		7: "API_KEY_LIMIT_REACHED",
-		8: "INTERNAL",
+		0:  "ERROR_REASON_UNSPECIFIED",
+		1:  "INVALID_ARGUMENT",
+		5:  "UNAUTHENTICATED",
+		6:  "API_KEY_NOT_FOUND",
+		7:  "API_KEY_LIMIT_REACHED",
+		8:  "INTERNAL",
+		9:  "GOOGLE_TOKEN_INVALID",
+		10: "GOOGLE_EMAIL_UNVERIFIED",
+		11: "GOOGLE_ACCOUNT_CONFLICT",
 	}
 	ErrorReason_value = map[string]int32{
 		"ERROR_REASON_UNSPECIFIED": 0,
 		"INVALID_ARGUMENT":         1,
-		"USERNAME_TAKEN":           2,
-		"EMAIL_TAKEN":              3,
-		"INVALID_CREDENTIALS":      4,
 		"UNAUTHENTICATED":          5,
 		"API_KEY_NOT_FOUND":        6,
 		"API_KEY_LIMIT_REACHED":    7,
 		"INTERNAL":                 8,
+		"GOOGLE_TOKEN_INVALID":     9,
+		"GOOGLE_EMAIL_UNVERIFIED":  10,
+		"GOOGLE_ACCOUNT_CONFLICT":  11,
 	}
 )
 
@@ -95,17 +97,18 @@ var File_tenant_v1_error_reason_proto protoreflect.FileDescriptor
 
 const file_tenant_v1_error_reason_proto_rawDesc = "" +
 	"\n" +
-	"\x1ctenant/v1/error_reason.proto\x12\ttenant.v1*\xd4\x01\n" +
+	"\x1ctenant/v1/error_reason.proto\x12\ttenant.v1*\xae\x02\n" +
 	"\vErrorReason\x12\x1c\n" +
 	"\x18ERROR_REASON_UNSPECIFIED\x10\x00\x12\x14\n" +
-	"\x10INVALID_ARGUMENT\x10\x01\x12\x12\n" +
-	"\x0eUSERNAME_TAKEN\x10\x02\x12\x0f\n" +
-	"\vEMAIL_TAKEN\x10\x03\x12\x17\n" +
-	"\x13INVALID_CREDENTIALS\x10\x04\x12\x13\n" +
+	"\x10INVALID_ARGUMENT\x10\x01\x12\x13\n" +
 	"\x0fUNAUTHENTICATED\x10\x05\x12\x15\n" +
 	"\x11API_KEY_NOT_FOUND\x10\x06\x12\x19\n" +
 	"\x15API_KEY_LIMIT_REACHED\x10\a\x12\f\n" +
-	"\bINTERNAL\x10\bB\x1bZ\x19common/proto/tenant/v1;v1b\x06proto3"
+	"\bINTERNAL\x10\b\x12\x18\n" +
+	"\x14GOOGLE_TOKEN_INVALID\x10\t\x12\x1b\n" +
+	"\x17GOOGLE_EMAIL_UNVERIFIED\x10\n" +
+	"\x12\x1b\n" +
+	"\x17GOOGLE_ACCOUNT_CONFLICT\x10\v\"\x04\b\x02\x10\x02\"\x04\b\x03\x10\x03\"\x04\b\x04\x10\x04*\x0eUSERNAME_TAKEN*\vEMAIL_TAKEN*\x13INVALID_CREDENTIALSB\x1bZ\x19common/proto/tenant/v1;v1b\x06proto3"
 
 var (
 	file_tenant_v1_error_reason_proto_rawDescOnce sync.Once

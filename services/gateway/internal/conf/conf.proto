@@ -34,6 +34,6 @@ message RateLimit {
   repeated string prefixes = 1;
   int32 requests = 2;
   google.protobuf.Duration window = 3;
-  // CIDR blocks whose X-Forwarded-For header may be believed.
-  repeated string trusted_proxies = 4;
+  // Comma-separated CIDR blocks whose X-Forwarded-For header may be believed.
+  string trusted_proxies = 4;
 }

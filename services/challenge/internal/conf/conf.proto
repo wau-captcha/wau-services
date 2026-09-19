@@ -32,8 +32,8 @@ message Data {
     string source = 1;
   }
   message Redis {
-    // Redis Cluster seed nodes.
-    repeated string addrs = 1;
+    // Comma-separated Redis Cluster seed nodes (host:port).
+    string addrs = 1;
     string password = 2;
     google.protobuf.Duration read_timeout = 3;
     google.protobuf.Duration write_timeout = 4;

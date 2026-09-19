@@ -7,10 +7,10 @@ INSERT INTO challenge_types (challenge_type_id, code, is_active) VALUES
     ('slide_puzzle',        'SLIDE_PUZZLE',        true),
     ('behavioral_advanced', 'BEHAVIORAL_ADVANCED', true);
 
-INSERT INTO users (user_id, username, password, email, tier_id) VALUES
-    (uuidv7(), 'john_doe',    '$2a$10$jlgmtv/iSfKprI2Pi3ddDO78Svwpc2ztbXII39HaT07Tuc5zZKwoO', 'john.doe@example.com', 'premium'),
-    (uuidv7(), 'jane_smith',  '$2a$10$jlgmtv/iSfKprI2Pi3ddDO78Svwpc2ztbXII39HaT07Tuc5zZKwoO', 'jane.smith@example.com', 'free'),
-    (uuidv7(), 'acme_shop',   '$2a$10$jlgmtv/iSfKprI2Pi3ddDO78Svwpc2ztbXII39HaT07Tuc5zZKwoO', 'contact@acmeshop.example','free');
+INSERT INTO users (user_id, username, email, tier_id) VALUES
+    (uuidv7(), 'John Doe',    'john.doe@example.com',    'premium'),
+    (uuidv7(), 'Jane Smith',  'jane.smith@example.com',  'free'),
+    (uuidv7(), 'Acme Shop',   'contact@acmeshop.example','free');
 
 INSERT INTO api_keys (site_key, secret_key, user_id) VALUES
     ('pk_26b842dfa84e187d45bfe73655182748471351d8ecb93b36', 'sk_c582fa0b9d443ebe604ae50b3756c8b0560dda11c15e3c2a',
