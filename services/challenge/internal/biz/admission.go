@@ -1,11 +1,8 @@
 package biz
 
 import (
-	"context"
-
 	"common/quota"
-
-	"github.com/go-kratos/kratos/v3/log"
+	"context"
 )
 
 const (
@@ -47,8 +44,7 @@ func (uc *ChallengeUsecase) admit(ctx context.Context, site *Site) error {
 	if err := uc.sites.SuspendForScraping(ctx, site.APIKeyID); err != nil {
 		return err
 	}
-	log.WarnContext(ctx, "api key suspended for scraping",
-		"api_key_id", site.APIKeyID, "challenges", issued, "verifications", verified)
+
 	return ErrApiKeySuspended
 }
 

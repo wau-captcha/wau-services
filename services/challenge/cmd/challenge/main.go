@@ -69,7 +69,6 @@ func main() {
 	log.SetDefault(logger)
 	c := config.New(
 		config.WithSource(file.NewSource(flagconf)),
-		// ${NAME} placeholders are filled from the environment; the file holds no fallback values.
 		config.WithResolver(envconf.Resolve),
 	)
 	defer c.Close()

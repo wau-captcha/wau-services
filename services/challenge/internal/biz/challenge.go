@@ -39,8 +39,7 @@ var (
 	ErrChallengeNotFound        = errors.NotFound(v1.ErrorReason_CHALLENGE_NOT_FOUND.String(), "challenge not found")
 	ErrApiKeySuspended          = errors.Forbidden(v1.ErrorReason_API_KEY_SUSPENDED.String(), "api key is suspended")
 	ErrAccountBanned            = errors.Forbidden(v1.ErrorReason_ACCOUNT_BANNED.String(), "the owner of this api key is banned")
-	ErrDailyQuotaExceeded       = errors.New(http.StatusTooManyRequests,
-		v1.ErrorReason_DAILY_QUOTA_EXCEEDED.String(), "daily verification quota reached")
+	ErrDailyQuotaExceeded       = errors.New(http.StatusTooManyRequests, v1.ErrorReason_DAILY_QUOTA_EXCEEDED.String(), "daily verification quota reached")
 )
 
 // Site is an active API key together with what its owner may do.
