@@ -35,6 +35,8 @@ const (
 	ErrorReason_ACCOUNT_BANNED ErrorReason = 6
 	// The owner used up the successful verifications their tier allows today.
 	ErrorReason_DAILY_QUOTA_EXCEEDED ErrorReason = 7
+	// The address asking for the challenge is not among the key's allowed origins.
+	ErrorReason_ORIGIN_NOT_ALLOWED ErrorReason = 8
 )
 
 // Enum value maps for ErrorReason.
@@ -48,6 +50,7 @@ var (
 		5: "API_KEY_SUSPENDED",
 		6: "ACCOUNT_BANNED",
 		7: "DAILY_QUOTA_EXCEEDED",
+		8: "ORIGIN_NOT_ALLOWED",
 	}
 	ErrorReason_value = map[string]int32{
 		"ERROR_REASON_UNSPECIFIED":   0,
@@ -58,6 +61,7 @@ var (
 		"API_KEY_SUSPENDED":          5,
 		"ACCOUNT_BANNED":             6,
 		"DAILY_QUOTA_EXCEEDED":       7,
+		"ORIGIN_NOT_ALLOWED":         8,
 	}
 )
 
@@ -92,7 +96,7 @@ var File_challenge_v1_error_reason_proto protoreflect.FileDescriptor
 
 const file_challenge_v1_error_reason_proto_rawDesc = "" +
 	"\n" +
-	"\x1fchallenge/v1/error_reason.proto\x12\fchallenge.v1*\xdf\x01\n" +
+	"\x1fchallenge/v1/error_reason.proto\x12\fchallenge.v1*\xf7\x01\n" +
 	"\vErrorReason\x12\x1c\n" +
 	"\x18ERROR_REASON_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10SITE_KEY_INVALID\x10\x01\x12\x1e\n" +
@@ -101,7 +105,8 @@ const file_challenge_v1_error_reason_proto_rawDesc = "" +
 	"\x1aCHALLENGE_TYPE_UNSUPPORTED\x10\x04\x12\x15\n" +
 	"\x11API_KEY_SUSPENDED\x10\x05\x12\x12\n" +
 	"\x0eACCOUNT_BANNED\x10\x06\x12\x18\n" +
-	"\x14DAILY_QUOTA_EXCEEDED\x10\aB\x1eZ\x1ccommon/proto/challenge/v1;v1b\x06proto3"
+	"\x14DAILY_QUOTA_EXCEEDED\x10\a\x12\x16\n" +
+	"\x12ORIGIN_NOT_ALLOWED\x10\bB\x1eZ\x1ccommon/proto/challenge/v1;v1b\x06proto3"
 
 var (
 	file_challenge_v1_error_reason_proto_rawDescOnce sync.Once

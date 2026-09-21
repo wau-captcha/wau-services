@@ -36,12 +36,23 @@ CREATE TABLE api_keys (
     create_date TIMESTAMPTZ NOT NULL DEFAULT now(),
     user_id     UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
     is_suspended   BOOLEAN NOT NULL DEFAULT false,
-    suspend_reason TEXT CONSTRAINT api_keys_suspend_reason_check CHECK (suspend_reason IN ('admin', 'scraping')),
-    CONSTRAINT api_keys_suspension_check CHECK (is_suspended = (suspend_reason IS NOT NULL))
+    suspend_reason TEXT CONSTRAINT api_keys_suspend_reason_check CHECK (suspend_reason IN ('ADMIN', 'SCRAPING')),
+    previous_secret_key TEXT UNIQUE,
+    previous_secret_key_expires_at TIMESTAMPTZ,
+    CONSTRAINT api_keys_suspension_check CHECK (is_suspended = (suspend_reason IS NOT NULL)),
+    CONSTRAINT api_keys_previous_secret_check CHECK ((previous_secret_key IS NULL) = (previous_secret_key_expires_at IS NULL))
 );
 
 CREATE INDEX idx_api_keys_site_key ON api_keys(site_key);
 CREATE INDEX idx_api_keys_user_id ON api_keys(user_id);
+
+CREATE TABLE api_key_allowed_origins (
+    api_key_id  UUID NOT NULL REFERENCES api_keys(api_key_id) ON DELETE CASCADE,
+    ip_address  INET NOT NULL,
+    description TEXT,
+    create_date TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (api_key_id, ip_address)
+);
 
 CREATE TABLE challenge_types (
     challenge_type_id TEXT PRIMARY KEY,

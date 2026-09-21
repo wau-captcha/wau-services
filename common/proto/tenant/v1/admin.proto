@@ -135,7 +135,7 @@ message AdminApiKey {
   string site_key = 3;
   bool is_active = 4;
   bool is_suspended = 5;
-  // "admin" or "scraping" while suspended, empty otherwise.
+  // "ADMIN" or "SCRAPING" while suspended, empty otherwise.
   string suspend_reason = 6;
   google.protobuf.Timestamp create_date = 7;
   // Today's scraping counters: challenges issued and answers checked.

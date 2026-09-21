@@ -37,7 +37,11 @@ func wireApp(confServer *conf.Server, confData *conf.Data, challenge *conf.Chall
 		cleanup()
 		return nil, nil, err
 	}
-	challengeService := service.NewChallengeService(challengeUsecase)
+	challengeService, err := service.NewChallengeService(challengeUsecase, confServer)
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
 	grpcServer := server.NewGRPCServer(confServer, challengeService)
 	httpServer := server.NewHTTPServer(confServer, challengeService)
 	app := newApp(logger, grpcServer, httpServer)

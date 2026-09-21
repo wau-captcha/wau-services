@@ -91,11 +91,14 @@ func (x *Bootstrap) GetQuota() *Quota {
 }
 
 type Server struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Http          *Server_HTTP           `protobuf:"bytes,1,opt,name=http,proto3" json:"http,omitempty"`
-	Grpc          *Server_GRPC           `protobuf:"bytes,2,opt,name=grpc,proto3" json:"grpc,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Http  *Server_HTTP           `protobuf:"bytes,1,opt,name=http,proto3" json:"http,omitempty"`
+	Grpc  *Server_GRPC           `protobuf:"bytes,2,opt,name=grpc,proto3" json:"grpc,omitempty"`
+	// CIDR blocks whose X-Forwarded-For header is believed, comma separated; the gateway
+	// sits in one of them. Requests from anywhere else are known by their own address.
+	TrustedProxies string `protobuf:"bytes,3,opt,name=trusted_proxies,json=trustedProxies,proto3" json:"trusted_proxies,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *Server) Reset() {
@@ -140,6 +143,13 @@ func (x *Server) GetGrpc() *Server_GRPC {
 		return x.Grpc
 	}
 	return nil
+}
+
+func (x *Server) GetTrustedProxies() string {
+	if x != nil {
+		return x.TrustedProxies
+	}
+	return ""
 }
 
 type Data struct {
@@ -528,10 +538,11 @@ const file_conf_conf_proto_rawDesc = "" +
 	"\x06server\x18\x01 \x01(\v2\x12.kratos.api.ServerR\x06server\x12$\n" +
 	"\x04data\x18\x02 \x01(\v2\x10.kratos.api.DataR\x04data\x123\n" +
 	"\tchallenge\x18\x03 \x01(\v2\x15.kratos.api.ChallengeR\tchallenge\x12'\n" +
-	"\x05quota\x18\x04 \x01(\v2\x11.kratos.api.QuotaR\x05quota\"\xb8\x02\n" +
+	"\x05quota\x18\x04 \x01(\v2\x11.kratos.api.QuotaR\x05quota\"\xe1\x02\n" +
 	"\x06Server\x12+\n" +
 	"\x04http\x18\x01 \x01(\v2\x17.kratos.api.Server.HTTPR\x04http\x12+\n" +
-	"\x04grpc\x18\x02 \x01(\v2\x17.kratos.api.Server.GRPCR\x04grpc\x1ai\n" +
+	"\x04grpc\x18\x02 \x01(\v2\x17.kratos.api.Server.GRPCR\x04grpc\x12'\n" +
+	"\x0ftrusted_proxies\x18\x03 \x01(\tR\x0etrustedProxies\x1ai\n" +
 	"\x04HTTP\x12\x18\n" +
 	"\anetwork\x18\x01 \x01(\tR\anetwork\x12\x12\n" +
 	"\x04addr\x18\x02 \x01(\tR\x04addr\x123\n" +

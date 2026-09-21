@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/netip"
 	"slices"
 	"strings"
 	"time"
@@ -40,6 +41,7 @@ var (
 	ErrApiKeySuspended          = errors.Forbidden(v1.ErrorReason_API_KEY_SUSPENDED.String(), "api key is suspended")
 	ErrAccountBanned            = errors.Forbidden(v1.ErrorReason_ACCOUNT_BANNED.String(), "the owner of this api key is banned")
 	ErrDailyQuotaExceeded       = errors.New(http.StatusTooManyRequests, v1.ErrorReason_DAILY_QUOTA_EXCEEDED.String(), "daily verification quota reached")
+	ErrOriginNotAllowed         = errors.Forbidden(v1.ErrorReason_ORIGIN_NOT_ALLOWED.String(), "this address may not use this site key")
 )
 
 // Site is an active API key together with what its owner may do.
@@ -49,6 +51,8 @@ type Site struct {
 	ChallengeTypes []string
 	Suspended      bool
 	OwnerBanned    bool
+	// Addresses and networks allowed to use the site key; empty allows every address.
+	AllowedOrigins []netip.Prefix
 	// Successful verifications the owner's tier allows per day.
 	DailyQuota int64
 }
@@ -112,8 +116,9 @@ func NewChallengeUsecase(sites SiteRepo, challenges ChallengeRepo, counters Coun
 	}, nil
 }
 
-// New issues a challenge of challengeType, image_distort when empty.
-func (uc *ChallengeUsecase) New(ctx context.Context, siteKey, challengeType string) (*Challenge, error) {
+// New issues a challenge of challengeType, image_distort when empty. client is the address
+// the request comes from, which must be one the key allows.
+func (uc *ChallengeUsecase) New(ctx context.Context, siteKey, challengeType string, client netip.Addr) (*Challenge, error) {
 	if challengeType == "" {
 		challengeType = TypeImageDistort
 	}
@@ -130,6 +135,8 @@ func (uc *ChallengeUsecase) New(ctx context.Context, siteKey, challengeType stri
 		return nil, ErrAccountBanned
 	case site.Suspended:
 		return nil, ErrApiKeySuspended
+	case !addressAllowed(site.AllowedOrigins, client):
+		return nil, ErrOriginNotAllowed
 	case !slices.Contains(site.ChallengeTypes, challengeType):
 		return nil, ErrChallengeTypeNotAllowed
 	}
@@ -154,6 +161,25 @@ func (uc *ChallengeUsecase) New(ctx context.Context, siteKey, challengeType stri
 		return nil, err
 	}
 	return c, nil
+}
+
+// addressAllowed reports whether a request may use the key. A key with no allowed origins
+// is open to every address; an unspecified entry ("0.0.0.0" or "::") also stands for every
+// address, and any other entry covers the addresses of its network. A request whose address
+// is unknown only gets through those two.
+func addressAllowed(allowed []netip.Prefix, client netip.Addr) bool {
+	if len(allowed) == 0 {
+		return true
+	}
+	for _, prefix := range allowed {
+		if prefix.Addr().IsUnspecified() {
+			return true
+		}
+		if client.IsValid() && prefix.Contains(client.Unmap()) {
+			return true
+		}
+	}
+	return false
 }
 
 func (uc *ChallengeUsecase) Check(ctx context.Context, id, answer string) (*Challenge, bool, error) {

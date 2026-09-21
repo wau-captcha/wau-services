@@ -22,7 +22,9 @@ const OperationApiKeyServiceCreateApiKey = "/tenant.v1.ApiKeyService/CreateApiKe
 const OperationApiKeyServiceDeleteApiKey = "/tenant.v1.ApiKeyService/DeleteApiKey"
 const OperationApiKeyServiceGetApiKey = "/tenant.v1.ApiKeyService/GetApiKey"
 const OperationApiKeyServiceListApiKeys = "/tenant.v1.ApiKeyService/ListApiKeys"
+const OperationApiKeyServiceRevokePreviousSecret = "/tenant.v1.ApiKeyService/RevokePreviousSecret"
 const OperationApiKeyServiceRotateSecretKey = "/tenant.v1.ApiKeyService/RotateSecretKey"
+const OperationApiKeyServiceSetAllowedOrigins = "/tenant.v1.ApiKeyService/SetAllowedOrigins"
 const OperationApiKeyServiceUpdateApiKey = "/tenant.v1.ApiKeyService/UpdateApiKey"
 
 type ApiKeyServiceHTTPServer interface {
@@ -33,8 +35,18 @@ type ApiKeyServiceHTTPServer interface {
 	GetApiKey(context.Context, *GetApiKeyRequest) (*ApiKey, error)
 	// ListApiKeys ListApiKeys returns the keys that are not deleted, newest first.
 	ListApiKeys(context.Context, *ListApiKeysRequest) (*ApiKeySet, error)
-	// RotateSecretKey RotateSecretKey replaces the secret key; the previous one stops working at once.
+	// RevokePreviousSecret RevokePreviousSecret drops the previous secret key before it expires, for a site
+	// that has finished rolling the new one out. It does nothing when there is none.
+	RevokePreviousSecret(context.Context, *RevokePreviousSecretRequest) (*ApiKey, error)
+	// RotateSecretKey RotateSecretKey issues a new secret key in one step and keeps the replaced one
+	// working as previous_secret_key until previous_secret_key_expires_at, so a site can
+	// roll the key out without downtime. Only one previous key is kept: resetting again
+	// inside that window overwrites it.
 	RotateSecretKey(context.Context, *RotateSecretKeyRequest) (*ApiKey, error)
+	// SetAllowedOrigins SetAllowedOrigins replaces the addresses allowed to use the site key with the list
+	// given; an empty list lets every address use it again. Entries that stay keep their
+	// create_date.
+	SetAllowedOrigins(context.Context, *SetAllowedOriginsRequest) (*ApiKey, error)
 	// UpdateApiKey UpdateApiKey applies a partial update; update_mask accepts "name" and "is_active".
 	UpdateApiKey(context.Context, *UpdateApiKeyRequest) (*ApiKey, error)
 }
@@ -46,6 +58,8 @@ func RegisterApiKeyServiceHTTPServer(s *http.Server, srv ApiKeyServiceHTTPServer
 	r.Handle("GET", "/v1/api-keys/{id}", _ApiKeyService_GetApiKey0_HTTP_Handler(srv))
 	r.Handle("PATCH", "/v1/api-keys/{api_key.id}", _ApiKeyService_UpdateApiKey0_HTTP_Handler(srv))
 	r.Handle("POST", "/v1/api-keys/{id}/rotate-secret", _ApiKeyService_RotateSecretKey0_HTTP_Handler(srv))
+	r.Handle("POST", "/v1/api-keys/{id}/revoke-previous-secret", _ApiKeyService_RevokePreviousSecret0_HTTP_Handler(srv))
+	r.Handle("PUT", "/v1/api-keys/{id}/allowed-origins", _ApiKeyService_SetAllowedOrigins0_HTTP_Handler(srv))
 	r.Handle("DELETE", "/v1/api-keys/{id}", _ApiKeyService_DeleteApiKey0_HTTP_Handler(srv))
 }
 
@@ -153,6 +167,50 @@ func _ApiKeyService_RotateSecretKey0_HTTP_Handler(srv ApiKeyServiceHTTPServer) f
 	}
 }
 
+func _ApiKeyService_RevokePreviousSecret0_HTTP_Handler(srv ApiKeyServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in RevokePreviousSecretRequest
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindVars(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationApiKeyServiceRevokePreviousSecret)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.RevokePreviousSecret(ctx, req.(*RevokePreviousSecretRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*ApiKey)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _ApiKeyService_SetAllowedOrigins0_HTTP_Handler(srv ApiKeyServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in SetAllowedOriginsRequest
+		if err := ctx.Bind(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindVars(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationApiKeyServiceSetAllowedOrigins)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.SetAllowedOrigins(ctx, req.(*SetAllowedOriginsRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*ApiKey)
+		return ctx.Result(200, reply)
+	}
+}
+
 func _ApiKeyService_DeleteApiKey0_HTTP_Handler(srv ApiKeyServiceHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in DeleteApiKeyRequest
@@ -183,8 +241,18 @@ type ApiKeyServiceHTTPClient interface {
 	GetApiKey(ctx context.Context, req *GetApiKeyRequest, opts ...http.CallOption) (rsp *ApiKey, err error)
 	// ListApiKeys ListApiKeys returns the keys that are not deleted, newest first.
 	ListApiKeys(ctx context.Context, req *ListApiKeysRequest, opts ...http.CallOption) (rsp *ApiKeySet, err error)
-	// RotateSecretKey RotateSecretKey replaces the secret key; the previous one stops working at once.
+	// RevokePreviousSecret RevokePreviousSecret drops the previous secret key before it expires, for a site
+	// that has finished rolling the new one out. It does nothing when there is none.
+	RevokePreviousSecret(ctx context.Context, req *RevokePreviousSecretRequest, opts ...http.CallOption) (rsp *ApiKey, err error)
+	// RotateSecretKey RotateSecretKey issues a new secret key in one step and keeps the replaced one
+	// working as previous_secret_key until previous_secret_key_expires_at, so a site can
+	// roll the key out without downtime. Only one previous key is kept: resetting again
+	// inside that window overwrites it.
 	RotateSecretKey(ctx context.Context, req *RotateSecretKeyRequest, opts ...http.CallOption) (rsp *ApiKey, err error)
+	// SetAllowedOrigins SetAllowedOrigins replaces the addresses allowed to use the site key with the list
+	// given; an empty list lets every address use it again. Entries that stay keep their
+	// create_date.
+	SetAllowedOrigins(ctx context.Context, req *SetAllowedOriginsRequest, opts ...http.CallOption) (rsp *ApiKey, err error)
 	// UpdateApiKey UpdateApiKey applies a partial update; update_mask accepts "name" and "is_active".
 	UpdateApiKey(ctx context.Context, req *UpdateApiKeyRequest, opts ...http.CallOption) (rsp *ApiKey, err error)
 }
@@ -265,7 +333,28 @@ func (c *ApiKeyServiceHTTPClientImpl) ListApiKeys(ctx context.Context, in *ListA
 	return &out, nil
 }
 
-// RotateSecretKey RotateSecretKey replaces the secret key; the previous one stops working at once.
+// RevokePreviousSecret RevokePreviousSecret drops the previous secret key before it expires, for a site
+// that has finished rolling the new one out. It does nothing when there is none.
+func (c *ApiKeyServiceHTTPClientImpl) RevokePreviousSecret(ctx context.Context, in *RevokePreviousSecretRequest, opts ...http.CallOption) (*ApiKey, error) {
+	var out ApiKey
+	pattern := "/v1/api-keys/{id}/revoke-previous-secret"
+	path := http.BuildPath(pattern, in, http.WithQueryParams())
+	opts = append([]http.CallOption{
+		http.Accept("application/protojson"),
+		http.Operation(OperationApiKeyServiceRevokePreviousSecret),
+		http.PathTemplate(pattern),
+	}, opts...)
+	err := c.cc.Invoke(ctx, "POST", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// RotateSecretKey RotateSecretKey issues a new secret key in one step and keeps the replaced one
+// working as previous_secret_key until previous_secret_key_expires_at, so a site can
+// roll the key out without downtime. Only one previous key is kept: resetting again
+// inside that window overwrites it.
 func (c *ApiKeyServiceHTTPClientImpl) RotateSecretKey(ctx context.Context, in *RotateSecretKeyRequest, opts ...http.CallOption) (*ApiKey, error) {
 	var out ApiKey
 	pattern := "/v1/api-keys/{id}/rotate-secret"
@@ -276,6 +365,26 @@ func (c *ApiKeyServiceHTTPClientImpl) RotateSecretKey(ctx context.Context, in *R
 		http.PathTemplate(pattern),
 	}, opts...)
 	err := c.cc.Invoke(ctx, "POST", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// SetAllowedOrigins SetAllowedOrigins replaces the addresses allowed to use the site key with the list
+// given; an empty list lets every address use it again. Entries that stay keep their
+// create_date.
+func (c *ApiKeyServiceHTTPClientImpl) SetAllowedOrigins(ctx context.Context, in *SetAllowedOriginsRequest, opts ...http.CallOption) (*ApiKey, error) {
+	var out ApiKey
+	pattern := "/v1/api-keys/{id}/allowed-origins"
+	path := http.BuildPath(pattern, in)
+	opts = append([]http.CallOption{
+		http.Accept("application/protojson"),
+		http.ContentType("application/protojson"),
+		http.Operation(OperationApiKeyServiceSetAllowedOrigins),
+		http.PathTemplate(pattern),
+	}, opts...)
+	err := c.cc.Invoke(ctx, "PUT", path, in, &out, opts...)
 	if err != nil {
 		return nil, err
 	}

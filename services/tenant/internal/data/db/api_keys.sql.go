@@ -18,7 +18,7 @@ SELECT $1::uuid, $2::text, $3::text, $4::text
 WHERE (
     SELECT count(*) FROM api_keys WHERE user_id = $1::uuid AND NOT is_deleted
 ) < $5::bigint
-RETURNING api_key_id, site_key, secret_key, is_active, is_deleted, create_date, user_id, is_suspended, suspend_reason, name
+RETURNING api_key_id, site_key, secret_key, is_active, is_deleted, create_date, user_id, is_suspended, suspend_reason, previous_secret_key, previous_secret_key_expires_at, name
 `
 
 type CreateAPIKeyParams struct {
@@ -50,6 +50,8 @@ func (q *Queries) CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) (API
 		&i.UserID,
 		&i.IsSuspended,
 		&i.SuspendReason,
+		&i.PreviousSecretKey,
+		&i.PreviousSecretKeyExpiresAt,
 		&i.Name,
 	)
 	return i, err
@@ -78,7 +80,7 @@ func (q *Queries) DeleteAPIKey(ctx context.Context, arg DeleteAPIKeyParams) (int
 }
 
 const getAPIKey = `-- name: GetAPIKey :one
-SELECT api_key_id, site_key, secret_key, is_active, is_deleted, create_date, user_id, is_suspended, suspend_reason, name
+SELECT api_key_id, site_key, secret_key, is_active, is_deleted, create_date, user_id, is_suspended, suspend_reason, previous_secret_key, previous_secret_key_expires_at, name
 FROM api_keys
 WHERE api_key_id = $1
   AND user_id = $2
@@ -103,13 +105,15 @@ func (q *Queries) GetAPIKey(ctx context.Context, arg GetAPIKeyParams) (APIKey, e
 		&i.UserID,
 		&i.IsSuspended,
 		&i.SuspendReason,
+		&i.PreviousSecretKey,
+		&i.PreviousSecretKeyExpiresAt,
 		&i.Name,
 	)
 	return i, err
 }
 
 const listAPIKeys = `-- name: ListAPIKeys :many
-SELECT api_key_id, site_key, secret_key, is_active, is_deleted, create_date, user_id, is_suspended, suspend_reason, name
+SELECT api_key_id, site_key, secret_key, is_active, is_deleted, create_date, user_id, is_suspended, suspend_reason, previous_secret_key, previous_secret_key_expires_at, name
 FROM api_keys
 WHERE user_id = $1
   AND NOT is_deleted
@@ -135,6 +139,8 @@ func (q *Queries) ListAPIKeys(ctx context.Context, userID uuid.UUID) ([]APIKey, 
 			&i.UserID,
 			&i.IsSuspended,
 			&i.SuspendReason,
+			&i.PreviousSecretKey,
+			&i.PreviousSecretKeyExpiresAt,
 			&i.Name,
 		); err != nil {
 			return nil, err
@@ -147,23 +153,104 @@ func (q *Queries) ListAPIKeys(ctx context.Context, userID uuid.UUID) ([]APIKey, 
 	return items, nil
 }
 
-const rotateAPIKeySecret = `-- name: RotateAPIKeySecret :one
-UPDATE api_keys
-SET secret_key = $1
-WHERE api_key_id = $2
-  AND user_id = $3
-  AND NOT is_deleted
-RETURNING api_key_id, site_key, secret_key, is_active, is_deleted, create_date, user_id, is_suspended, suspend_reason, name
+const listAllowedOrigins = `-- name: ListAllowedOrigins :many
+SELECT o.ip_address::text AS ip_address, o.description, o.create_date
+FROM api_key_allowed_origins o
+JOIN api_keys k ON k.api_key_id = o.api_key_id AND k.user_id = $1
+WHERE o.api_key_id = $2
+ORDER BY o.create_date, o.ip_address
 `
 
-type RotateAPIKeySecretParams struct {
-	SecretKey string
-	APIKeyID  uuid.UUID
-	UserID    uuid.UUID
+type ListAllowedOriginsParams struct {
+	UserID   uuid.UUID
+	APIKeyID uuid.UUID
 }
 
-func (q *Queries) RotateAPIKeySecret(ctx context.Context, arg RotateAPIKeySecretParams) (APIKey, error) {
-	row := q.db.QueryRow(ctx, rotateAPIKeySecret, arg.SecretKey, arg.APIKeyID, arg.UserID)
+type ListAllowedOriginsRow struct {
+	IpAddress   string
+	Description pgtype.Text
+	CreateDate  pgtype.Timestamptz
+}
+
+func (q *Queries) ListAllowedOrigins(ctx context.Context, arg ListAllowedOriginsParams) ([]ListAllowedOriginsRow, error) {
+	rows, err := q.db.Query(ctx, listAllowedOrigins, arg.UserID, arg.APIKeyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAllowedOriginsRow
+	for rows.Next() {
+		var i ListAllowedOriginsRow
+		if err := rows.Scan(&i.IpAddress, &i.Description, &i.CreateDate); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const replaceAllowedOrigins = `-- name: ReplaceAllowedOrigins :exec
+WITH owned AS (
+    SELECT k.api_key_id
+    FROM api_keys k
+    WHERE k.api_key_id = $1
+      AND k.user_id = $2
+      AND NOT k.is_deleted
+), input AS (
+    SELECT unnest($3::text[])::inet AS ip_address,
+           unnest($4::text[]) AS description
+), removed AS (
+    DELETE FROM api_key_allowed_origins o
+    USING owned w
+    WHERE o.api_key_id = w.api_key_id
+      AND NOT EXISTS (SELECT 1 FROM input i WHERE i.ip_address = o.ip_address)
+)
+INSERT INTO api_key_allowed_origins (api_key_id, ip_address, description)
+SELECT w.api_key_id, i.ip_address, NULLIF(i.description, '')
+FROM owned w, input i
+ON CONFLICT (api_key_id, ip_address) DO UPDATE SET description = EXCLUDED.description
+`
+
+type ReplaceAllowedOriginsParams struct {
+	APIKeyID     uuid.UUID
+	UserID       uuid.UUID
+	IpAddresses  []string
+	Descriptions []string
+}
+
+// One statement for the whole list: addresses left out are deleted, the rest are inserted
+// or keep their row, so an address that stays keeps the date it was added on. Nothing
+// happens when the key is not this user's.
+func (q *Queries) ReplaceAllowedOrigins(ctx context.Context, arg ReplaceAllowedOriginsParams) error {
+	_, err := q.db.Exec(ctx, replaceAllowedOrigins,
+		arg.APIKeyID,
+		arg.UserID,
+		arg.IpAddresses,
+		arg.Descriptions,
+	)
+	return err
+}
+
+const revokeAPIKeyPreviousSecret = `-- name: RevokeAPIKeyPreviousSecret :one
+UPDATE api_keys
+SET previous_secret_key = NULL,
+    previous_secret_key_expires_at = NULL
+WHERE api_key_id = $1
+  AND user_id = $2
+  AND NOT is_deleted
+RETURNING api_key_id, site_key, secret_key, is_active, is_deleted, create_date, user_id, is_suspended, suspend_reason, previous_secret_key, previous_secret_key_expires_at, name
+`
+
+type RevokeAPIKeyPreviousSecretParams struct {
+	APIKeyID uuid.UUID
+	UserID   uuid.UUID
+}
+
+func (q *Queries) RevokeAPIKeyPreviousSecret(ctx context.Context, arg RevokeAPIKeyPreviousSecretParams) (APIKey, error) {
+	row := q.db.QueryRow(ctx, revokeAPIKeyPreviousSecret, arg.APIKeyID, arg.UserID)
 	var i APIKey
 	err := row.Scan(
 		&i.APIKeyID,
@@ -175,6 +262,54 @@ func (q *Queries) RotateAPIKeySecret(ctx context.Context, arg RotateAPIKeySecret
 		&i.UserID,
 		&i.IsSuspended,
 		&i.SuspendReason,
+		&i.PreviousSecretKey,
+		&i.PreviousSecretKeyExpiresAt,
+		&i.Name,
+	)
+	return i, err
+}
+
+const rotateAPIKeySecret = `-- name: RotateAPIKeySecret :one
+UPDATE api_keys
+SET secret_key = $1,
+    previous_secret_key = secret_key,
+    previous_secret_key_expires_at = now() + make_interval(secs => $2::int)
+WHERE api_key_id = $3
+  AND user_id = $4
+  AND NOT is_deleted
+RETURNING api_key_id, site_key, secret_key, is_active, is_deleted, create_date, user_id, is_suspended, suspend_reason, previous_secret_key, previous_secret_key_expires_at, name
+`
+
+type RotateAPIKeySecretParams struct {
+	SecretKey    string
+	GraceSeconds int32
+	APIKeyID     uuid.UUID
+	UserID       uuid.UUID
+}
+
+// One statement moves the current secret to previous_secret_key and stores the new one,
+// so the key is never left without a working secret. An unexpired previous key from an
+// earlier reset is overwritten: only one is ever kept.
+func (q *Queries) RotateAPIKeySecret(ctx context.Context, arg RotateAPIKeySecretParams) (APIKey, error) {
+	row := q.db.QueryRow(ctx, rotateAPIKeySecret,
+		arg.SecretKey,
+		arg.GraceSeconds,
+		arg.APIKeyID,
+		arg.UserID,
+	)
+	var i APIKey
+	err := row.Scan(
+		&i.APIKeyID,
+		&i.SiteKey,
+		&i.SecretKey,
+		&i.IsActive,
+		&i.IsDeleted,
+		&i.CreateDate,
+		&i.UserID,
+		&i.IsSuspended,
+		&i.SuspendReason,
+		&i.PreviousSecretKey,
+		&i.PreviousSecretKeyExpiresAt,
 		&i.Name,
 	)
 	return i, err
@@ -187,7 +322,7 @@ SET name = COALESCE($1::text, name),
 WHERE api_key_id = $3
   AND user_id = $4
   AND NOT is_deleted
-RETURNING api_key_id, site_key, secret_key, is_active, is_deleted, create_date, user_id, is_suspended, suspend_reason, name
+RETURNING api_key_id, site_key, secret_key, is_active, is_deleted, create_date, user_id, is_suspended, suspend_reason, previous_secret_key, previous_secret_key_expires_at, name
 `
 
 type UpdateAPIKeyParams struct {
@@ -215,6 +350,8 @@ func (q *Queries) UpdateAPIKey(ctx context.Context, arg UpdateAPIKeyParams) (API
 		&i.UserID,
 		&i.IsSuspended,
 		&i.SuspendReason,
+		&i.PreviousSecretKey,
+		&i.PreviousSecretKeyExpiresAt,
 		&i.Name,
 	)
 	return i, err

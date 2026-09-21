@@ -16,6 +16,11 @@ SELECT
     k.api_key_id,
     k.user_id,
     k.is_suspended,
+    ARRAY(
+        SELECT o.ip_address::text
+        FROM api_key_allowed_origins o
+        WHERE o.api_key_id = k.api_key_id
+    )::text[] AS allowed_origins,
     u.is_banned,
     t.daily_quota,
     ARRAY(
@@ -38,6 +43,7 @@ type GetSiteBySiteKeyRow struct {
 	APIKeyID       uuid.UUID
 	UserID         uuid.UUID
 	IsSuspended    bool
+	AllowedOrigins []string
 	IsBanned       bool
 	DailyQuota     int32
 	ChallengeTypes []string
@@ -50,6 +56,7 @@ func (q *Queries) GetSiteBySiteKey(ctx context.Context, siteKey string) (GetSite
 		&i.APIKeyID,
 		&i.UserID,
 		&i.IsSuspended,
+		&i.AllowedOrigins,
 		&i.IsBanned,
 		&i.DailyQuota,
 		&i.ChallengeTypes,
@@ -60,7 +67,7 @@ func (q *Queries) GetSiteBySiteKey(ctx context.Context, siteKey string) (GetSite
 const suspendAPIKeyForScraping = `-- name: SuspendAPIKeyForScraping :exec
 UPDATE api_keys
 SET is_suspended = true,
-    suspend_reason = 'scraping'
+    suspend_reason = 'SCRAPING'
 WHERE api_key_id = $1
   AND NOT is_suspended
 `

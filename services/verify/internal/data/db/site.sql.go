@@ -31,7 +31,8 @@ const getSiteBySecretKey = `-- name: GetSiteBySecretKey :one
 SELECT k.api_key_id, k.is_suspended, u.is_banned
 FROM api_keys k
 JOIN users u ON u.user_id = k.user_id
-WHERE k.secret_key = $1
+WHERE (k.secret_key = $1::text
+       OR (k.previous_secret_key = $1::text AND k.previous_secret_key_expires_at > now()))
   AND k.is_active
   AND NOT k.is_deleted
 `
@@ -42,6 +43,8 @@ type GetSiteBySecretKeyRow struct {
 	IsBanned    bool
 }
 
+// The secret replaced by the last reset stays valid until it expires, so a site can roll
+// the new one out without downtime.
 func (q *Queries) GetSiteBySecretKey(ctx context.Context, secretKey string) (GetSiteBySecretKeyRow, error) {
 	row := q.db.QueryRow(ctx, getSiteBySecretKey, secretKey)
 	var i GetSiteBySecretKeyRow

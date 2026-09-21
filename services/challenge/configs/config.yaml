@@ -5,6 +5,7 @@ server:
   grpc:
     addr: ${KRATOS_GRPC_ADDR}
     timeout: 1s
+  trusted_proxies: ${KRATOS_TRUSTED_PROXIES}
 data:
   database:
     source: ${KRATOS_DATABASE_SOURCE}

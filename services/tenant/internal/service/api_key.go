@@ -94,6 +94,34 @@ func (s *ApiKeyService) RotateSecretKey(ctx context.Context, req *v1.RotateSecre
 	return convertApiKey(key), nil
 }
 
+func (s *ApiKeyService) RevokePreviousSecret(ctx context.Context, req *v1.RevokePreviousSecretRequest) (*v1.ApiKey, error) {
+	userID, id, err := callerAndKey(ctx, req.GetId())
+	if err != nil {
+		return nil, err
+	}
+	key, err := s.uc.RevokePreviousSecret(ctx, userID, id)
+	if err != nil {
+		return nil, err
+	}
+	return convertApiKey(key), nil
+}
+
+func (s *ApiKeyService) SetAllowedOrigins(ctx context.Context, req *v1.SetAllowedOriginsRequest) (*v1.ApiKey, error) {
+	userID, id, err := callerAndKey(ctx, req.GetId())
+	if err != nil {
+		return nil, err
+	}
+	origins := make([]biz.AllowedOrigin, 0, len(req.GetAllowedOrigins()))
+	for _, origin := range req.GetAllowedOrigins() {
+		origins = append(origins, biz.AllowedOrigin{IPAddress: origin.GetIpAddress(), Description: origin.GetDescription()})
+	}
+	key, err := s.uc.SetAllowedOrigins(ctx, userID, id, origins)
+	if err != nil {
+		return nil, err
+	}
+	return convertApiKey(key), nil
+}
+
 func (s *ApiKeyService) DeleteApiKey(ctx context.Context, req *v1.DeleteApiKeyRequest) (*emptypb.Empty, error) {
 	userID, id, err := callerAndKey(ctx, req.GetId())
 	if err != nil {
@@ -135,15 +163,33 @@ func patchFromMask(mask *fieldmaskpb.FieldMask, key *v1.ApiKey) (biz.ApiKeyPatch
 	return patch, nil
 }
 
-func convertApiKey(key *biz.ApiKey) *v1.ApiKey {
-	return &v1.ApiKey{
-		Id:            key.ID.String(),
-		Name:          key.Name,
-		SiteKey:       key.SiteKey,
-		SecretKey:     key.SecretKey,
-		IsActive:      key.IsActive,
-		CreateDate:    timestamppb.New(key.CreateDate),
-		IsSuspended:   key.IsSuspended,
-		SuspendReason: key.SuspendReason,
+func convertAllowedOrigins(origins []biz.AllowedOrigin) []*v1.AllowedOrigin {
+	converted := make([]*v1.AllowedOrigin, 0, len(origins))
+	for _, origin := range origins {
+		converted = append(converted, &v1.AllowedOrigin{
+			IpAddress:   origin.IPAddress,
+			Description: origin.Description,
+			CreateDate:  timestamppb.New(origin.CreateDate),
+		})
 	}
+	return converted
+}
+
+func convertApiKey(key *biz.ApiKey) *v1.ApiKey {
+	converted := &v1.ApiKey{
+		Id:             key.ID.String(),
+		Name:           key.Name,
+		SiteKey:        key.SiteKey,
+		SecretKey:      key.SecretKey,
+		IsActive:       key.IsActive,
+		CreateDate:     timestamppb.New(key.CreateDate),
+		IsSuspended:    key.IsSuspended,
+		SuspendReason:  key.SuspendReason,
+		AllowedOrigins: convertAllowedOrigins(key.AllowedOrigins),
+	}
+	if key.PreviousSecretKey != "" {
+		converted.PreviousSecretKey = key.PreviousSecretKey
+		converted.PreviousSecretKeyExpiresAt = timestamppb.New(key.PreviousSecretExpiresAt)
+	}
+	return converted
 }

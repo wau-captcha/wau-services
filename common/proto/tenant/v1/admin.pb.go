@@ -599,7 +599,7 @@ type AdminApiKey struct {
 	SiteKey     string                 `protobuf:"bytes,3,opt,name=site_key,json=siteKey,proto3" json:"site_key,omitempty"`
 	IsActive    bool                   `protobuf:"varint,4,opt,name=is_active,json=isActive,proto3" json:"is_active,omitempty"`
 	IsSuspended bool                   `protobuf:"varint,5,opt,name=is_suspended,json=isSuspended,proto3" json:"is_suspended,omitempty"`
-	// "admin" or "scraping" while suspended, empty otherwise.
+	// "ADMIN" or "SCRAPING" while suspended, empty otherwise.
 	SuspendReason string                 `protobuf:"bytes,6,opt,name=suspend_reason,json=suspendReason,proto3" json:"suspend_reason,omitempty"`
 	CreateDate    *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=create_date,json=createDate,proto3" json:"create_date,omitempty"`
 	// Today's scraping counters: challenges issued and answers checked.

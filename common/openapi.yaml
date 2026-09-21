@@ -336,11 +336,55 @@ paths:
                 "200":
                     description: OK
                     content: {}
+    /v1/api-keys/{id}/allowed-origins:
+        put:
+            tags:
+                - ApiKeyService
+            description: "SetAllowedOrigins replaces the addresses allowed to use the site key with the list\r\n given; an empty list lets every address use it again. Entries that stay keep their\r\n create_date."
+            operationId: ApiKeyService_SetAllowedOrigins
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/tenant.v1.SetAllowedOriginsRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/tenant.v1.ApiKey'
+    /v1/api-keys/{id}/revoke-previous-secret:
+        post:
+            tags:
+                - ApiKeyService
+            description: "RevokePreviousSecret drops the previous secret key before it expires, for a site\r\n that has finished rolling the new one out. It does nothing when there is none."
+            operationId: ApiKeyService_RevokePreviousSecret
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/tenant.v1.ApiKey'
     /v1/api-keys/{id}/rotate-secret:
         post:
             tags:
                 - ApiKeyService
-            description: RotateSecretKey replaces the secret key; the previous one stops working at once.
+            description: "RotateSecretKey issues a new secret key in one step and keeps the replaced one\r\n working as previous_secret_key until previous_secret_key_expires_at, so a site can\r\n roll the key out without downtime. Only one previous key is kept: resetting again\r\n inside that window overwrites it."
             operationId: ApiKeyService_RotateSecretKey
             parameters:
                 - name: id
@@ -513,7 +557,7 @@ components:
                     type: boolean
                 suspend_reason:
                     type: string
-                    description: '"admin" or "scraping" while suspended, empty otherwise.'
+                    description: '"ADMIN" or "SCRAPING" while suspended, empty otherwise.'
                 create_date:
                     type: string
                     format: date-time
@@ -583,6 +627,22 @@ components:
                     description: Successful verifications today, and the daily quota of the tier.
                 daily_quota:
                     type: string
+        tenant.v1.AllowedOrigin:
+            required:
+                - ip_address
+            type: object
+            properties:
+                ip_address:
+                    type: string
+                    description: "IPv4 or IPv6 address, with an optional prefix length: \"203.0.113.4\", \"203.0.113.0/24\",\r\n \"2001:db8::/32\". \"0.0.0.0\" stands for every address, of either family."
+                description:
+                    type: string
+                    description: What this address is, e.g. the name of the site or office it belongs to.
+                create_date:
+                    readOnly: true
+                    type: string
+                    format: date-time
+            description: AllowedOrigin is one address, or network, allowed to use a site key.
         tenant.v1.ApiKey:
             type: object
             properties:
@@ -607,7 +667,18 @@ components:
                     description: "Blocked by an administrator or automatically; the key stops working whatever\r\n is_active says, and only an administrator can lift it."
                 suspend_reason:
                     type: string
-                    description: '"admin" or "scraping" while suspended, empty otherwise.'
+                    description: '"ADMIN" or "SCRAPING" while suspended, empty otherwise.'
+                allowed_origins:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/tenant.v1.AllowedOrigin'
+                    description: "Addresses allowed to use the site key. Empty means every address may, which is also\r\n what an account gets to start with. Only GetApiKey and SetAllowedOrigins fill this in."
+                previous_secret_key:
+                    type: string
+                    description: "The secret key the last reset replaced; it keeps working until it expires. Empty when\r\n there is none, i.e. it expired or was revoked."
+                previous_secret_key_expires_at:
+                    type: string
+                    format: date-time
         tenant.v1.ApiKeySet:
             type: object
             properties:
@@ -687,6 +758,18 @@ components:
                     type: string
                     description: 'When the count starts over: the next local midnight.'
                     format: date-time
+        tenant.v1.SetAllowedOriginsRequest:
+            required:
+                - id
+            type: object
+            properties:
+                id:
+                    type: string
+                allowed_origins:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/tenant.v1.AllowedOrigin'
+                    description: The whole list; addresses left out are dropped. Empty allows every address.
         tenant.v1.SetApiKeySuspendedRequest:
             required:
                 - api_key_id

@@ -50,6 +50,8 @@ message Auth {
 message ApiKey {
   // How many keys a user may hold at once.
   int32 max_per_user = 1;
+  // How long the secret key a reset replaces keeps working.
+  google.protobuf.Duration previous_secret_ttl = 2;
 }
 
 message Usage {

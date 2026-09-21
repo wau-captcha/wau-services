@@ -33,7 +33,7 @@ var (
 )
 
 func init() {
-	flag.StringVar(&flagconf, "conf", "./configs", "config path, eg: -conf config.yaml")
+	flag.StringVar(&flagconf, "conf", "", "config path, eg: -conf config.yaml; default: the service's configs directory")
 }
 
 func newApp(logger *slog.Logger, gs *grpc.Server, hs *http.Server) *kratos.App {
@@ -52,8 +52,13 @@ func newApp(logger *slog.Logger, gs *grpc.Server, hs *http.Server) *kratos.App {
 
 func main() {
 	flag.Parse()
-	if err := godotenv.Load(); err != nil && !errors.Is(err, fs.ErrNotExist) {
+	// Load this service's .env; real environment variables take precedence. Both files are
+	// found from the service directory, so `kratos run` works from cmd/<name> too.
+	if err := godotenv.Load(envconf.DotEnv()); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		panic(err)
+	}
+	if flagconf == "" {
+		flagconf = envconf.ConfigDir()
 	}
 	logger := log.NewLogger(
 		slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{

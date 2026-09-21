@@ -260,9 +260,11 @@ func (x *Auth) GetTtl() *durationpb.Duration {
 type ApiKey struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// How many keys a user may hold at once.
-	MaxPerUser    int32 `protobuf:"varint,1,opt,name=max_per_user,json=maxPerUser,proto3" json:"max_per_user,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	MaxPerUser int32 `protobuf:"varint,1,opt,name=max_per_user,json=maxPerUser,proto3" json:"max_per_user,omitempty"`
+	// How long the secret key a reset replaces keeps working.
+	PreviousSecretTtl *durationpb.Duration `protobuf:"bytes,2,opt,name=previous_secret_ttl,json=previousSecretTtl,proto3" json:"previous_secret_ttl,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *ApiKey) Reset() {
@@ -300,6 +302,13 @@ func (x *ApiKey) GetMaxPerUser() int32 {
 		return x.MaxPerUser
 	}
 	return 0
+}
+
+func (x *ApiKey) GetPreviousSecretTtl() *durationpb.Duration {
+	if x != nil {
+		return x.PreviousSecretTtl
+	}
+	return nil
 }
 
 type Usage struct {
@@ -615,10 +624,11 @@ const file_conf_conf_proto_rawDesc = "" +
 	"\rwrite_timeout\x18\x04 \x01(\v2\x19.google.protobuf.DurationR\fwriteTimeout\"K\n" +
 	"\x04Auth\x12\x16\n" +
 	"\x06secret\x18\x01 \x01(\tR\x06secret\x12+\n" +
-	"\x03ttl\x18\x02 \x01(\v2\x19.google.protobuf.DurationR\x03ttl\"*\n" +
+	"\x03ttl\x18\x02 \x01(\v2\x19.google.protobuf.DurationR\x03ttl\"u\n" +
 	"\x06ApiKey\x12 \n" +
 	"\fmax_per_user\x18\x01 \x01(\x05R\n" +
-	"maxPerUser\"$\n" +
+	"maxPerUser\x12I\n" +
+	"\x13previous_secret_ttl\x18\x02 \x01(\v2\x19.google.protobuf.DurationR\x11previousSecretTtl\"$\n" +
 	"\x05Usage\x12\x1b\n" +
 	"\ttime_zone\x18\x01 \x01(\tR\btimeZone\"Z\n" +
 	"\x06Google\x12\x1b\n" +
@@ -663,14 +673,15 @@ var file_conf_conf_proto_depIdxs = []int32{
 	8,  // 7: kratos.api.Data.database:type_name -> kratos.api.Data.Database
 	9,  // 8: kratos.api.Data.redis:type_name -> kratos.api.Data.Redis
 	10, // 9: kratos.api.Auth.ttl:type_name -> google.protobuf.Duration
-	10, // 10: kratos.api.Server.HTTP.timeout:type_name -> google.protobuf.Duration
-	10, // 11: kratos.api.Data.Redis.read_timeout:type_name -> google.protobuf.Duration
-	10, // 12: kratos.api.Data.Redis.write_timeout:type_name -> google.protobuf.Duration
-	13, // [13:13] is the sub-list for method output_type
-	13, // [13:13] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	10, // 10: kratos.api.ApiKey.previous_secret_ttl:type_name -> google.protobuf.Duration
+	10, // 11: kratos.api.Server.HTTP.timeout:type_name -> google.protobuf.Duration
+	10, // 12: kratos.api.Data.Redis.read_timeout:type_name -> google.protobuf.Duration
+	10, // 13: kratos.api.Data.Redis.write_timeout:type_name -> google.protobuf.Duration
+	14, // [14:14] is the sub-list for method output_type
+	14, // [14:14] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_conf_conf_proto_init() }

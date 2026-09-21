@@ -25,6 +25,9 @@ message Server {
   }
   HTTP http = 1;
   GRPC grpc = 2;
+  // CIDR blocks whose X-Forwarded-For header is believed, comma separated; the gateway
+  // sits in one of them. Requests from anywhere else are known by their own address.
+  string trusted_proxies = 3;
 }
 
 message Data {

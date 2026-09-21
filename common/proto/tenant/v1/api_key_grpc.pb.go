@@ -20,12 +20,14 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ApiKeyService_ListApiKeys_FullMethodName     = "/tenant.v1.ApiKeyService/ListApiKeys"
-	ApiKeyService_CreateApiKey_FullMethodName    = "/tenant.v1.ApiKeyService/CreateApiKey"
-	ApiKeyService_GetApiKey_FullMethodName       = "/tenant.v1.ApiKeyService/GetApiKey"
-	ApiKeyService_UpdateApiKey_FullMethodName    = "/tenant.v1.ApiKeyService/UpdateApiKey"
-	ApiKeyService_RotateSecretKey_FullMethodName = "/tenant.v1.ApiKeyService/RotateSecretKey"
-	ApiKeyService_DeleteApiKey_FullMethodName    = "/tenant.v1.ApiKeyService/DeleteApiKey"
+	ApiKeyService_ListApiKeys_FullMethodName          = "/tenant.v1.ApiKeyService/ListApiKeys"
+	ApiKeyService_CreateApiKey_FullMethodName         = "/tenant.v1.ApiKeyService/CreateApiKey"
+	ApiKeyService_GetApiKey_FullMethodName            = "/tenant.v1.ApiKeyService/GetApiKey"
+	ApiKeyService_UpdateApiKey_FullMethodName         = "/tenant.v1.ApiKeyService/UpdateApiKey"
+	ApiKeyService_RotateSecretKey_FullMethodName      = "/tenant.v1.ApiKeyService/RotateSecretKey"
+	ApiKeyService_RevokePreviousSecret_FullMethodName = "/tenant.v1.ApiKeyService/RevokePreviousSecret"
+	ApiKeyService_SetAllowedOrigins_FullMethodName    = "/tenant.v1.ApiKeyService/SetAllowedOrigins"
+	ApiKeyService_DeleteApiKey_FullMethodName         = "/tenant.v1.ApiKeyService/DeleteApiKey"
 )
 
 // ApiKeyServiceClient is the client API for ApiKeyService service.
@@ -42,8 +44,18 @@ type ApiKeyServiceClient interface {
 	GetApiKey(ctx context.Context, in *GetApiKeyRequest, opts ...grpc.CallOption) (*ApiKey, error)
 	// UpdateApiKey applies a partial update; update_mask accepts "name" and "is_active".
 	UpdateApiKey(ctx context.Context, in *UpdateApiKeyRequest, opts ...grpc.CallOption) (*ApiKey, error)
-	// RotateSecretKey replaces the secret key; the previous one stops working at once.
+	// RotateSecretKey issues a new secret key in one step and keeps the replaced one
+	// working as previous_secret_key until previous_secret_key_expires_at, so a site can
+	// roll the key out without downtime. Only one previous key is kept: resetting again
+	// inside that window overwrites it.
 	RotateSecretKey(ctx context.Context, in *RotateSecretKeyRequest, opts ...grpc.CallOption) (*ApiKey, error)
+	// RevokePreviousSecret drops the previous secret key before it expires, for a site
+	// that has finished rolling the new one out. It does nothing when there is none.
+	RevokePreviousSecret(ctx context.Context, in *RevokePreviousSecretRequest, opts ...grpc.CallOption) (*ApiKey, error)
+	// SetAllowedOrigins replaces the addresses allowed to use the site key with the list
+	// given; an empty list lets every address use it again. Entries that stay keep their
+	// create_date.
+	SetAllowedOrigins(ctx context.Context, in *SetAllowedOriginsRequest, opts ...grpc.CallOption) (*ApiKey, error)
 	// DeleteApiKey soft-deletes the key and deactivates it.
 	DeleteApiKey(ctx context.Context, in *DeleteApiKeyRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
@@ -106,6 +118,26 @@ func (c *apiKeyServiceClient) RotateSecretKey(ctx context.Context, in *RotateSec
 	return out, nil
 }
 
+func (c *apiKeyServiceClient) RevokePreviousSecret(ctx context.Context, in *RevokePreviousSecretRequest, opts ...grpc.CallOption) (*ApiKey, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ApiKey)
+	err := c.cc.Invoke(ctx, ApiKeyService_RevokePreviousSecret_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *apiKeyServiceClient) SetAllowedOrigins(ctx context.Context, in *SetAllowedOriginsRequest, opts ...grpc.CallOption) (*ApiKey, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ApiKey)
+	err := c.cc.Invoke(ctx, ApiKeyService_SetAllowedOrigins_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *apiKeyServiceClient) DeleteApiKey(ctx context.Context, in *DeleteApiKeyRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
@@ -130,8 +162,18 @@ type ApiKeyServiceServer interface {
 	GetApiKey(context.Context, *GetApiKeyRequest) (*ApiKey, error)
 	// UpdateApiKey applies a partial update; update_mask accepts "name" and "is_active".
 	UpdateApiKey(context.Context, *UpdateApiKeyRequest) (*ApiKey, error)
-	// RotateSecretKey replaces the secret key; the previous one stops working at once.
+	// RotateSecretKey issues a new secret key in one step and keeps the replaced one
+	// working as previous_secret_key until previous_secret_key_expires_at, so a site can
+	// roll the key out without downtime. Only one previous key is kept: resetting again
+	// inside that window overwrites it.
 	RotateSecretKey(context.Context, *RotateSecretKeyRequest) (*ApiKey, error)
+	// RevokePreviousSecret drops the previous secret key before it expires, for a site
+	// that has finished rolling the new one out. It does nothing when there is none.
+	RevokePreviousSecret(context.Context, *RevokePreviousSecretRequest) (*ApiKey, error)
+	// SetAllowedOrigins replaces the addresses allowed to use the site key with the list
+	// given; an empty list lets every address use it again. Entries that stay keep their
+	// create_date.
+	SetAllowedOrigins(context.Context, *SetAllowedOriginsRequest) (*ApiKey, error)
 	// DeleteApiKey soft-deletes the key and deactivates it.
 	DeleteApiKey(context.Context, *DeleteApiKeyRequest) (*emptypb.Empty, error)
 	mustEmbedUnimplementedApiKeyServiceServer()
@@ -158,6 +200,12 @@ func (UnimplementedApiKeyServiceServer) UpdateApiKey(context.Context, *UpdateApi
 }
 func (UnimplementedApiKeyServiceServer) RotateSecretKey(context.Context, *RotateSecretKeyRequest) (*ApiKey, error) {
 	return nil, status.Error(codes.Unimplemented, "method RotateSecretKey not implemented")
+}
+func (UnimplementedApiKeyServiceServer) RevokePreviousSecret(context.Context, *RevokePreviousSecretRequest) (*ApiKey, error) {
+	return nil, status.Error(codes.Unimplemented, "method RevokePreviousSecret not implemented")
+}
+func (UnimplementedApiKeyServiceServer) SetAllowedOrigins(context.Context, *SetAllowedOriginsRequest) (*ApiKey, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetAllowedOrigins not implemented")
 }
 func (UnimplementedApiKeyServiceServer) DeleteApiKey(context.Context, *DeleteApiKeyRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteApiKey not implemented")
@@ -273,6 +321,42 @@ func _ApiKeyService_RotateSecretKey_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ApiKeyService_RevokePreviousSecret_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokePreviousSecretRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ApiKeyServiceServer).RevokePreviousSecret(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ApiKeyService_RevokePreviousSecret_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ApiKeyServiceServer).RevokePreviousSecret(ctx, req.(*RevokePreviousSecretRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ApiKeyService_SetAllowedOrigins_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetAllowedOriginsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ApiKeyServiceServer).SetAllowedOrigins(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ApiKeyService_SetAllowedOrigins_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ApiKeyServiceServer).SetAllowedOrigins(ctx, req.(*SetAllowedOriginsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ApiKeyService_DeleteApiKey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeleteApiKeyRequest)
 	if err := dec(in); err != nil {
@@ -317,6 +401,14 @@ var ApiKeyService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RotateSecretKey",
 			Handler:    _ApiKeyService_RotateSecretKey_Handler,
+		},
+		{
+			MethodName: "RevokePreviousSecret",
+			Handler:    _ApiKeyService_RevokePreviousSecret_Handler,
+		},
+		{
+			MethodName: "SetAllowedOrigins",
+			Handler:    _ApiKeyService_SetAllowedOrigins_Handler,
 		},
 		{
 			MethodName: "DeleteApiKey",

@@ -15,7 +15,7 @@ SELECT (SELECT count(*) FROM users) AS users,
        (SELECT count(*) FROM users WHERE is_banned) AS banned_users,
        (SELECT count(*) FROM api_keys WHERE NOT is_deleted) AS api_keys,
        (SELECT count(*) FROM api_keys WHERE NOT is_deleted AND is_suspended) AS suspended_api_keys,
-       (SELECT count(*) FROM api_keys WHERE NOT is_deleted AND suspend_reason = 'scraping') AS scraping_api_keys;
+       (SELECT count(*) FROM api_keys WHERE NOT is_deleted AND suspend_reason = 'SCRAPING') AS scraping_api_keys;
 
 -- An empty pattern matches everyone; otherwise email or display name, case-insensitively.
 -- name: ListAdminUsers :many
@@ -58,7 +58,7 @@ SET is_suspended = @suspended::boolean,
     suspend_reason = CASE
         WHEN NOT @suspended::boolean THEN NULL
         WHEN is_suspended THEN suspend_reason
-        ELSE 'admin'
+        ELSE 'ADMIN'
     END
 WHERE api_key_id = @api_key_id
   AND NOT is_deleted

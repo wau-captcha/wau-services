@@ -3,6 +3,11 @@ SELECT
     k.api_key_id,
     k.user_id,
     k.is_suspended,
+    ARRAY(
+        SELECT o.ip_address::text
+        FROM api_key_allowed_origins o
+        WHERE o.api_key_id = k.api_key_id
+    )::text[] AS allowed_origins,
     u.is_banned,
     t.daily_quota,
     ARRAY(
@@ -24,6 +29,6 @@ WHERE k.site_key = $1
 -- name: SuspendAPIKeyForScraping :exec
 UPDATE api_keys
 SET is_suspended = true,
-    suspend_reason = 'scraping'
+    suspend_reason = 'SCRAPING'
 WHERE api_key_id = $1
   AND NOT is_suspended;

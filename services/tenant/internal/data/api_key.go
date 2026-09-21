@@ -3,6 +3,8 @@ package data
 import (
 	"context"
 	"errors"
+	"net/netip"
+	"time"
 
 	"tenant/internal/biz"
 	"tenant/internal/data/db"
@@ -80,16 +82,75 @@ func (r *apiKeyRepo) Update(ctx context.Context, userID, id uuid.UUID, patch biz
 	return toApiKey(row), nil
 }
 
-func (r *apiKeyRepo) RotateSecret(ctx context.Context, userID, id uuid.UUID, secretKey string) (*biz.ApiKey, error) {
+func (r *apiKeyRepo) RotateSecret(ctx context.Context, userID, id uuid.UUID, secretKey string, grace time.Duration) (*biz.ApiKey, error) {
 	row, err := r.data.queries.RotateAPIKeySecret(ctx, db.RotateAPIKeySecretParams{
-		SecretKey: secretKey,
-		APIKeyID:  id,
-		UserID:    userID,
+		SecretKey:    secretKey,
+		GraceSeconds: int32(grace.Seconds()),
+		APIKeyID:     id,
+		UserID:       userID,
 	})
 	if err != nil {
 		return nil, notFoundError(err)
 	}
 	return toApiKey(row), nil
+}
+
+func (r *apiKeyRepo) RevokePreviousSecret(ctx context.Context, userID, id uuid.UUID) (*biz.ApiKey, error) {
+	row, err := r.data.queries.RevokeAPIKeyPreviousSecret(ctx, db.RevokeAPIKeyPreviousSecretParams{
+		APIKeyID: id,
+		UserID:   userID,
+	})
+	if err != nil {
+		return nil, notFoundError(err)
+	}
+	return toApiKey(row), nil
+}
+
+func (r *apiKeyRepo) AllowedOrigins(ctx context.Context, userID, id uuid.UUID) ([]biz.AllowedOrigin, error) {
+	rows, err := r.data.queries.ListAllowedOrigins(ctx, db.ListAllowedOriginsParams{UserID: userID, APIKeyID: id})
+	if err != nil {
+		return nil, err
+	}
+	origins := make([]biz.AllowedOrigin, 0, len(rows))
+	for _, row := range rows {
+		origins = append(origins, biz.AllowedOrigin{
+			IPAddress:   toNetwork(row.IpAddress),
+			Description: row.Description.String,
+			CreateDate:  row.CreateDate.Time,
+		})
+	}
+	return origins, nil
+}
+
+func (r *apiKeyRepo) SetAllowedOrigins(ctx context.Context, userID, id uuid.UUID, origins []biz.AllowedOrigin) ([]biz.AllowedOrigin, error) {
+	addresses := make([]string, 0, len(origins))
+	descriptions := make([]string, 0, len(origins))
+	for _, origin := range origins {
+		addresses = append(addresses, origin.IPAddress)
+		descriptions = append(descriptions, origin.Description)
+	}
+	err := r.data.queries.ReplaceAllowedOrigins(ctx, db.ReplaceAllowedOriginsParams{
+		APIKeyID:     id,
+		UserID:       userID,
+		IpAddresses:  addresses,
+		Descriptions: descriptions,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return r.AllowedOrigins(ctx, userID, id)
+}
+
+// toNetwork shows a stored address the way it is set: PostgreSQL leaves out a /32 or /128
+// netmask, and the API always names one.
+func toNetwork(address string) string {
+	if prefix, err := netip.ParsePrefix(address); err == nil {
+		return prefix.String()
+	}
+	if addr, err := netip.ParseAddr(address); err == nil {
+		return netip.PrefixFrom(addr, addr.BitLen()).String()
+	}
+	return address
 }
 
 func (r *apiKeyRepo) Delete(ctx context.Context, userID, id uuid.UUID) error {
@@ -104,7 +165,7 @@ func (r *apiKeyRepo) Delete(ctx context.Context, userID, id uuid.UUID) error {
 }
 
 func toApiKey(row db.APIKey) *biz.ApiKey {
-	return &biz.ApiKey{
+	key := &biz.ApiKey{
 		ID:            row.APIKeyID,
 		Name:          row.Name,
 		SiteKey:       row.SiteKey,
@@ -114,6 +175,13 @@ func toApiKey(row db.APIKey) *biz.ApiKey {
 		IsSuspended:   row.IsSuspended,
 		SuspendReason: row.SuspendReason.String,
 	}
+	// An expired previous secret already works nowhere, so it is reported as gone; that is
+	// why no job has to clear it out.
+	if row.PreviousSecretKey.Valid && row.PreviousSecretKeyExpiresAt.Time.After(time.Now()) {
+		key.PreviousSecretKey = row.PreviousSecretKey.String
+		key.PreviousSecretExpiresAt = row.PreviousSecretKeyExpiresAt.Time
+	}
+	return key
 }
 
 // notFoundError hides keys of other users behind the same error as missing ones.

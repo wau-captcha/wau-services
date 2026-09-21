@@ -10,16 +10,18 @@ import (
 )
 
 type APIKey struct {
-	APIKeyID      uuid.UUID
-	SiteKey       string
-	SecretKey     string
-	IsActive      bool
-	IsDeleted     bool
-	CreateDate    pgtype.Timestamptz
-	UserID        uuid.UUID
-	IsSuspended   bool
-	SuspendReason pgtype.Text
-	Name          string
+	APIKeyID                   uuid.UUID
+	SiteKey                    string
+	SecretKey                  string
+	IsActive                   bool
+	IsDeleted                  bool
+	CreateDate                 pgtype.Timestamptz
+	UserID                     uuid.UUID
+	IsSuspended                bool
+	SuspendReason              pgtype.Text
+	PreviousSecretKey          pgtype.Text
+	PreviousSecretKeyExpiresAt pgtype.Timestamptz
+	Name                       string
 }
 
 type Admin struct {

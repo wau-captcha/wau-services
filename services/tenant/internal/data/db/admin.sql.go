@@ -68,7 +68,7 @@ SELECT (SELECT count(*) FROM users) AS users,
        (SELECT count(*) FROM users WHERE is_banned) AS banned_users,
        (SELECT count(*) FROM api_keys WHERE NOT is_deleted) AS api_keys,
        (SELECT count(*) FROM api_keys WHERE NOT is_deleted AND is_suspended) AS suspended_api_keys,
-       (SELECT count(*) FROM api_keys WHERE NOT is_deleted AND suspend_reason = 'scraping') AS scraping_api_keys
+       (SELECT count(*) FROM api_keys WHERE NOT is_deleted AND suspend_reason = 'SCRAPING') AS scraping_api_keys
 `
 
 type GetAdminStatsRow struct {
@@ -240,7 +240,7 @@ SET is_suspended = $1::boolean,
     suspend_reason = CASE
         WHEN NOT $1::boolean THEN NULL
         WHEN is_suspended THEN suspend_reason
-        ELSE 'admin'
+        ELSE 'ADMIN'
     END
 WHERE api_key_id = $2
   AND NOT is_deleted

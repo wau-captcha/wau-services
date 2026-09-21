@@ -20,5 +20,6 @@ google:
   issuers: [accounts.google.com, https://accounts.google.com]
 api_key:
   max_per_user: 10
+  previous_secret_ttl: 86400s
 usage:
   time_zone: Asia/Ho_Chi_Minh
