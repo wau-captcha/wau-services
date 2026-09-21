@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"gateway/internal/httpx"
+
+	"common/clientip"
 )
 
 // Limiter counts requests per key in fixed windows.
@@ -70,7 +72,7 @@ func Middleware(l *Limiter, prefixes []string, trusted []netip.Prefix, next http
 			next.ServeHTTP(w, r)
 			return
 		}
-		if ok, retry := l.Allow(ClientIP(r, trusted), time.Now()); !ok {
+		if ok, retry := l.Allow(clientip.Key(r, trusted), time.Now()); !ok {
 			w.Header().Set("Retry-After", strconv.Itoa(int(math.Ceil(retry.Seconds()))))
 			httpx.WriteError(w, http.StatusTooManyRequests, "RATE_LIMITED", "too many requests, try again later")
 			return

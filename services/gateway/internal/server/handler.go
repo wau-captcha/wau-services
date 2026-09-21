@@ -9,6 +9,7 @@ import (
 	"gateway/internal/proxy"
 	"gateway/internal/ratelimit"
 
+	"common/clientip"
 	"common/envconf"
 )
 
@@ -35,7 +36,7 @@ func NewHandler(bc *conf.Bootstrap) (http.Handler, error) {
 	if len(limit.GetPrefixes()) == 0 || limit.GetRequests() <= 0 || limit.GetWindow().AsDuration() <= 0 {
 		return handler, nil
 	}
-	trusted, err := ratelimit.ParsePrefixes(envconf.List(limit.GetTrustedProxies()))
+	trusted, err := clientip.ParsePrefixes(envconf.List(limit.GetTrustedProxies()))
 	if err != nil {
 		return nil, err
 	}
