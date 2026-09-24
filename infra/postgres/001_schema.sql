@@ -71,7 +71,7 @@ CREATE TABLE usage_logs (
     api_key_id         UUID NOT NULL REFERENCES api_keys(api_key_id) ON DELETE CASCADE,
     challenge_type_id  TEXT NOT NULL REFERENCES challenge_types(challenge_type_id),
     timestamp          TIMESTAMPTZ NOT NULL DEFAULT now(),
-    success            BOOLEAN NOT NULL
+    success            BOOLEAN
 );
 
 CREATE INDEX idx_usage_log_api_key_time ON usage_logs(api_key_id, timestamp DESC);
