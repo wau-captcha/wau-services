@@ -56,7 +56,7 @@ type ChallengeClient interface {
 
 // GrantRepo stores the grants behind issued tokens.
 type GrantRepo interface {
-	Save(ctx context.Context, id string, g *Grant, ttl time.Duration) error
+	Save(ctx context.Context, id string, grant *Grant, ttl time.Duration) error
 	// Take loads and deletes a grant atomically; it returns nil when absent.
 	Take(ctx context.Context, id string) (*Grant, error)
 }
@@ -81,14 +81,14 @@ type VerifyUsecase struct {
 
 // NewVerifyUsecase creates a VerifyUsecase.
 func NewVerifyUsecase(challenges ChallengeClient, grants GrantRepo, sites SiteRepo, counters CounterRepo,
-	c *conf.Token, q *conf.Quota) (*VerifyUsecase, error) {
-	if c.GetSecret() == "" || c.GetTtl().AsDuration() <= 0 {
+	tokenConf *conf.Token, quotaConf *conf.Quota) (*VerifyUsecase, error) {
+	if tokenConf.GetSecret() == "" || tokenConf.GetTtl().AsDuration() <= 0 {
 		return nil, fmt.Errorf("token secret and positive ttl are required")
 	}
-	if q.GetTimeZone() == "" {
+	if quotaConf.GetTimeZone() == "" {
 		return nil, fmt.Errorf("quota time_zone is required")
 	}
-	location, err := time.LoadLocation(q.GetTimeZone())
+	location, err := time.LoadLocation(quotaConf.GetTimeZone())
 	if err != nil {
 		return nil, err
 	}
@@ -97,8 +97,8 @@ func NewVerifyUsecase(challenges ChallengeClient, grants GrantRepo, sites SiteRe
 		grants:     grants,
 		sites:      sites,
 		counters:   counters,
-		secret:     []byte(c.GetSecret()),
-		ttl:        c.GetTtl().AsDuration(),
+		secret:     []byte(tokenConf.GetSecret()),
+		ttl:        tokenConf.GetTtl().AsDuration(),
 		location:   location,
 		now:        time.Now,
 	}, nil
@@ -106,21 +106,21 @@ func NewVerifyUsecase(challenges ChallengeClient, grants GrantRepo, sites SiteRe
 
 // VerifyChallenge checks an answer and returns a token, or nil when the answer is wrong.
 func (uc *VerifyUsecase) VerifyChallenge(ctx context.Context, challengeID, answer string) (*Token, error) {
-	sol, err := uc.challenges.CheckAnswer(ctx, challengeID, answer)
+	solution, err := uc.challenges.CheckAnswer(ctx, challengeID, answer)
 	if err != nil {
 		return nil, err
 	}
-	if err := uc.sites.RecordUsage(ctx, sol.APIKeyID, sol.ChallengeType, sol.Success); err != nil {
+	if err := uc.sites.RecordUsage(ctx, solution.APIKeyID, solution.ChallengeType, solution.Success); err != nil {
 		log.ErrorContext(ctx, "failed recording usage", "err", err)
 	}
-	uc.count(ctx, sol)
-	if !sol.Success {
+	uc.recordCounters(ctx, solution)
+	if !solution.Success {
 		return nil, nil
 	}
 	now := uc.now()
 	id, token := newToken(uc.secret, now.Add(uc.ttl))
-	g := &Grant{APIKeyID: sol.APIKeyID, ChallengeType: sol.ChallengeType, SolvedAt: now}
-	if err := uc.grants.Save(ctx, id, g, uc.ttl); err != nil {
+	grant := &Grant{APIKeyID: solution.APIKeyID, ChallengeType: solution.ChallengeType, SolvedAt: now}
+	if err := uc.grants.Save(ctx, id, grant, uc.ttl); err != nil {
 		return nil, err
 	}
 	return &Token{Value: token, TTL: uc.ttl}, nil
@@ -144,9 +144,9 @@ func (uc *VerifyUsecase) SiteVerify(ctx context.Context, secretKey, token string
 	if !ok {
 		return nil, nil
 	}
-	g, err := uc.grants.Take(ctx, id)
-	if err != nil || g == nil || g.APIKeyID != site.APIKeyID {
+	grant, err := uc.grants.Take(ctx, id)
+	if err != nil || grant == nil || grant.APIKeyID != site.APIKeyID {
 		return nil, err
 	}
-	return g, nil
+	return grant, nil
 }

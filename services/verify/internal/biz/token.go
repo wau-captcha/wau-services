@@ -19,18 +19,18 @@ func newToken(secret []byte, expiresAt time.Time) (id, token string) {
 	payload := make([]byte, tokenIDSize, tokenIDSize+8)
 	rand.Read(payload)
 	payload = binary.BigEndian.AppendUint64(payload, uint64(expiresAt.Unix()))
-	p := base64.RawURLEncoding.EncodeToString(payload)
-	return hex.EncodeToString(payload[:tokenIDSize]), p + "." + base64.RawURLEncoding.EncodeToString(tokenMAC(secret, p))
+	encodedPayload := base64.RawURLEncoding.EncodeToString(payload)
+	return hex.EncodeToString(payload[:tokenIDSize]), encodedPayload + "." + base64.RawURLEncoding.EncodeToString(tokenMAC(secret, encodedPayload))
 }
 
 // parseToken returns the token id when the signature is valid and the token has not expired.
 func parseToken(secret []byte, token string, now time.Time) (string, bool) {
-	p, sig, _ := strings.Cut(token, ".")
-	mac, err := base64.RawURLEncoding.DecodeString(sig)
-	if err != nil || !hmac.Equal(mac, tokenMAC(secret, p)) {
+	encodedPayload, signature, _ := strings.Cut(token, ".")
+	mac, err := base64.RawURLEncoding.DecodeString(signature)
+	if err != nil || !hmac.Equal(mac, tokenMAC(secret, encodedPayload)) {
 		return "", false
 	}
-	payload, err := base64.RawURLEncoding.DecodeString(p)
+	payload, err := base64.RawURLEncoding.DecodeString(encodedPayload)
 	if err != nil || len(payload) != tokenIDSize+8 || now.Unix() >= int64(binary.BigEndian.Uint64(payload[tokenIDSize:])) {
 		return "", false
 	}
@@ -38,7 +38,7 @@ func parseToken(secret []byte, token string, now time.Time) (string, bool) {
 }
 
 func tokenMAC(secret []byte, payload string) []byte {
-	h := hmac.New(sha256.New, secret)
-	h.Write([]byte(payload))
-	return h.Sum(nil)
+	hasher := hmac.New(sha256.New, secret)
+	hasher.Write([]byte(payload))
+	return hasher.Sum(nil)
 }

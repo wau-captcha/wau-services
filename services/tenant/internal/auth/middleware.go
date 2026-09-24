@@ -31,10 +31,10 @@ type Admins interface {
 // the service layer. Tokens cannot be revoked, so the account is looked up on every
 // request: a deleted account gets UNAUTHENTICATED and a banned one ACCOUNT_BANNED at
 // once, instead of their tokens working until they expire.
-func Middleware(j *JWT, accounts Accounts) middleware.Middleware {
+func Middleware(tokens *JWT, accounts Accounts) middleware.Middleware {
 	return func(handler middleware.Handler) middleware.Handler {
 		return func(ctx context.Context, req any) (any, error) {
-			id, err := j.Parse(bearerToken(ctx))
+			id, err := tokens.Parse(bearerToken(ctx))
 			if err != nil {
 				return nil, err
 			}
@@ -55,10 +55,10 @@ func Middleware(j *JWT, accounts Accounts) middleware.Middleware {
 // AdminMiddleware guards AdminService the way Middleware guards the user API, with
 // administrator tokens only. The administrator is looked up on every request, so removing
 // the row from admins ends their sessions at once.
-func AdminMiddleware(j *JWT, admins Admins) middleware.Middleware {
+func AdminMiddleware(tokens *JWT, admins Admins) middleware.Middleware {
 	return func(handler middleware.Handler) middleware.Handler {
 		return func(ctx context.Context, req any) (any, error) {
-			id, err := j.ParseAdmin(bearerToken(ctx))
+			id, err := tokens.ParseAdmin(bearerToken(ctx))
 			if err != nil {
 				return nil, err
 			}
@@ -89,11 +89,11 @@ func AdminID(ctx context.Context) (uuid.UUID, bool) {
 
 // bearerToken extracts the credential of an "Authorization: Bearer" header.
 func bearerToken(ctx context.Context) string {
-	tr, ok := transport.FromServerContext(ctx)
+	serverTransport, ok := transport.FromServerContext(ctx)
 	if !ok {
 		return ""
 	}
-	scheme, credential, _ := strings.Cut(tr.RequestHeader().Get("Authorization"), " ")
+	scheme, credential, _ := strings.Cut(serverTransport.RequestHeader().Get("Authorization"), " ")
 	if !strings.EqualFold(scheme, "Bearer") {
 		return ""
 	}

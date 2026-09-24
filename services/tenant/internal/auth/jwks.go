@@ -32,9 +32,9 @@ var maxAgePattern = regexp.MustCompile(`max-age=(\d+)`)
 
 // keySet caches the RSA signing keys published at a JWKS URL.
 type keySet struct {
-	url    string
-	client *http.Client
-	now    func() time.Time
+	endpoint string
+	client   *http.Client
+	now      func() time.Time
 
 	mu          sync.Mutex
 	keys        map[string]*rsa.PublicKey
@@ -42,17 +42,17 @@ type keySet struct {
 	nextRefresh time.Time
 }
 
-func newKeySet(url string) *keySet {
-	return &keySet{url: url, client: &http.Client{Timeout: fetchTimeout}, now: time.Now}
+func newKeySet(endpoint string) *keySet {
+	return &keySet{endpoint: endpoint, client: &http.Client{Timeout: fetchTimeout}, now: time.Now}
 }
 
-// key returns the public key with this id, refreshing the set when it expired or lacks the id.
-func (s *keySet) key(ctx context.Context, kid string) (*rsa.PublicKey, error) {
+// publicKey returns the public key with this id, refreshing the set when it expired or lacks the id.
+func (s *keySet) publicKey(ctx context.Context, keyID string) (*rsa.PublicKey, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	now := s.now()
-	key, known := s.keys[kid]
+	key, known := s.keys[keyID]
 	if known && now.Before(s.expires) {
 		return key, nil
 	}
@@ -61,7 +61,7 @@ func (s *keySet) key(ctx context.Context, kid string) (*rsa.PublicKey, error) {
 		switch {
 		case err == nil:
 			s.nextRefresh = now.Add(minKeyRefresh)
-			key, known = s.keys[kid]
+			key, known = s.keys[keyID]
 		case !known:
 			s.nextRefresh = now.Add(failedKeyRefresh)
 			return nil, err
@@ -71,7 +71,7 @@ func (s *keySet) key(ctx context.Context, kid string) (*rsa.PublicKey, error) {
 		}
 	}
 	if !known {
-		return nil, fmt.Errorf("unknown signing key %q", kid)
+		return nil, fmt.Errorf("unknown signing key %q", keyID)
 	}
 	return key, nil
 }
@@ -80,7 +80,7 @@ func (s *keySet) refresh(ctx context.Context, now time.Time) error {
 	// The keys serve every request, so a caller giving up must not abort the fetch.
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), fetchTimeout)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.endpoint, nil)
 	if err != nil {
 		return err
 	}
@@ -105,12 +105,12 @@ func (s *keySet) refresh(ctx context.Context, now time.Time) error {
 		return fmt.Errorf("decode signing keys: %w", err)
 	}
 	keys := make(map[string]*rsa.PublicKey, len(body.Keys))
-	for _, k := range body.Keys {
-		if k.Kty != "RSA" || k.Kid == "" {
+	for _, published := range body.Keys {
+		if published.Kty != "RSA" || published.Kid == "" {
 			continue
 		}
-		if key, err := parseRSAKey(k.N, k.E); err == nil {
-			keys[k.Kid] = key
+		if key, err := parseRSAKey(published.N, published.E); err == nil {
+			keys[published.Kid] = key
 		}
 	}
 	if len(keys) == 0 {
@@ -122,15 +122,15 @@ func (s *keySet) refresh(ctx context.Context, now time.Time) error {
 }
 
 func parseRSAKey(modulus, exponent string) (*rsa.PublicKey, error) {
-	n, err := base64.RawURLEncoding.DecodeString(modulus)
+	modulusBytes, err := base64.RawURLEncoding.DecodeString(modulus)
 	if err != nil {
 		return nil, err
 	}
-	e, err := base64.RawURLEncoding.DecodeString(exponent)
-	if err != nil || len(e) == 0 || len(e) > 4 {
+	exponentBytes, err := base64.RawURLEncoding.DecodeString(exponent)
+	if err != nil || len(exponentBytes) == 0 || len(exponentBytes) > 4 {
 		return nil, errors.New("invalid rsa exponent")
 	}
-	key := &rsa.PublicKey{N: new(big.Int).SetBytes(n), E: int(new(big.Int).SetBytes(e).Int64())}
+	key := &rsa.PublicKey{N: new(big.Int).SetBytes(modulusBytes), E: int(new(big.Int).SetBytes(exponentBytes).Int64())}
 	if key.N.BitLen() < minRSABits {
 		return nil, errors.New("rsa key too small")
 	}

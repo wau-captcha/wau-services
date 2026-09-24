@@ -21,8 +21,8 @@ var placeholder = regexp.MustCompile(`\$\{([^}]*)\}`)
 // must be set and not blank. It is a Kratos config.Resolver.
 func Resolve(values map[string]any) error {
 	var missing, defaulted []string
-	expand := func(s string) string {
-		return placeholder.ReplaceAllStringFunc(s, func(match string) string {
+	expand := func(text string) string {
+		return placeholder.ReplaceAllStringFunc(text, func(match string) string {
 			name := strings.TrimSpace(match[2 : len(match)-1])
 			if strings.Contains(name, ":") {
 				defaulted = append(defaulted, match)
@@ -36,7 +36,7 @@ func Resolve(values map[string]any) error {
 			return value
 		})
 	}
-	walk(values, expand)
+	expandValues(values, expand)
 
 	var errs []error
 	if len(defaulted) > 0 {
@@ -51,24 +51,24 @@ func Resolve(values map[string]any) error {
 	return errors.Join(errs...)
 }
 
-func walk(value any, expand func(string) string) any {
-	switch v := value.(type) {
+func expandValues(value any, expand func(string) string) any {
+	switch typed := value.(type) {
 	case string:
-		return expand(v)
+		return expand(typed)
 	case map[string]any:
-		for key, item := range v {
-			v[key] = walk(item, expand)
+		for key, item := range typed {
+			typed[key] = expandValues(item, expand)
 		}
 	case []any:
-		for i, item := range v {
-			v[i] = walk(item, expand)
+		for i, item := range typed {
+			typed[i] = expandValues(item, expand)
 		}
 	}
 	return value
 }
 
-// List splits a comma-separated value, the way lists are written in .env. Blank items are dropped.
-func List(value string) []string {
+// SplitList splits a comma-separated value, the way lists are written in .env. Blank items are dropped.
+func SplitList(value string) []string {
 	var items []string
 	for item := range strings.SplitSeq(value, ",") {
 		if item = strings.TrimSpace(item); item != "" {

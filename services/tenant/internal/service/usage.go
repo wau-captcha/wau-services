@@ -15,12 +15,12 @@ import (
 type UsageService struct {
 	v1.UnimplementedUsageServiceServer
 
-	uc    *biz.UsageUsecase
+	usage *biz.UsageUsecase
 	quota *biz.QuotaUsecase
 }
 
-func NewUsageService(uc *biz.UsageUsecase, quota *biz.QuotaUsecase) *UsageService {
-	return &UsageService{uc: uc, quota: quota}
+func NewUsageService(usage *biz.UsageUsecase, quota *biz.QuotaUsecase) *UsageService {
+	return &UsageService{usage: usage, quota: quota}
 }
 
 func (s *UsageService) GetUsage(ctx context.Context, req *v1.GetUsageRequest) (*v1.Usage, error) {
@@ -32,7 +32,7 @@ func (s *UsageService) GetUsage(ctx context.Context, req *v1.GetUsageRequest) (*
 	if err != nil {
 		return nil, err
 	}
-	usage, err := s.uc.Get(ctx, userID, apiKeyID, int(req.GetDays()))
+	usage, err := s.usage.Get(ctx, userID, apiKeyID, int(req.GetDays()))
 	if err != nil {
 		return nil, err
 	}

@@ -18,27 +18,27 @@ var ProviderSet = wire.NewSet(NewData, NewSiteRepo, NewChallengeRepo, NewCounter
 
 type Data struct {
 	queries *db.Queries
-	rdb     *redis.ClusterClient
+	redis   *redis.ClusterClient
 }
 
-func NewData(c *conf.Data) (*Data, func(), error) {
-	pool, err := pgxpool.New(context.Background(), c.GetDatabase().GetSource())
+func NewData(dataConf *conf.Data) (*Data, func(), error) {
+	pool, err := pgxpool.New(context.Background(), dataConf.GetDatabase().GetSource())
 	if err != nil {
 		return nil, nil, err
 	}
-	r := c.GetRedis()
-	rdb := redis.NewClusterClient(&redis.ClusterOptions{
-		Addrs:        envconf.List(r.GetAddrs()),
-		Password:     r.GetPassword(),
-		ReadTimeout:  r.GetReadTimeout().AsDuration(),
-		WriteTimeout: r.GetWriteTimeout().AsDuration(),
+	redisConf := dataConf.GetRedis()
+	redisClient := redis.NewClusterClient(&redis.ClusterOptions{
+		Addrs:        envconf.SplitList(redisConf.GetAddrs()),
+		Password:     redisConf.GetPassword(),
+		ReadTimeout:  redisConf.GetReadTimeout().AsDuration(),
+		WriteTimeout: redisConf.GetWriteTimeout().AsDuration(),
 	})
 	cleanup := func() {
 		log.Info("closing the data resources")
 		pool.Close()
-		if err := rdb.Close(); err != nil {
+		if err := redisClient.Close(); err != nil {
 			log.Error("failed closing redis", "err", err)
 		}
 	}
-	return &Data{queries: db.New(pool), rdb: rdb}, cleanup, nil
+	return &Data{queries: db.New(pool), redis: redisClient}, cleanup, nil
 }

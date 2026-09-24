@@ -17,15 +17,15 @@ const (
 
 // codeFont is Go Mono Bold, which keeps 0/O and 1/l/I distinguishable.
 var codeFont = func() *opentype.Font {
-	f, err := opentype.Parse(gomonobold.TTF)
+	parsed, err := opentype.Parse(gomonobold.TTF)
 	if err != nil {
 		panic(err)
 	}
-	return f
+	return parsed
 }()
 
-// newRand returns a ChaCha8 generator seeded from crypto/rand.
-func newRand() *mrand.Rand {
+// newRandomSource returns a ChaCha8 generator seeded from crypto/rand.
+func newRandomSource() *mrand.Rand {
 	var seed [32]byte
 	rand.Read(seed[:])
 	return mrand.New(mrand.NewChaCha8(seed))
@@ -33,15 +33,15 @@ func newRand() *mrand.Rand {
 
 // newCode returns codeLength random characters from chars.
 func newCode(chars string) string {
-	rng := newRand()
+	random := newRandomSource()
 	code := make([]byte, codeLength)
 	for i := range code {
-		code[i] = chars[rng.IntN(len(chars))]
+		code[i] = chars[random.IntN(len(chars))]
 	}
 	return string(code)
 }
 
-func randomColor(rng *mrand.Rand, lo, hi int) color.RGBA {
-	n := func() uint8 { return uint8(lo + rng.IntN(hi-lo+1)) }
-	return color.RGBA{n(), n(), n(), 255}
+func randomColor(random *mrand.Rand, darkest, lightest int) color.RGBA {
+	channel := func() uint8 { return uint8(darkest + random.IntN(lightest-darkest+1)) }
+	return color.RGBA{channel(), channel(), channel(), 255}
 }

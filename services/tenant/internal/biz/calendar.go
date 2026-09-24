@@ -16,8 +16,8 @@ type Calendar struct {
 	now      func() time.Time
 }
 
-func NewCalendar(c *conf.Usage) (*Calendar, error) {
-	zone := c.GetTimeZone()
+func NewCalendar(usageConf *conf.Usage) (*Calendar, error) {
+	zone := usageConf.GetTimeZone()
 	if zone == "" {
 		zone = "UTC"
 	}

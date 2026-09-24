@@ -18,27 +18,27 @@ type CounterRepo interface {
 	QuotaUsed(ctx context.Context, userID, day string) (int64, error)
 	// CountChallenge records a challenge issued for an API key on a day and returns the
 	// challenges issued so far, this one included, and the answers checked for them.
-	CountChallenge(ctx context.Context, apiKeyID, day string) (issued, verified int64, err error)
+	CountChallenge(ctx context.Context, apiKeyID, day string) (issued, answered int64, err error)
 }
 
-// admit enforces the daily quota of the owner, then counts the challenge for the scraping
+// admitChallenge enforces the daily quota of the owner, then counts the challenge for the scraping
 // check of the key. Requests turned away earlier are never counted: a site that ran out
 // of quota must not be taken for a scraper.
-func (uc *ChallengeUsecase) admit(ctx context.Context, site *Site) error {
+func (uc *ChallengeUsecase) admitChallenge(ctx context.Context, site *Site) error {
 	day := quota.Day(uc.now(), uc.location)
-	used, err := uc.counters.QuotaUsed(ctx, site.UserID, day)
+	verificationsToday, err := uc.counters.QuotaUsed(ctx, site.UserID, day)
 	if err != nil {
 		return err
 	}
-	if used >= site.DailyQuota {
+	if verificationsToday >= site.DailyQuota {
 		return ErrDailyQuotaExceeded
 	}
 
-	issued, verified, err := uc.counters.CountChallenge(ctx, site.APIKeyID, day)
+	issuedToday, answeredToday, err := uc.counters.CountChallenge(ctx, site.APIKeyID, day)
 	if err != nil {
 		return err
 	}
-	if !isScraping(issued, verified) {
+	if !isScraping(issuedToday, answeredToday) {
 		return nil
 	}
 	if err := uc.sites.SuspendForScraping(ctx, site.APIKeyID); err != nil {
@@ -50,6 +50,6 @@ func (uc *ChallengeUsecase) admit(ctx context.Context, site *Site) error {
 
 // isScraping tells a key that fetches challenges without answering them: most scrapers
 // harvest the images and never submit an answer.
-func isScraping(issued, verified int64) bool {
-	return issued >= scrapingMinChallenges && verified*100 < issued*scrapingMinAnsweredPercent
+func isScraping(issued, answered int64) bool {
+	return issued >= scrapingMinChallenges && answered*100 < issued*scrapingMinAnsweredPercent
 }

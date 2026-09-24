@@ -29,14 +29,14 @@ type JWT struct {
 
 // NewJWT fails fast on a weak configuration: a short signing key or a
 // non-positive lifetime would make every issued token unsafe.
-func NewJWT(c *conf.Auth) (*JWT, error) {
-	if len(c.GetSecret()) < minSecretLen {
+func NewJWT(authConf *conf.Auth) (*JWT, error) {
+	if len(authConf.GetSecret()) < minSecretLen {
 		return nil, fmt.Errorf("auth secret must be at least %d bytes", minSecretLen)
 	}
-	if c.GetTtl().AsDuration() <= 0 {
+	if authConf.GetTtl().AsDuration() <= 0 {
 		return nil, fmt.Errorf("auth ttl must be positive")
 	}
-	return &JWT{secret: []byte(c.GetSecret()), ttl: c.GetTtl().AsDuration(), now: time.Now}, nil
+	return &JWT{secret: []byte(authConf.GetSecret()), ttl: authConf.GetTtl().AsDuration(), now: time.Now}, nil
 }
 
 // Issue returns a token for userID and how long it stays valid.
@@ -59,11 +59,11 @@ func (j *JWT) ParseAdmin(token string) (uuid.UUID, error) {
 	return j.parse(token, adminIssuer)
 }
 
-func (j *JWT) issue(iss string, id uuid.UUID) (string, time.Duration, error) {
+func (j *JWT) issue(issuer string, id uuid.UUID) (string, time.Duration, error) {
 	now := j.now()
 	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
 		Subject:   id.String(),
-		Issuer:    iss,
+		Issuer:    issuer,
 		IssuedAt:  jwt.NewNumericDate(now),
 		ExpiresAt: jwt.NewNumericDate(now.Add(j.ttl)),
 	}).SignedString(j.secret)
@@ -75,12 +75,12 @@ func (j *JWT) issue(iss string, id uuid.UUID) (string, time.Duration, error) {
 
 // parse returns the subject of a token from iss. Every failure maps to the same error so
 // the response never says which part of the token was wrong.
-func (j *JWT) parse(token, iss string) (uuid.UUID, error) {
+func (j *JWT) parse(token, issuer string) (uuid.UUID, error) {
 	var claims jwt.RegisteredClaims
 	_, err := jwt.ParseWithClaims(token, &claims,
 		func(*jwt.Token) (any, error) { return j.secret, nil },
 		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
-		jwt.WithIssuer(iss),
+		jwt.WithIssuer(issuer),
 		jwt.WithExpirationRequired(),
 		jwt.WithTimeFunc(j.now),
 	)

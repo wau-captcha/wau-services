@@ -29,26 +29,26 @@ func NewGrantRepo(data *Data) biz.GrantRepo {
 	return &grantRepo{data: data}
 }
 
-func (r *grantRepo) Save(ctx context.Context, id string, g *biz.Grant, ttl time.Duration) error {
-	v, err := json.Marshal(grantPO(*g))
+func (r *grantRepo) Save(ctx context.Context, id string, grant *biz.Grant, ttl time.Duration) error {
+	payload, err := json.Marshal(grantPO(*grant))
 	if err != nil {
 		return err
 	}
-	return r.data.rdb.Set(ctx, grantKeyPrefix+id, v, ttl).Err()
+	return r.data.redis.Set(ctx, grantKeyPrefix+id, payload, ttl).Err()
 }
 
 func (r *grantRepo) Take(ctx context.Context, id string) (*biz.Grant, error) {
-	v, err := r.data.rdb.GetDel(ctx, grantKeyPrefix+id).Bytes()
+	payload, err := r.data.redis.GetDel(ctx, grantKeyPrefix+id).Bytes()
 	if errors.Is(err, redis.Nil) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	var po grantPO
-	if err := json.Unmarshal(v, &po); err != nil {
+	var record grantPO
+	if err := json.Unmarshal(payload, &record); err != nil {
 		return nil, err
 	}
-	g := biz.Grant(po)
-	return &g, nil
+	grant := biz.Grant(record)
+	return &grant, nil
 }

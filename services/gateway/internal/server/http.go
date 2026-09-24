@@ -9,23 +9,23 @@ import (
 )
 
 // NewHTTPServer answers /healthz itself and proxies everything else.
-func NewHTTPServer(c *conf.Server, handler stdhttp.Handler) *http.Server {
+func NewHTTPServer(serverConf *conf.Server, handler stdhttp.Handler) *http.Server {
 	var opts []http.ServerOption
-	if c.GetHttp().GetNetwork() != "" {
-		opts = append(opts, http.Network(c.GetHttp().GetNetwork()))
+	if serverConf.GetHttp().GetNetwork() != "" {
+		opts = append(opts, http.Network(serverConf.GetHttp().GetNetwork()))
 	}
-	if c.GetHttp().GetAddr() != "" {
-		opts = append(opts, http.Address(c.GetHttp().GetAddr()))
+	if serverConf.GetHttp().GetAddr() != "" {
+		opts = append(opts, http.Address(serverConf.GetHttp().GetAddr()))
 	}
-	if c.GetHttp().GetTimeout() != nil {
-		opts = append(opts, http.Timeout(c.GetHttp().GetTimeout().AsDuration()))
+	if serverConf.GetHttp().GetTimeout() != nil {
+		opts = append(opts, http.Timeout(serverConf.GetHttp().GetTimeout().AsDuration()))
 	}
-	srv := http.NewServer(opts...)
-	srv.HandleFunc("/healthz", func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+	httpServer := http.NewServer(opts...)
+	httpServer.HandleFunc("/healthz", func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		_, _ = w.Write([]byte("ok"))
 	})
 	// Registered last so the health route keeps its own path.
-	srv.HandlePrefix("/", handler)
-	return srv
+	httpServer.HandlePrefix("/", handler)
+	return httpServer
 }

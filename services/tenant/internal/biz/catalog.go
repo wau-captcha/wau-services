@@ -18,11 +18,11 @@ type CatalogRepo interface {
 
 // CatalogUsecase lists what a user may use.
 type CatalogUsecase struct {
-	repo CatalogRepo
+	catalog CatalogRepo
 }
 
-func NewCatalogUsecase(repo CatalogRepo) *CatalogUsecase { return &CatalogUsecase{repo: repo} }
+func NewCatalogUsecase(catalog CatalogRepo) *CatalogUsecase { return &CatalogUsecase{catalog: catalog} }
 
 func (uc *CatalogUsecase) ListChallengeTypes(ctx context.Context, userID uuid.UUID) ([]ChallengeType, error) {
-	return uc.repo.ListChallengeTypes(ctx, userID)
+	return uc.catalog.ListChallengeTypes(ctx, userID)
 }

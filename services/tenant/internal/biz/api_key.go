@@ -78,7 +78,7 @@ type ApiKeyRepo interface {
 	List(ctx context.Context, userID uuid.UUID) ([]*ApiKey, error)
 	Get(ctx context.Context, userID, id uuid.UUID) (*ApiKey, error)
 	// Create returns ErrApiKeyLimitReached when the user already holds max keys.
-	Create(ctx context.Context, userID uuid.UUID, name, siteKey, secretKey string, max int) (*ApiKey, error)
+	Create(ctx context.Context, userID uuid.UUID, name, siteKey, secretKey string, maxKeys int) (*ApiKey, error)
 	Update(ctx context.Context, userID, id uuid.UUID, patch ApiKeyPatch) (*ApiKey, error)
 	// RotateSecret stores secretKey and keeps the replaced one working for grace, in one
 	// statement, so the key is never left without a working secret.
@@ -95,24 +95,24 @@ type ApiKeyRepo interface {
 // ApiKeyUsecase issues and maintains the keys of one user.
 type ApiKeyUsecase struct {
 	keys        ApiKeyRepo
-	max         int
+	maxPerUser  int
 	previousTTL time.Duration
 }
 
-func NewApiKeyUsecase(keys ApiKeyRepo, c *conf.ApiKey) *ApiKeyUsecase {
-	max := int(c.GetMaxPerUser())
-	if max <= 0 {
-		max = defaultMaxKeys
+func NewApiKeyUsecase(keys ApiKeyRepo, keyConf *conf.ApiKey) *ApiKeyUsecase {
+	maxPerUser := int(keyConf.GetMaxPerUser())
+	if maxPerUser <= 0 {
+		maxPerUser = defaultMaxKeys
 	}
-	previousTTL := c.GetPreviousSecretTtl().AsDuration()
+	previousTTL := keyConf.GetPreviousSecretTtl().AsDuration()
 	if previousTTL <= 0 {
 		previousTTL = defaultPreviousSecretTTL
 	}
-	return &ApiKeyUsecase{keys: keys, max: max, previousTTL: previousTTL}
+	return &ApiKeyUsecase{keys: keys, maxPerUser: maxPerUser, previousTTL: previousTTL}
 }
 
 // MaxPerUser is how many keys a user may hold at once.
-func (uc *ApiKeyUsecase) MaxPerUser() int { return uc.max }
+func (uc *ApiKeyUsecase) MaxPerUser() int { return uc.maxPerUser }
 
 func (uc *ApiKeyUsecase) List(ctx context.Context, userID uuid.UUID) ([]*ApiKey, error) {
 	return uc.keys.List(ctx, userID)
@@ -164,7 +164,7 @@ func (uc *ApiKeyUsecase) Create(ctx context.Context, userID uuid.UUID, name stri
 	if err != nil {
 		return nil, err
 	}
-	return uc.keys.Create(ctx, userID, name, siteKey, secretKey, uc.max)
+	return uc.keys.Create(ctx, userID, name, siteKey, secretKey, uc.maxPerUser)
 }
 
 func (uc *ApiKeyUsecase) Update(ctx context.Context, userID, id uuid.UUID, patch ApiKeyPatch) (*ApiKey, error) {
@@ -212,12 +212,12 @@ func normalizeKeyName(name string) (string, error) {
 // NormalizeOrigins checks the addresses a key accepts and puts them in the form they are
 // stored and shown in: a network, with a plain address covering only itself. An empty list
 // is allowed and means every address may use the key.
-func NormalizeOrigins(raw []AllowedOrigin) ([]AllowedOrigin, error) {
-	if len(raw) > maxOrigins {
+func NormalizeOrigins(rawOrigins []AllowedOrigin) ([]AllowedOrigin, error) {
+	if len(rawOrigins) > maxOrigins {
 		return nil, InvalidField("ip_address", "at most 50 addresses")
 	}
-	origins := make([]AllowedOrigin, 0, len(raw))
-	for _, entry := range raw {
+	origins := make([]AllowedOrigin, 0, len(rawOrigins))
+	for _, entry := range rawOrigins {
 		address, err := NormalizeAddress(entry.IPAddress)
 		if err != nil {
 			return nil, err
@@ -226,7 +226,7 @@ func NormalizeOrigins(raw []AllowedOrigin) ([]AllowedOrigin, error) {
 		if utf8.RuneCountInString(description) > maxOriginDescription {
 			return nil, InvalidField("description", "a description may be at most 100 characters")
 		}
-		if slices.ContainsFunc(origins, func(o AllowedOrigin) bool { return o.IPAddress == address }) {
+		if slices.ContainsFunc(origins, func(origin AllowedOrigin) bool { return origin.IPAddress == address }) {
 			return nil, InvalidField("ip_address", "each address may be listed only once")
 		}
 		origins = append(origins, AllowedOrigin{IPAddress: address, Description: description})
@@ -237,25 +237,25 @@ func NormalizeOrigins(raw []AllowedOrigin) ([]AllowedOrigin, error) {
 // NormalizeAddress reads an IPv4 or IPv6 address, with an optional prefix length, and
 // returns its network: "203.0.113.4" becomes "203.0.113.4/32" and "203.0.113.4/24" the
 // network it lies in, since only the network decides who gets through.
-func NormalizeAddress(raw string) (string, error) {
-	value := strings.TrimSpace(raw)
+func NormalizeAddress(rawAddress string) (string, error) {
+	value := strings.TrimSpace(rawAddress)
 	invalid := InvalidField("ip_address", "an address is an IPv4 or IPv6 address with an optional prefix length, e.g. 203.0.113.4 or 203.0.113.0/24")
 	if prefix, err := netip.ParsePrefix(value); err == nil {
 		return prefix.Masked().String(), nil
 	}
-	addr, err := netip.ParseAddr(value)
+	address, err := netip.ParseAddr(value)
 	if err != nil {
 		return "", invalid
 	}
-	addr = addr.Unmap()
-	return netip.PrefixFrom(addr, addr.BitLen()).String(), nil
+	address = address.Unmap()
+	return netip.PrefixFrom(address, address.BitLen()).String(), nil
 }
 
 // newKeyValue is a variable so tests can make generation predictable.
 var newKeyValue = func(prefix string) (string, error) {
-	buf := make([]byte, keyRandomBytes)
-	if _, err := rand.Read(buf); err != nil {
+	randomBytes := make([]byte, keyRandomBytes)
+	if _, err := rand.Read(randomBytes); err != nil {
 		return "", err
 	}
-	return prefix + hex.EncodeToString(buf), nil
+	return prefix + hex.EncodeToString(randomBytes), nil
 }

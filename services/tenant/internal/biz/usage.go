@@ -20,7 +20,7 @@ type UsageCount struct {
 	Success int64
 }
 
-func (c *UsageCount) add(other UsageCount) {
+func (c *UsageCount) addCount(other UsageCount) {
 	c.Total += other.Total
 	c.Success += other.Success
 }
@@ -144,8 +144,8 @@ func (uc *UsageUsecase) report(ctx context.Context, filter UsageFilter, days int
 		if !ok {
 			continue
 		}
-		usage.add(record.UsageCount)
-		usage.Days[i].add(record.UsageCount)
+		usage.addCount(record.UsageCount)
+		usage.Days[i].addCount(record.UsageCount)
 		if record.APIKeyID != uuid.Nil {
 			seriesFor(byKey, record.APIKeyID.String(), dates).addDay(i, record.UsageCount)
 		}
@@ -168,27 +168,27 @@ func emptyDays(dates []string) []DailyUsage {
 	return days
 }
 
-func seriesFor(all map[string]*UsageSeries, id string, dates []string) *UsageSeries {
-	series, ok := all[id]
+func seriesFor(seriesByID map[string]*UsageSeries, id string, dates []string) *UsageSeries {
+	series, ok := seriesByID[id]
 	if !ok {
 		series = &UsageSeries{ID: id, Days: emptyDays(dates)}
-		all[id] = series
+		seriesByID[id] = series
 	}
 	return series
 }
 
 func (s *UsageSeries) addDay(i int, count UsageCount) {
-	s.add(count)
-	s.Days[i].add(count)
+	s.addCount(count)
+	s.Days[i].addCount(count)
 }
 
-func busiestFirst(all map[string]*UsageSeries) []UsageSeries {
-	list := make([]UsageSeries, 0, len(all))
-	for _, series := range all {
-		list = append(list, *series)
+func busiestFirst(seriesByID map[string]*UsageSeries) []UsageSeries {
+	sorted := make([]UsageSeries, 0, len(seriesByID))
+	for _, series := range seriesByID {
+		sorted = append(sorted, *series)
 	}
-	slices.SortFunc(list, func(a, b UsageSeries) int {
-		return cmp.Or(cmp.Compare(b.Total, a.Total), cmp.Compare(a.ID, b.ID))
+	slices.SortFunc(sorted, func(left, right UsageSeries) int {
+		return cmp.Or(cmp.Compare(right.Total, left.Total), cmp.Compare(left.ID, right.ID))
 	})
-	return list
+	return sorted
 }

@@ -68,18 +68,18 @@ type AdminRepo interface {
 
 // AdminUsecase oversees every account. Callers are administrators; the server checks that.
 type AdminUsecase struct {
-	repo     AdminRepo
+	accounts AdminRepo
 	counters CounterRepo
 	usage    *UsageUsecase
 	calendar *Calendar
 }
 
-func NewAdminUsecase(repo AdminRepo, counters CounterRepo, usage *UsageUsecase, calendar *Calendar) *AdminUsecase {
-	return &AdminUsecase{repo: repo, counters: counters, usage: usage, calendar: calendar}
+func NewAdminUsecase(accounts AdminRepo, counters CounterRepo, usage *UsageUsecase, calendar *Calendar) *AdminUsecase {
+	return &AdminUsecase{accounts: accounts, counters: counters, usage: usage, calendar: calendar}
 }
 
 func (uc *AdminUsecase) Stats(ctx context.Context) (*AdminStats, error) {
-	return uc.repo.Stats(ctx)
+	return uc.accounts.Stats(ctx)
 }
 
 // ListUsers pages through accounts, newest first. page is 1-based; 0 means the first page.
@@ -95,7 +95,7 @@ func (uc *AdminUsecase) ListUsers(ctx context.Context, query string, page, pageS
 	}
 	page, pageSize = max(page, 1), cmp.Or(pageSize, defaultUserPageSize)
 
-	users, total, err := uc.repo.ListUsers(ctx, likePattern(query), pageSize, (page-1)*pageSize)
+	users, total, err := uc.accounts.ListUsers(ctx, likePattern(query), pageSize, (page-1)*pageSize)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +106,7 @@ func (uc *AdminUsecase) ListUsers(ctx context.Context, query string, page, pageS
 }
 
 func (uc *AdminUsecase) GetUser(ctx context.Context, id uuid.UUID) (*AdminUser, error) {
-	user, err := uc.repo.GetUser(ctx, id)
+	user, err := uc.accounts.GetUser(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +119,7 @@ func (uc *AdminUsecase) GetUser(ctx context.Context, id uuid.UUID) (*AdminUser, 
 // SetUserBanned bans or unbans an account. Administrators are not accounts, so a ban never
 // locks one out, even when the account has the same email.
 func (uc *AdminUsecase) SetUserBanned(ctx context.Context, id uuid.UUID, banned bool) (*AdminUser, error) {
-	if err := uc.repo.SetUserBanned(ctx, id, banned); err != nil {
+	if err := uc.accounts.SetUserBanned(ctx, id, banned); err != nil {
 		return nil, err
 	}
 	return uc.GetUser(ctx, id)
@@ -127,10 +127,10 @@ func (uc *AdminUsecase) SetUserBanned(ctx context.Context, id uuid.UUID, banned 
 
 // ListApiKeys returns the keys of an account that are not deleted, with today's counters.
 func (uc *AdminUsecase) ListApiKeys(ctx context.Context, userID uuid.UUID) ([]*AdminApiKey, error) {
-	if _, err := uc.repo.GetUser(ctx, userID); err != nil {
+	if _, err := uc.accounts.GetUser(ctx, userID); err != nil {
 		return nil, err
 	}
-	keys, err := uc.repo.ListApiKeys(ctx, userID)
+	keys, err := uc.accounts.ListApiKeys(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +143,7 @@ func (uc *AdminUsecase) ListApiKeys(ctx context.Context, userID uuid.UUID) ([]*A
 // SetApiKeySuspended suspends a key or lifts its suspension. Lifting it also clears
 // today's scraping counters: they would suspend the key again on its next challenge.
 func (uc *AdminUsecase) SetApiKeySuspended(ctx context.Context, id uuid.UUID, suspended bool) (*AdminApiKey, error) {
-	key, err := uc.repo.SetApiKeySuspended(ctx, id, suspended)
+	key, err := uc.accounts.SetApiKeySuspended(ctx, id, suspended)
 	if err != nil {
 		return nil, err
 	}
@@ -171,12 +171,12 @@ func (uc *AdminUsecase) fillQuota(ctx context.Context, users ...*AdminUser) erro
 	for i, user := range users {
 		ids[i] = user.ID
 	}
-	used, err := uc.counters.QuotaUsed(ctx, ids, uc.calendar.Today())
+	quotaUsed, err := uc.counters.QuotaUsed(ctx, ids, uc.calendar.Today())
 	if err != nil {
 		return err
 	}
 	for i, user := range users {
-		user.QuotaUsed = used[i]
+		user.QuotaUsed = quotaUsed[i]
 	}
 	return nil
 }

@@ -16,12 +16,12 @@ import (
 type AdminService struct {
 	v1.UnimplementedAdminServiceServer
 
-	uc   *biz.AdminUsecase
-	auth *biz.AdminAuthUsecase
+	admin     *biz.AdminUsecase
+	adminAuth *biz.AdminAuthUsecase
 }
 
-func NewAdminService(uc *biz.AdminUsecase, auth *biz.AdminAuthUsecase) *AdminService {
-	return &AdminService{uc: uc, auth: auth}
+func NewAdminService(admin *biz.AdminUsecase, adminAuth *biz.AdminAuthUsecase) *AdminService {
+	return &AdminService{admin: admin, adminAuth: adminAuth}
 }
 
 func (s *AdminService) GetAdmin(ctx context.Context, _ *v1.GetAdminRequest) (*v1.Admin, error) {
@@ -29,7 +29,7 @@ func (s *AdminService) GetAdmin(ctx context.Context, _ *v1.GetAdminRequest) (*v1
 	if err != nil {
 		return nil, err
 	}
-	admin, err := s.auth.Me(ctx, id)
+	admin, err := s.adminAuth.Me(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +37,7 @@ func (s *AdminService) GetAdmin(ctx context.Context, _ *v1.GetAdminRequest) (*v1
 }
 
 func (s *AdminService) GetStats(ctx context.Context, _ *v1.GetStatsRequest) (*v1.AdminStats, error) {
-	stats, err := s.uc.Stats(ctx)
+	stats, err := s.admin.Stats(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +51,7 @@ func (s *AdminService) GetStats(ctx context.Context, _ *v1.GetStatsRequest) (*v1
 }
 
 func (s *AdminService) ListUsers(ctx context.Context, req *v1.ListUsersRequest) (*v1.UserPage, error) {
-	page, err := s.uc.ListUsers(ctx, req.GetQuery(), int(req.GetPage()), int(req.GetPageSize()))
+	page, err := s.admin.ListUsers(ctx, req.GetQuery(), int(req.GetPage()), int(req.GetPageSize()))
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +67,7 @@ func (s *AdminService) GetUser(ctx context.Context, req *v1.GetUserRequest) (*v1
 	if err != nil {
 		return nil, err
 	}
-	user, err := s.uc.GetUser(ctx, id)
+	user, err := s.admin.GetUser(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func (s *AdminService) SetUserBanned(ctx context.Context, req *v1.SetUserBannedR
 	if err != nil {
 		return nil, err
 	}
-	user, err := s.uc.SetUserBanned(ctx, id, req.GetBanned())
+	user, err := s.admin.SetUserBanned(ctx, id, req.GetBanned())
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +91,7 @@ func (s *AdminService) ListUserApiKeys(ctx context.Context, req *v1.ListUserApiK
 	if err != nil {
 		return nil, err
 	}
-	keys, err := s.uc.ListApiKeys(ctx, id)
+	keys, err := s.admin.ListApiKeys(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +107,7 @@ func (s *AdminService) SetApiKeySuspended(ctx context.Context, req *v1.SetApiKey
 	if err != nil {
 		return nil, err
 	}
-	key, err := s.uc.SetApiKeySuspended(ctx, id, req.GetSuspended())
+	key, err := s.admin.SetApiKeySuspended(ctx, id, req.GetSuspended())
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +128,7 @@ func (s *AdminService) GetUsage(ctx context.Context, req *v1.AdminUsageRequest) 
 		return nil, err
 	}
 	filter.APIKeyID = apiKeyID
-	usage, err := s.uc.Usage(ctx, filter, int(req.GetDays()))
+	usage, err := s.admin.Usage(ctx, filter, int(req.GetDays()))
 	if err != nil {
 		return nil, err
 	}

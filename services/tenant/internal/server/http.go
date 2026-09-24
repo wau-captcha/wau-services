@@ -22,8 +22,8 @@ import (
 
 // NewHTTPServer new an HTTP server.
 func NewHTTPServer(
-	c *conf.Server,
-	jwt *auth.JWT,
+	serverConf *conf.Server,
+	tokens *auth.JWT,
 	users biz.UserRepo,
 	admins biz.AdminAccountRepo,
 	authService *service.AuthService,
@@ -37,32 +37,32 @@ func NewHTTPServer(
 		http.Middleware(
 			recovery.Recovery(),
 			sanitizeErrors(),
-			selector.Server(auth.Middleware(jwt, users)).Match(userOperation).Build(),
-			selector.Server(auth.AdminMiddleware(jwt, admins)).Prefix(adminOperations).Build(),
+			selector.Server(auth.Middleware(tokens, users)).Match(userOperation).Build(),
+			selector.Server(auth.AdminMiddleware(tokens, admins)).Prefix(adminOperations).Build(),
 			validate.Validator(func(req any) error {
-				if msg, ok := req.(proto.Message); ok {
-					return fieldbehavior.ValidateRequiredFields(msg)
+				if message, ok := req.(proto.Message); ok {
+					return fieldbehavior.ValidateRequiredFields(message)
 				}
 				return nil
 			}),
 		),
 	}
-	if c.Http.Network != "" {
-		opts = append(opts, http.Network(c.Http.Network))
+	if serverConf.Http.Network != "" {
+		opts = append(opts, http.Network(serverConf.Http.Network))
 	}
-	if c.Http.Addr != "" {
-		opts = append(opts, http.Address(c.Http.Addr))
+	if serverConf.Http.Addr != "" {
+		opts = append(opts, http.Address(serverConf.Http.Addr))
 	}
-	if c.Http.Timeout != nil {
-		opts = append(opts, http.Timeout(c.Http.Timeout.AsDuration()))
+	if serverConf.Http.Timeout != nil {
+		opts = append(opts, http.Timeout(serverConf.Http.Timeout.AsDuration()))
 	}
-	srv := http.NewServer(opts...)
-	v1.RegisterAuthServiceHTTPServer(srv, authService)
-	v1.RegisterApiKeyServiceHTTPServer(srv, apiKeys)
-	v1.RegisterUsageServiceHTTPServer(srv, usage)
-	v1.RegisterCatalogServiceHTTPServer(srv, catalog)
-	v1.RegisterAdminServiceHTTPServer(srv, admin)
-	return srv
+	httpServer := http.NewServer(opts...)
+	v1.RegisterAuthServiceHTTPServer(httpServer, authService)
+	v1.RegisterApiKeyServiceHTTPServer(httpServer, apiKeys)
+	v1.RegisterUsageServiceHTTPServer(httpServer, usage)
+	v1.RegisterCatalogServiceHTTPServer(httpServer, catalog)
+	v1.RegisterAdminServiceHTTPServer(httpServer, admin)
+	return httpServer
 }
 
 // adminOperations prefixes every AdminService operation; they take administrator tokens.

@@ -18,28 +18,28 @@ import (
 type ApiKeyService struct {
 	v1.UnimplementedApiKeyServiceServer
 
-	uc *biz.ApiKeyUsecase
+	keys *biz.ApiKeyUsecase
 }
 
-func NewApiKeyService(uc *biz.ApiKeyUsecase) *ApiKeyService { return &ApiKeyService{uc: uc} }
+func NewApiKeyService(keys *biz.ApiKeyUsecase) *ApiKeyService { return &ApiKeyService{keys: keys} }
 
 func (s *ApiKeyService) ListApiKeys(ctx context.Context, _ *v1.ListApiKeysRequest) (*v1.ApiKeySet, error) {
 	userID, err := currentUser(ctx)
 	if err != nil {
 		return nil, err
 	}
-	keys, err := s.uc.List(ctx, userID)
+	keys, err := s.keys.List(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	set := &v1.ApiKeySet{
+	keySet := &v1.ApiKeySet{
 		ApiKeys:    make([]*v1.ApiKey, 0, len(keys)),
-		MaxApiKeys: int32(s.uc.MaxPerUser()),
+		MaxApiKeys: int32(s.keys.MaxPerUser()),
 	}
 	for _, key := range keys {
-		set.ApiKeys = append(set.ApiKeys, convertApiKey(key))
+		keySet.ApiKeys = append(keySet.ApiKeys, convertApiKey(key))
 	}
-	return set, nil
+	return keySet, nil
 }
 
 func (s *ApiKeyService) CreateApiKey(ctx context.Context, req *v1.CreateApiKeyRequest) (*v1.ApiKey, error) {
@@ -47,7 +47,7 @@ func (s *ApiKeyService) CreateApiKey(ctx context.Context, req *v1.CreateApiKeyRe
 	if err != nil {
 		return nil, err
 	}
-	key, err := s.uc.Create(ctx, userID, req.GetName())
+	key, err := s.keys.Create(ctx, userID, req.GetName())
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +59,7 @@ func (s *ApiKeyService) GetApiKey(ctx context.Context, req *v1.GetApiKeyRequest)
 	if err != nil {
 		return nil, err
 	}
-	key, err := s.uc.Get(ctx, userID, id)
+	key, err := s.keys.Get(ctx, userID, id)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func (s *ApiKeyService) UpdateApiKey(ctx context.Context, req *v1.UpdateApiKeyRe
 	if err != nil {
 		return nil, err
 	}
-	key, err := s.uc.Update(ctx, userID, id, patch)
+	key, err := s.keys.Update(ctx, userID, id, patch)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func (s *ApiKeyService) RotateSecretKey(ctx context.Context, req *v1.RotateSecre
 	if err != nil {
 		return nil, err
 	}
-	key, err := s.uc.RotateSecret(ctx, userID, id)
+	key, err := s.keys.RotateSecret(ctx, userID, id)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +99,7 @@ func (s *ApiKeyService) RevokePreviousSecret(ctx context.Context, req *v1.Revoke
 	if err != nil {
 		return nil, err
 	}
-	key, err := s.uc.RevokePreviousSecret(ctx, userID, id)
+	key, err := s.keys.RevokePreviousSecret(ctx, userID, id)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +115,7 @@ func (s *ApiKeyService) SetAllowedOrigins(ctx context.Context, req *v1.SetAllowe
 	for _, origin := range req.GetAllowedOrigins() {
 		origins = append(origins, biz.AllowedOrigin{IPAddress: origin.GetIpAddress(), Description: origin.GetDescription()})
 	}
-	key, err := s.uc.SetAllowedOrigins(ctx, userID, id, origins)
+	key, err := s.keys.SetAllowedOrigins(ctx, userID, id, origins)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +127,7 @@ func (s *ApiKeyService) DeleteApiKey(ctx context.Context, req *v1.DeleteApiKeyRe
 	if err != nil {
 		return nil, err
 	}
-	if err := s.uc.Delete(ctx, userID, id); err != nil {
+	if err := s.keys.Delete(ctx, userID, id); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil

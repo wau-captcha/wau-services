@@ -39,46 +39,46 @@ var directions = []image.Point{{0, -1}, {0, 1}, {-1, 0}, {1, 0}} // up, down, le
 // color keeps its luminance, which carries the motion, but only dotChroma of its color.
 var dotPalette = func() color.Palette {
 	levels := []float64{42, 127, 212}
-	var p color.Palette
-	for _, r := range levels {
-		for _, g := range levels {
-			for _, b := range levels {
-				l := 0.299*r + 0.587*g + 0.114*b
-				c := func(v float64) uint8 { return uint8(l + dotChroma*(v-l)) }
-				p = append(p, color.RGBA{c(r), c(g), c(b), 255})
+	var palette color.Palette
+	for _, red := range levels {
+		for _, green := range levels {
+			for _, blue := range levels {
+				luminance := 0.299*red + 0.587*green + 0.114*blue
+				desaturate := func(channel float64) uint8 { return uint8(luminance + dotChroma*(channel-luminance)) }
+				palette = append(palette, color.RGBA{desaturate(red), desaturate(green), desaturate(blue), 255})
 			}
 		}
 	}
-	return p
+	return palette
 }()
 
 // textFont is Go Medium, a sans-serif close to the letters of the reference video.
 var textFont = func() *opentype.Font {
-	f, err := opentype.Parse(gomedium.TTF)
+	parsed, err := opentype.Parse(gomedium.TTF)
 	if err != nil {
 		panic(err)
 	}
-	return f
+	return parsed
 }()
 
 // renderMotionNoise hides the code in moving dot noise. A single frame is pure noise; the text
 // only shows because its dots move with it, against a background moving another way.
 func renderMotionNoise(code string) (Media, error) {
-	rng := newRand()
-	txt, err := newText(rng, code)
+	random := newRandomSource()
+	textBlock, err := newText(random, code)
 	if err != nil {
 		return Media{}, err
 	}
 
 	// Background dots, longer along the motion axis so pixels entering the frame are new.
-	noiseDir := directions[rng.IntN(len(directions))]
-	noiseW, noiseH := videoWidth, videoHeight
-	if noiseDir.X != 0 {
-		noiseW += noiseStep * videoFrames
+	noiseDirection := directions[random.IntN(len(directions))]
+	noiseWidth, noiseHeight := videoWidth, videoHeight
+	if noiseDirection.X != 0 {
+		noiseWidth += noiseStep * videoFrames
 	} else {
-		noiseH += noiseStep * videoFrames
+		noiseHeight += noiseStep * videoFrames
 	}
-	noise := newDots(rng, noiseW, noiseH)
+	noise := newDots(random, noiseWidth, noiseHeight)
 
 	// Frames only read the shared inputs, so they are drawn concurrently.
 	bounds := image.Rect(0, 0, videoWidth, videoHeight)
@@ -87,28 +87,28 @@ func renderMotionNoise(code string) (Media, error) {
 		Delay:  make([]int, videoFrames),
 		Config: image.Config{ColorModel: dotPalette, Width: videoWidth, Height: videoHeight},
 	}
-	var wg sync.WaitGroup
+	var frames sync.WaitGroup
 	for i := range videoFrames {
-		wg.Go(func() {
+		frames.Go(func() {
 			frame := image.NewPaletted(bounds, dotPalette)
-			shift := noiseDir.Mul(noiseStep * i)
+			shift := noiseDirection.Mul(noiseStep * i)
 			for y := range videoHeight {
 				for x := range videoWidth {
-					frame.SetColorIndex(x, y, noise.at(image.Pt(x, y).Sub(shift)))
+					frame.SetColorIndex(x, y, noise.indexAt(image.Pt(x, y).Sub(shift)))
 				}
 			}
-			pos := txt.at(i)
-			for y := range txt.mask.Rect.Dy() {
-				for x := range txt.mask.Rect.Dx() {
-					if txt.mask.AlphaAt(x, y).A >= 0x80 {
-						frame.SetColorIndex(pos.X+x, pos.Y+y, txt.dots.at(image.Pt(x, y)))
+			textCorner := textBlock.cornerAt(i)
+			for y := range textBlock.mask.Rect.Dy() {
+				for x := range textBlock.mask.Rect.Dx() {
+					if textBlock.mask.AlphaAt(x, y).A >= 0x80 {
+						frame.SetColorIndex(textCorner.X+x, textCorner.Y+y, textBlock.dots.indexAt(image.Pt(x, y)))
 					}
 				}
 			}
 			video.Image[i], video.Delay[i] = frame, frameDelay
 		})
 	}
-	wg.Wait()
+	frames.Wait()
 
 	var buf bytes.Buffer
 	if err := gif.EncodeAll(&buf, video); err != nil {
@@ -117,51 +117,51 @@ func renderMotionNoise(code string) (Media, error) {
 	return Media{Data: buf.Bytes(), MIMEType: "image/gif", Width: displayWidth, Height: displayHeight}, nil
 }
 
-// text is the whole code as one block of dots, drifting and bouncing off the frame edges.
-type text struct {
-	mask  *image.Alpha
-	dots  dots        // travel with the text
-	hi    image.Point // largest top-left corner that keeps the text inside the frame
-	start image.Point
-	dir   image.Point
+// movingText is the whole code as one block of dots, drifting and bouncing off the frame edges.
+type movingText struct {
+	mask      *image.Alpha
+	dots      dots        // travel with the text
+	maxCorner image.Point // largest top-left corner that keeps the text inside the frame
+	start     image.Point
+	direction image.Point
 }
 
 // newText renders the code and gives it a random start and direction.
-func newText(rng *mrand.Rand, code string) (text, error) {
+func newText(random *mrand.Rand, code string) (movingText, error) {
 	mask, err := textMask(code)
 	if err != nil {
-		return text{}, err
+		return movingText{}, err
 	}
 	size := mask.Rect.Size()
-	hi := image.Pt(videoWidth-size.X, videoHeight-size.Y)
-	return text{
-		mask:  mask,
-		dots:  newDots(rng, size.X, size.Y),
-		hi:    hi,
-		start: image.Pt(rng.IntN(hi.X+1), rng.IntN(hi.Y+1)),
-		dir:   directions[rng.IntN(len(directions))],
+	maxCorner := image.Pt(videoWidth-size.X, videoHeight-size.Y)
+	return movingText{
+		mask:      mask,
+		dots:      newDots(random, size.X, size.Y),
+		maxCorner: maxCorner,
+		start:     image.Pt(random.IntN(maxCorner.X+1), random.IntN(maxCorner.Y+1)),
+		direction: directions[random.IntN(len(directions))],
 	}, nil
 }
 
-// at returns the text's top-left corner by frame.
-func (t text) at(frame int) image.Point {
-	moved := t.dir.Mul(textStep * frame)
-	return image.Pt(bounce(t.start.X+moved.X, t.hi.X), bounce(t.start.Y+moved.Y, t.hi.Y))
+// cornerAt returns the text's top-left corner by frame.
+func (t movingText) cornerAt(frame int) image.Point {
+	moved := t.direction.Mul(textStep * frame)
+	return image.Pt(bounce(t.start.X+moved.X, t.maxCorner.X), bounce(t.start.Y+moved.Y, t.maxCorner.Y))
 }
 
 // bounce folds an unbounded coordinate back into [0, hi], as if it reflected off both ends.
-func bounce(p, hi int) int {
-	if hi == 0 {
+func bounce(coordinate, limit int) int {
+	if limit == 0 {
 		return 0
 	}
-	p %= 2 * hi
-	if p < 0 {
-		p += 2 * hi
+	coordinate %= 2 * limit
+	if coordinate < 0 {
+		coordinate += 2 * limit
 	}
-	if p > hi {
-		p = 2*hi - p
+	if coordinate > limit {
+		coordinate = 2*limit - coordinate
 	}
-	return p
+	return coordinate
 }
 
 // textMask renders code as one alpha mask, shrinking the font from textMaxSize until the word
@@ -183,22 +183,22 @@ func textMask(code string) (*image.Alpha, error) {
 // layoutWord draws each letter textGap pixels after the ink of the previous one, into a mask
 // cropped to the word's ink.
 func layoutWord(face font.Face, letters []rune) *image.Alpha {
-	xs := make([]fixed.Int26_6, len(letters))
+	letterX := make([]fixed.Int26_6, len(letters))
 	var right, top, bottom fixed.Int26_6
-	for i, c := range letters {
-		ink, _, _ := face.GlyphBounds(c)
-		xs[i] = -ink.Min.X
+	for i, letter := range letters {
+		ink, _, _ := face.GlyphBounds(letter)
+		letterX[i] = -ink.Min.X
 		if i > 0 {
-			xs[i] += right + fixed.I(textGap)
+			letterX[i] += right + fixed.I(textGap)
 		}
-		right = xs[i] + ink.Max.X
+		right = letterX[i] + ink.Max.X
 		top, bottom = min(top, ink.Min.Y), max(bottom, ink.Max.Y)
 	}
 	mask := image.NewAlpha(image.Rect(0, 0, right.Ceil(), (bottom - top).Ceil()))
-	d := font.Drawer{Dst: mask, Src: image.Opaque, Face: face}
-	for i, c := range letters {
-		d.Dot = fixed.Point26_6{X: xs[i], Y: -top}
-		d.DrawString(string(c))
+	drawer := font.Drawer{Dst: mask, Src: image.Opaque, Face: face}
+	for i, letter := range letters {
+		drawer.Dot = fixed.Point26_6{X: letterX[i], Y: -top}
+		drawer.DrawString(string(letter))
 	}
 	return mask
 }
@@ -207,18 +207,18 @@ func layoutWord(face font.Face, letters []rune) *image.Alpha {
 // Dots are single pixels because larger dots leave visible seams along the glyph edges.
 type dots struct {
 	width, height int
-	pix           []uint8
+	indices       []uint8
 }
 
-func newDots(rng *mrand.Rand, width, height int) dots {
-	d := dots{width: width, height: height, pix: make([]uint8, width*height)}
-	for i := range d.pix {
-		d.pix[i] = uint8(rng.IntN(len(dotPalette)))
+func newDots(random *mrand.Rand, width, height int) dots {
+	grid := dots{width: width, height: height, indices: make([]uint8, width*height)}
+	for i := range grid.indices {
+		grid.indices[i] = uint8(random.IntN(len(dotPalette)))
 	}
-	return d
+	return grid
 }
 
-func (d dots) at(p image.Point) uint8 {
-	x, y := (p.X%d.width+d.width)%d.width, (p.Y%d.height+d.height)%d.height
-	return d.pix[y*d.width+x]
+func (d dots) indexAt(point image.Point) uint8 {
+	x, y := (point.X%d.width+d.width)%d.width, (point.Y%d.height+d.height)%d.height
+	return d.indices[y*d.width+x]
 }

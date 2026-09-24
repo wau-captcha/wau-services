@@ -21,7 +21,7 @@ func NewCounterRepo(data *Data) biz.CounterRepo { return &counterRepo{data: data
 func (r *counterRepo) QuotaUsed(ctx context.Context, userIDs []uuid.UUID, day string) ([]int64, error) {
 	keys := make([]string, len(userIDs))
 	for i, id := range userIDs {
-		keys[i] = quota.UsedKey(id.String(), day)
+		keys[i] = quota.DailyQuotaKey(id.String(), day)
 	}
 	return r.counts(ctx, keys)
 }
@@ -29,7 +29,7 @@ func (r *counterRepo) QuotaUsed(ctx context.Context, userIDs []uuid.UUID, day st
 func (r *counterRepo) ScrapingCounts(ctx context.Context, apiKeyIDs []uuid.UUID, day string) ([]biz.ScrapingCount, error) {
 	keys := make([]string, 0, 2*len(apiKeyIDs))
 	for _, id := range apiKeyIDs {
-		keys = append(keys, quota.ChallengesKey(id.String(), day), quota.VerificationsKey(id.String(), day))
+		keys = append(keys, quota.IssuedChallengesKey(id.String(), day), quota.CheckedAnswersKey(id.String(), day))
 	}
 	values, err := r.counts(ctx, keys)
 	if err != nil {
@@ -45,9 +45,9 @@ func (r *counterRepo) ScrapingCounts(ctx context.Context, apiKeyIDs []uuid.UUID,
 func (r *counterRepo) ResetScraping(ctx context.Context, apiKeyID uuid.UUID, day string) error {
 	id := apiKeyID.String()
 	// One DEL per key: in a cluster the two counters may live on different nodes.
-	_, err := r.data.rdb.Pipelined(ctx, func(pipe redis.Pipeliner) error {
-		pipe.Del(ctx, quota.ChallengesKey(id, day))
-		pipe.Del(ctx, quota.VerificationsKey(id, day))
+	_, err := r.data.redis.Pipelined(ctx, func(pipe redis.Pipeliner) error {
+		pipe.Del(ctx, quota.IssuedChallengesKey(id, day))
+		pipe.Del(ctx, quota.CheckedAnswersKey(id, day))
 		return nil
 	})
 	return err
@@ -57,7 +57,7 @@ func (r *counterRepo) ResetScraping(ctx context.Context, apiKeyID uuid.UUID, day
 // cluster refuses for keys in different slots. A missing counter reads as zero.
 func (r *counterRepo) counts(ctx context.Context, keys []string) ([]int64, error) {
 	cmds := make([]*redis.StringCmd, len(keys))
-	_, err := r.data.rdb.Pipelined(ctx, func(pipe redis.Pipeliner) error {
+	_, err := r.data.redis.Pipelined(ctx, func(pipe redis.Pipeliner) error {
 		for i, key := range keys {
 			cmds[i] = pipe.Get(ctx, key)
 		}

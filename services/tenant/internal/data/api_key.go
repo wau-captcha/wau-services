@@ -44,13 +44,13 @@ func (r *apiKeyRepo) Get(ctx context.Context, userID, id uuid.UUID) (*biz.ApiKey
 	return toApiKey(row), nil
 }
 
-func (r *apiKeyRepo) Create(ctx context.Context, userID uuid.UUID, name, siteKey, secretKey string, max int) (*biz.ApiKey, error) {
+func (r *apiKeyRepo) Create(ctx context.Context, userID uuid.UUID, name, siteKey, secretKey string, maxKeys int) (*biz.ApiKey, error) {
 	row, err := r.data.queries.CreateAPIKey(ctx, db.CreateAPIKeyParams{
 		UserID:    userID,
 		Name:      name,
 		SiteKey:   siteKey,
 		SecretKey: secretKey,
-		MaxKeys:   int64(max),
+		MaxKeys:   int64(maxKeys),
 	})
 	// The insert is guarded by the key count, so no row means the limit was hit.
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -147,8 +147,8 @@ func toNetwork(address string) string {
 	if prefix, err := netip.ParsePrefix(address); err == nil {
 		return prefix.String()
 	}
-	if addr, err := netip.ParseAddr(address); err == nil {
-		return netip.PrefixFrom(addr, addr.BitLen()).String()
+	if address, err := netip.ParseAddr(address); err == nil {
+		return netip.PrefixFrom(address, address.BitLen()).String()
 	}
 	return address
 }

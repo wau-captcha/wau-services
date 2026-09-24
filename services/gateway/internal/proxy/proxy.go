@@ -43,13 +43,13 @@ func New(routes []Route) (http.Handler, error) {
 	}
 	sort.SliceStable(sorted, func(i, j int) bool { return len(sorted[i].Prefix) > len(sorted[j].Prefix) })
 
-	p := &proxy{routes: sorted}
-	p.reverse = &httputil.ReverseProxy{Rewrite: rewrite, ErrorHandler: upstreamFailed}
-	return p, nil
+	forwarder := &proxy{routes: sorted}
+	forwarder.reverse = &httputil.ReverseProxy{Rewrite: rewriteToUpstream, ErrorHandler: upstreamFailed}
+	return forwarder, nil
 }
 
 func (p *proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	route, ok := p.match(r.URL.Path)
+	route, ok := p.matchRoute(r.URL.Path)
 	if !ok {
 		httpx.WriteError(w, http.StatusNotFound, "ROUTE_NOT_FOUND", "no service handles this path")
 		return
@@ -57,7 +57,7 @@ func (p *proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	p.reverse.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), upstreamKey{}, route.Upstream)))
 }
 
-func (p *proxy) match(path string) (Route, bool) {
+func (p *proxy) matchRoute(path string) (Route, bool) {
 	for _, route := range p.routes {
 		if strings.HasPrefix(path, route.Prefix) {
 			return route, true
@@ -66,14 +66,14 @@ func (p *proxy) match(path string) (Route, bool) {
 	return Route{}, false
 }
 
-func rewrite(r *httputil.ProxyRequest) {
-	upstream, _ := r.In.Context().Value(upstreamKey{}).(*url.URL)
-	r.SetURL(upstream)
+func rewriteToUpstream(proxyRequest *httputil.ProxyRequest) {
+	upstream, _ := proxyRequest.In.Context().Value(upstreamKey{}).(*url.URL)
+	proxyRequest.SetURL(upstream)
 	// SetURL would join the upstream path with ours; services own their routes,
 	// so the incoming path is forwarded unchanged.
-	r.Out.URL.Path = r.In.URL.Path
-	r.Out.URL.RawPath = r.In.URL.RawPath
-	r.SetXForwarded()
+	proxyRequest.Out.URL.Path = proxyRequest.In.URL.Path
+	proxyRequest.Out.URL.RawPath = proxyRequest.In.URL.RawPath
+	proxyRequest.SetXForwarded()
 }
 
 func upstreamFailed(w http.ResponseWriter, r *http.Request, err error) {

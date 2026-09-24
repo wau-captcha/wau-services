@@ -14,16 +14,16 @@ import (
 type AuthService struct {
 	v1.UnimplementedAuthServiceServer
 
-	uc     *biz.AuthUsecase
-	admins *biz.AdminAuthUsecase
+	userAuth  *biz.AuthUsecase
+	adminAuth *biz.AdminAuthUsecase
 }
 
-func NewAuthService(uc *biz.AuthUsecase, admins *biz.AdminAuthUsecase) *AuthService {
-	return &AuthService{uc: uc, admins: admins}
+func NewAuthService(userAuth *biz.AuthUsecase, adminAuth *biz.AdminAuthUsecase) *AuthService {
+	return &AuthService{userAuth: userAuth, adminAuth: adminAuth}
 }
 
 func (s *AuthService) SignInWithGoogle(ctx context.Context, req *v1.SignInWithGoogleRequest) (*v1.AuthReply, error) {
-	session, err := s.uc.SignInWithGoogle(ctx, req.GetIdToken(), req.GetNonce())
+	session, err := s.userAuth.SignInWithGoogle(ctx, req.GetIdToken(), req.GetNonce())
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +35,7 @@ func (s *AuthService) GetMe(ctx context.Context, _ *v1.GetMeRequest) (*v1.User, 
 	if err != nil {
 		return nil, err
 	}
-	user, err := s.uc.Me(ctx, userID)
+	user, err := s.userAuth.Me(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func (s *AuthService) GetMe(ctx context.Context, _ *v1.GetMeRequest) (*v1.User, 
 }
 
 func (s *AuthService) SignInAdminWithGoogle(ctx context.Context, req *v1.SignInWithGoogleRequest) (*v1.AdminAuthReply, error) {
-	session, err := s.admins.SignInWithGoogle(ctx, req.GetIdToken(), req.GetNonce())
+	session, err := s.adminAuth.SignInWithGoogle(ctx, req.GetIdToken(), req.GetNonce())
 	if err != nil {
 		return nil, err
 	}

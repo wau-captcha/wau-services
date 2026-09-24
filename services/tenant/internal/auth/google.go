@@ -27,14 +27,14 @@ type Google struct {
 	now      func() time.Time
 }
 
-func NewGoogle(c *conf.Google) (*Google, error) {
-	if c.GetClientId() == "" {
+func NewGoogle(googleConf *conf.Google) (*Google, error) {
+	if googleConf.GetClientId() == "" {
 		return nil, errors.New("google client id is required (KRATOS_GOOGLE_CLIENT_ID)")
 	}
-	if c.GetJwksUrl() == "" {
+	if googleConf.GetJwksUrl() == "" {
 		return nil, errors.New("google jwks url is required (KRATOS_GOOGLE_JWKS_URL)")
 	}
-	issuers := c.GetIssuers()
+	issuers := googleConf.GetIssuers()
 	if len(issuers) == 0 {
 		issuers = defaultGoogleIssuers
 	}
@@ -43,9 +43,9 @@ func NewGoogle(c *conf.Google) (*Google, error) {
 		accepted[issuer] = true
 	}
 	return &Google{
-		clientID: c.GetClientId(),
+		clientID: googleConf.GetClientId(),
 		issuers:  accepted,
-		keys:     newKeySet(c.GetJwksUrl()),
+		keys:     newKeySet(googleConf.GetJwksUrl()),
 		now:      time.Now,
 	}, nil
 }
@@ -83,11 +83,11 @@ func (g *Google) Verify(ctx context.Context, idToken, nonce string) (*biz.Google
 	var claims googleClaims
 	_, err := jwt.ParseWithClaims(idToken, &claims,
 		func(token *jwt.Token) (any, error) {
-			kid, _ := token.Header["kid"].(string)
-			if kid == "" {
+			keyID, _ := token.Header["kid"].(string)
+			if keyID == "" {
 				return nil, errors.New("token has no key id")
 			}
-			return g.keys.key(ctx, kid)
+			return g.keys.publicKey(ctx, keyID)
 		},
 		jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Alg()}),
 		jwt.WithAudience(g.clientID),

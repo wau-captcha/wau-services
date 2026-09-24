@@ -16,17 +16,17 @@ import (
 type VerifyService struct {
 	v1.UnimplementedVerifyServiceServer
 
-	uc *biz.VerifyUsecase
+	verifier *biz.VerifyUsecase
 }
 
 // NewVerifyService creates a VerifyService.
-func NewVerifyService(uc *biz.VerifyUsecase) *VerifyService {
-	return &VerifyService{uc: uc}
+func NewVerifyService(verifier *biz.VerifyUsecase) *VerifyService {
+	return &VerifyService{verifier: verifier}
 }
 
 // VerifyChallenge checks an answer and issues a one-time token on success.
 func (s *VerifyService) VerifyChallenge(ctx context.Context, req *v1.VerifyChallengeRequest) (*v1.VerifyChallengeReply, error) {
-	token, err := s.uc.VerifyChallenge(ctx, req.GetChallengeId(), req.GetAnswer())
+	token, err := s.verifier.VerifyChallenge(ctx, req.GetChallengeId(), req.GetAnswer())
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +38,7 @@ func (s *VerifyService) VerifyChallenge(ctx context.Context, req *v1.VerifyChall
 
 // SiteVerify consumes a token for the site identified by the bearer secret key.
 func (s *VerifyService) SiteVerify(ctx context.Context, req *v1.SiteVerifyRequest) (*v1.SiteVerifyReply, error) {
-	g, err := s.uc.SiteVerify(ctx, bearerToken(ctx), req.GetToken())
+	g, err := s.verifier.SiteVerify(ctx, bearerToken(ctx), req.GetToken())
 	if err != nil {
 		return nil, err
 	}

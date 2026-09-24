@@ -16,21 +16,21 @@ type CounterRepo interface {
 	CountSuccess(ctx context.Context, userID, day string) error
 }
 
-// count feeds the scraping check with every checked answer and the quota with correct
+// recordCounters feeds the scraping check with every checked answer and the quota with correct
 // ones. Like usage logging, a failure is logged rather than denying the user the token.
-func (uc *VerifyUsecase) count(ctx context.Context, sol *Solution) {
+func (uc *VerifyUsecase) recordCounters(ctx context.Context, solution *Solution) {
 	day := quota.Day(uc.now(), uc.location)
-	if err := uc.counters.CountVerification(ctx, sol.APIKeyID, day); err != nil {
+	if err := uc.counters.CountVerification(ctx, solution.APIKeyID, day); err != nil {
 		log.ErrorContext(ctx, "failed counting verification", "err", err)
 	}
-	if !sol.Success {
+	if !solution.Success {
 		return
 	}
-	if sol.UserID == "" {
-		log.WarnContext(ctx, "challenge has no owner, quota not counted", "api_key_id", sol.APIKeyID)
+	if solution.UserID == "" {
+		log.WarnContext(ctx, "challenge has no owner, quota not counted", "api_key_id", solution.APIKeyID)
 		return
 	}
-	if err := uc.counters.CountSuccess(ctx, sol.UserID, day); err != nil {
+	if err := uc.counters.CountSuccess(ctx, solution.UserID, day); err != nil {
 		log.ErrorContext(ctx, "failed counting quota", "err", err)
 	}
 }

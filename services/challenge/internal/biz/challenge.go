@@ -94,15 +94,15 @@ type ChallengeUsecase struct {
 	now        func() time.Time
 }
 
-func NewChallengeUsecase(sites SiteRepo, challenges ChallengeRepo, counters CounterRepo, c *conf.Challenge, q *conf.Quota) (*ChallengeUsecase, error) {
-	ttl := c.GetTtl().AsDuration()
+func NewChallengeUsecase(sites SiteRepo, challenges ChallengeRepo, counters CounterRepo, challengeConf *conf.Challenge, quotaConf *conf.Quota) (*ChallengeUsecase, error) {
+	ttl := challengeConf.GetTtl().AsDuration()
 	if ttl <= 0 {
 		return nil, fmt.Errorf("challenge ttl must be positive")
 	}
-	if q.GetTimeZone() == "" {
+	if quotaConf.GetTimeZone() == "" {
 		return nil, fmt.Errorf("quota time_zone is required")
 	}
-	location, err := time.LoadLocation(q.GetTimeZone())
+	location, err := time.LoadLocation(quotaConf.GetTimeZone())
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +140,7 @@ func (uc *ChallengeUsecase) New(ctx context.Context, siteKey, challengeType stri
 	case !slices.Contains(site.ChallengeTypes, challengeType):
 		return nil, ErrChallengeTypeNotAllowed
 	}
-	if err := uc.admit(ctx, site); err != nil {
+	if err := uc.admitChallenge(ctx, site); err != nil {
 		return nil, err
 	}
 	code := newCode(kind.chars)
@@ -148,7 +148,7 @@ func (uc *ChallengeUsecase) New(ctx context.Context, siteKey, challengeType stri
 	if err != nil {
 		return nil, err
 	}
-	c := &Challenge{
+	challenge := &Challenge{
 		ID:       uuid.NewString(),
 		Type:     challengeType,
 		APIKeyID: site.APIKeyID,
@@ -157,10 +157,10 @@ func (uc *ChallengeUsecase) New(ctx context.Context, siteKey, challengeType stri
 		Media:    media,
 		TTL:      uc.ttl,
 	}
-	if err := uc.challenges.Save(ctx, c); err != nil {
+	if err := uc.challenges.Save(ctx, challenge); err != nil {
 		return nil, err
 	}
-	return c, nil
+	return challenge, nil
 }
 
 // addressAllowed reports whether a request may use the key. A key with no allowed origins
@@ -183,9 +183,9 @@ func addressAllowed(allowed []netip.Prefix, client netip.Addr) bool {
 }
 
 func (uc *ChallengeUsecase) Check(ctx context.Context, id, answer string) (*Challenge, bool, error) {
-	c, err := uc.challenges.Take(ctx, id)
+	challenge, err := uc.challenges.Take(ctx, id)
 	if err != nil {
 		return nil, false, err
 	}
-	return c, strings.EqualFold(strings.TrimSpace(answer), c.Answer), nil
+	return challenge, strings.EqualFold(strings.TrimSpace(answer), challenge.Answer), nil
 }

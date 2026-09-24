@@ -15,29 +15,29 @@ import (
 )
 
 // NewHTTPServer new an HTTP server.
-func NewHTTPServer(c *conf.Server, challenge *service.ChallengeService) *http.Server {
+func NewHTTPServer(serverConf *conf.Server, challenge *service.ChallengeService) *http.Server {
 	var opts = []http.ServerOption{
 		http.Filter(filter.CORS),
 		http.Middleware(
 			recovery.Recovery(),
 			validate.Validator(func(req any) error {
-				if msg, ok := req.(proto.Message); ok {
-					return fieldbehavior.ValidateRequiredFields(msg)
+				if message, ok := req.(proto.Message); ok {
+					return fieldbehavior.ValidateRequiredFields(message)
 				}
 				return nil
 			}),
 		),
 	}
-	if c.Http.Network != "" {
-		opts = append(opts, http.Network(c.Http.Network))
+	if serverConf.Http.Network != "" {
+		opts = append(opts, http.Network(serverConf.Http.Network))
 	}
-	if c.Http.Addr != "" {
-		opts = append(opts, http.Address(c.Http.Addr))
+	if serverConf.Http.Addr != "" {
+		opts = append(opts, http.Address(serverConf.Http.Addr))
 	}
-	if c.Http.Timeout != nil {
-		opts = append(opts, http.Timeout(c.Http.Timeout.AsDuration()))
+	if serverConf.Http.Timeout != nil {
+		opts = append(opts, http.Timeout(serverConf.Http.Timeout.AsDuration()))
 	}
-	srv := http.NewServer(opts...)
-	v1.RegisterChallengeServiceHTTPServer(srv, challenge)
-	return srv
+	httpServer := http.NewServer(opts...)
+	v1.RegisterChallengeServiceHTTPServer(httpServer, challenge)
+	return httpServer
 }

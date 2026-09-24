@@ -15,9 +15,9 @@ import (
 
 // NewHandler builds the proxy described by the config, wrapped in the rate limit
 // when one is configured.
-func NewHandler(bc *conf.Bootstrap) (http.Handler, error) {
-	routes := make([]proxy.Route, 0, len(bc.GetRoutes()))
-	for _, route := range bc.GetRoutes() {
+func NewHandler(bootstrap *conf.Bootstrap) (http.Handler, error) {
+	routes := make([]proxy.Route, 0, len(bootstrap.GetRoutes()))
+	for _, route := range bootstrap.GetRoutes() {
 		upstream, err := url.Parse(route.GetUpstream())
 		if err != nil {
 			return nil, fmt.Errorf("route %q: %w", route.GetPrefix(), err)
@@ -32,14 +32,14 @@ func NewHandler(bc *conf.Bootstrap) (http.Handler, error) {
 		return nil, err
 	}
 
-	limit := bc.GetRateLimit()
-	if len(limit.GetPrefixes()) == 0 || limit.GetRequests() <= 0 || limit.GetWindow().AsDuration() <= 0 {
+	rateLimit := bootstrap.GetRateLimit()
+	if len(rateLimit.GetPrefixes()) == 0 || rateLimit.GetRequests() <= 0 || rateLimit.GetWindow().AsDuration() <= 0 {
 		return handler, nil
 	}
-	trusted, err := clientip.ParsePrefixes(envconf.List(limit.GetTrustedProxies()))
+	trustedProxies, err := clientip.ParsePrefixes(envconf.SplitList(rateLimit.GetTrustedProxies()))
 	if err != nil {
 		return nil, err
 	}
-	limiter := ratelimit.New(int(limit.GetRequests()), limit.GetWindow().AsDuration())
-	return ratelimit.Middleware(limiter, limit.GetPrefixes(), trusted, handler), nil
+	limiter := ratelimit.New(int(rateLimit.GetRequests()), rateLimit.GetWindow().AsDuration())
+	return ratelimit.Middleware(limiter, rateLimit.GetPrefixes(), trustedProxies, handler), nil
 }

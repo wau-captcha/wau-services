@@ -24,16 +24,16 @@ type jsonCodec struct {
 	encoding.Codec
 }
 
-func (c jsonCodec) Marshal(v any) ([]byte, error) {
-	if m, ok := v.(proto.Message); ok {
-		return marshalOptions.Marshal(m)
+func (c jsonCodec) Marshal(value any) ([]byte, error) {
+	if message, ok := value.(proto.Message); ok {
+		return marshalOptions.Marshal(message)
 	}
-	return c.Codec.Marshal(v)
+	return c.Codec.Marshal(value)
 }
 
-func (c jsonCodec) Unmarshal(data []byte, v any) error {
-	if m, ok := v.(proto.Message); ok && len(data) > 0 {
-		return unmarshalOptions.Unmarshal(data, m)
+func (c jsonCodec) Unmarshal(data []byte, value any) error {
+	if message, ok := value.(proto.Message); ok && len(data) > 0 {
+		return unmarshalOptions.Unmarshal(data, message)
 	}
-	return c.Codec.Unmarshal(data, v)
+	return c.Codec.Unmarshal(data, value)
 }

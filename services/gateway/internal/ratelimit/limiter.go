@@ -66,14 +66,14 @@ func (l *Limiter) sweep(now time.Time) {
 }
 
 // Middleware limits the given path prefixes and passes everything else through.
-func Middleware(l *Limiter, prefixes []string, trusted []netip.Prefix, next http.Handler) http.Handler {
+func Middleware(limiter *Limiter, prefixes []string, trusted []netip.Prefix, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !limited(r.URL.Path, prefixes) {
+		if !isLimitedPath(r.URL.Path, prefixes) {
 			next.ServeHTTP(w, r)
 			return
 		}
-		if ok, retry := l.Allow(clientip.Key(r, trusted), time.Now()); !ok {
-			w.Header().Set("Retry-After", strconv.Itoa(int(math.Ceil(retry.Seconds()))))
+		if ok, retryAfter := limiter.Allow(clientip.Key(r, trusted), time.Now()); !ok {
+			w.Header().Set("Retry-After", strconv.Itoa(int(math.Ceil(retryAfter.Seconds()))))
 			httpx.WriteError(w, http.StatusTooManyRequests, "RATE_LIMITED", "too many requests, try again later")
 			return
 		}
@@ -81,7 +81,7 @@ func Middleware(l *Limiter, prefixes []string, trusted []netip.Prefix, next http
 	})
 }
 
-func limited(path string, prefixes []string) bool {
+func isLimitedPath(path string, prefixes []string) bool {
 	for _, prefix := range prefixes {
 		if strings.HasPrefix(path, prefix) {
 			return true
