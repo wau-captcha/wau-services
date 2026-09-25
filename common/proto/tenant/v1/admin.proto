@@ -56,7 +56,8 @@ service AdminService {
     };
   }
 
-  // GetUsage reports verifications of the whole system, of one account, or of one key.
+  // GetUsage reports challenges, answers and right answers of the whole system, of one account,
+  // or of one key.
   // by_api_key is only filled in for one account or one key.
   rpc GetUsage(AdminUsageRequest) returns (Usage) {
     option (google.api.http) = {get: "/v1/admin/usage"};
@@ -153,6 +154,8 @@ message AdminUsageRequest {
   string user_id = 1;
   // Empty means every key in scope.
   string api_key_id = 2;
-  // 1-90 days back; 0 means 30.
+  // 1-90 days back; 0 means 30. Ignored when all_time is set.
   int32 days = 3;
+  // Every day from the first recorded challenge to today.
+  bool all_time = 4;
 }

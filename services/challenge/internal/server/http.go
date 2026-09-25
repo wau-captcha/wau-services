@@ -4,6 +4,7 @@ import (
 	"challenge/internal/conf"
 	"challenge/internal/service"
 
+	"common/afterresponse"
 	"common/filter"
 	v1 "common/proto/challenge/v1"
 
@@ -17,7 +18,8 @@ import (
 // NewHTTPServer new an HTTP server.
 func NewHTTPServer(serverConf *conf.Server, challenge *service.ChallengeService) *http.Server {
 	var opts = []http.ServerOption{
-		http.Filter(filter.CORS),
+		// The usage history is written once the response is out.
+		http.Filter(filter.CORS, afterresponse.Filter),
 		http.Middleware(
 			recovery.Recovery(),
 			validate.Validator(func(req any) error {

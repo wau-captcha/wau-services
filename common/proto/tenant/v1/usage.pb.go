@@ -27,8 +27,10 @@ type GetUsageRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Empty means every key of the user, deleted ones included.
 	ApiKeyId string `protobuf:"bytes,1,opt,name=api_key_id,json=apiKeyId,proto3" json:"api_key_id,omitempty"`
-	// 1-90 days back; 0 means 30.
-	Days          int32 `protobuf:"varint,2,opt,name=days,proto3" json:"days,omitempty"`
+	// 1-90 days back; 0 means 30. Ignored when all_time is set.
+	Days int32 `protobuf:"varint,2,opt,name=days,proto3" json:"days,omitempty"`
+	// Every day from the first recorded challenge to today.
+	AllTime       bool `protobuf:"varint,3,opt,name=all_time,json=allTime,proto3" json:"all_time,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -77,13 +79,23 @@ func (x *GetUsageRequest) GetDays() int32 {
 	return 0
 }
 
+func (x *GetUsageRequest) GetAllTime() bool {
+	if x != nil {
+		return x.AllTime
+	}
+	return false
+}
+
 type Usage struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	Total   int64                  `protobuf:"varint,1,opt,name=total,proto3" json:"total,omitempty"`
-	Success int64                  `protobuf:"varint,2,opt,name=success,proto3" json:"success,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Challenges issued: /challenge/new calls.
+	Challenges int64 `protobuf:"varint,1,opt,name=challenges,proto3" json:"challenges,omitempty"`
+	// Answers checked: /challenge/verify calls.
+	Verifications int64 `protobuf:"varint,2,opt,name=verifications,proto3" json:"verifications,omitempty"`
+	// Right answers: successful /challenge/verify calls, the usage counted against the quota.
+	Successes int64 `protobuf:"varint,3,opt,name=successes,proto3" json:"successes,omitempty"`
 	// One entry per day in the window, oldest first; empty days are zero.
-	Days           []*DailyUsage         `protobuf:"bytes,3,rep,name=days,proto3" json:"days,omitempty"`
-	ChallengeTypes []*ChallengeTypeUsage `protobuf:"bytes,4,rep,name=challenge_types,json=challengeTypes,proto3" json:"challenge_types,omitempty"`
+	Days []*DailyUsage `protobuf:"bytes,4,rep,name=days,proto3" json:"days,omitempty"`
 	// One series per API key that was used in the window, busiest first.
 	ByApiKey []*UsageSeries `protobuf:"bytes,5,rep,name=by_api_key,json=byApiKey,proto3" json:"by_api_key,omitempty"`
 	// One series per challenge type that was used in the window, busiest first.
@@ -122,16 +134,23 @@ func (*Usage) Descriptor() ([]byte, []int) {
 	return file_tenant_v1_usage_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *Usage) GetTotal() int64 {
+func (x *Usage) GetChallenges() int64 {
 	if x != nil {
-		return x.Total
+		return x.Challenges
 	}
 	return 0
 }
 
-func (x *Usage) GetSuccess() int64 {
+func (x *Usage) GetVerifications() int64 {
 	if x != nil {
-		return x.Success
+		return x.Verifications
+	}
+	return 0
+}
+
+func (x *Usage) GetSuccesses() int64 {
+	if x != nil {
+		return x.Successes
 	}
 	return 0
 }
@@ -139,13 +158,6 @@ func (x *Usage) GetSuccess() int64 {
 func (x *Usage) GetDays() []*DailyUsage {
 	if x != nil {
 		return x.Days
-	}
-	return nil
-}
-
-func (x *Usage) GetChallengeTypes() []*ChallengeTypeUsage {
-	if x != nil {
-		return x.ChallengeTypes
 	}
 	return nil
 }
@@ -167,11 +179,18 @@ func (x *Usage) GetByChallengeType() []*UsageSeries {
 type UsageSeries struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// An API key id in Usage.by_api_key, a challenge type in Usage.by_challenge_type.
-	Id      string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Total   int64  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
-	Success int64  `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"`
+	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Challenges    int64  `protobuf:"varint,2,opt,name=challenges,proto3" json:"challenges,omitempty"`
+	Verifications int64  `protobuf:"varint,3,opt,name=verifications,proto3" json:"verifications,omitempty"`
+	Successes     int64  `protobuf:"varint,4,opt,name=successes,proto3" json:"successes,omitempty"`
 	// The same days as Usage.days, oldest first; empty days are zero.
-	Days          []*DailyUsage `protobuf:"bytes,4,rep,name=days,proto3" json:"days,omitempty"`
+	Days []*DailyUsage `protobuf:"bytes,5,rep,name=days,proto3" json:"days,omitempty"`
+	// Name of the API key, which may be empty; empty for a challenge type.
+	Name string `protobuf:"bytes,6,opt,name=name,proto3" json:"name,omitempty"`
+	// Whether the API key was deleted since; its usage still counts.
+	Deleted bool `protobuf:"varint,7,opt,name=deleted,proto3" json:"deleted,omitempty"`
+	// When the API key was created; unset for a challenge type.
+	CreateDate    *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=create_date,json=createDate,proto3" json:"create_date,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -213,16 +232,23 @@ func (x *UsageSeries) GetId() string {
 	return ""
 }
 
-func (x *UsageSeries) GetTotal() int64 {
+func (x *UsageSeries) GetChallenges() int64 {
 	if x != nil {
-		return x.Total
+		return x.Challenges
 	}
 	return 0
 }
 
-func (x *UsageSeries) GetSuccess() int64 {
+func (x *UsageSeries) GetVerifications() int64 {
 	if x != nil {
-		return x.Success
+		return x.Verifications
+	}
+	return 0
+}
+
+func (x *UsageSeries) GetSuccesses() int64 {
+	if x != nil {
+		return x.Successes
 	}
 	return 0
 }
@@ -230,6 +256,27 @@ func (x *UsageSeries) GetSuccess() int64 {
 func (x *UsageSeries) GetDays() []*DailyUsage {
 	if x != nil {
 		return x.Days
+	}
+	return nil
+}
+
+func (x *UsageSeries) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *UsageSeries) GetDeleted() bool {
+	if x != nil {
+		return x.Deleted
+	}
+	return false
+}
+
+func (x *UsageSeries) GetCreateDate() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreateDate
 	}
 	return nil
 }
@@ -346,8 +393,9 @@ type DailyUsage struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Local date, "YYYY-MM-DD".
 	Date          string `protobuf:"bytes,1,opt,name=date,proto3" json:"date,omitempty"`
-	Total         int64  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
-	Success       int64  `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"`
+	Challenges    int64  `protobuf:"varint,2,opt,name=challenges,proto3" json:"challenges,omitempty"`
+	Verifications int64  `protobuf:"varint,3,opt,name=verifications,proto3" json:"verifications,omitempty"`
+	Successes     int64  `protobuf:"varint,4,opt,name=successes,proto3" json:"successes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -389,76 +437,23 @@ func (x *DailyUsage) GetDate() string {
 	return ""
 }
 
-func (x *DailyUsage) GetTotal() int64 {
+func (x *DailyUsage) GetChallenges() int64 {
 	if x != nil {
-		return x.Total
+		return x.Challenges
 	}
 	return 0
 }
 
-func (x *DailyUsage) GetSuccess() int64 {
+func (x *DailyUsage) GetVerifications() int64 {
 	if x != nil {
-		return x.Success
+		return x.Verifications
 	}
 	return 0
 }
 
-type ChallengeTypeUsage struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ChallengeType string                 `protobuf:"bytes,1,opt,name=challenge_type,json=challengeType,proto3" json:"challenge_type,omitempty"`
-	Total         int64                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
-	Success       int64                  `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ChallengeTypeUsage) Reset() {
-	*x = ChallengeTypeUsage{}
-	mi := &file_tenant_v1_usage_proto_msgTypes[6]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ChallengeTypeUsage) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ChallengeTypeUsage) ProtoMessage() {}
-
-func (x *ChallengeTypeUsage) ProtoReflect() protoreflect.Message {
-	mi := &file_tenant_v1_usage_proto_msgTypes[6]
+func (x *DailyUsage) GetSuccesses() int64 {
 	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ChallengeTypeUsage.ProtoReflect.Descriptor instead.
-func (*ChallengeTypeUsage) Descriptor() ([]byte, []int) {
-	return file_tenant_v1_usage_proto_rawDescGZIP(), []int{6}
-}
-
-func (x *ChallengeTypeUsage) GetChallengeType() string {
-	if x != nil {
-		return x.ChallengeType
-	}
-	return ""
-}
-
-func (x *ChallengeTypeUsage) GetTotal() int64 {
-	if x != nil {
-		return x.Total
-	}
-	return 0
-}
-
-func (x *ChallengeTypeUsage) GetSuccess() int64 {
-	if x != nil {
-		return x.Success
+		return x.Successes
 	}
 	return 0
 }
@@ -467,39 +462,48 @@ var File_tenant_v1_usage_proto protoreflect.FileDescriptor
 
 const file_tenant_v1_usage_proto_rawDesc = "" +
 	"\n" +
-	"\x15tenant/v1/usage.proto\x12\ttenant.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"C\n" +
+	"\x15tenant/v1/usage.proto\x12\ttenant.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"^\n" +
 	"\x0fGetUsageRequest\x12\x1c\n" +
 	"\n" +
 	"api_key_id\x18\x01 \x01(\tR\bapiKeyId\x12\x12\n" +
-	"\x04days\x18\x02 \x01(\x05R\x04days\"\xa4\x02\n" +
-	"\x05Usage\x12\x14\n" +
-	"\x05total\x18\x01 \x01(\x03R\x05total\x12\x18\n" +
-	"\asuccess\x18\x02 \x01(\x03R\asuccess\x12)\n" +
-	"\x04days\x18\x03 \x03(\v2\x15.tenant.v1.DailyUsageR\x04days\x12F\n" +
-	"\x0fchallenge_types\x18\x04 \x03(\v2\x1d.tenant.v1.ChallengeTypeUsageR\x0echallengeTypes\x124\n" +
+	"\x04days\x18\x02 \x01(\x05R\x04days\x12\x19\n" +
+	"\ball_time\x18\x03 \x01(\bR\aallTime\"\x90\x02\n" +
+	"\x05Usage\x12\x1e\n" +
+	"\n" +
+	"challenges\x18\x01 \x01(\x03R\n" +
+	"challenges\x12$\n" +
+	"\rverifications\x18\x02 \x01(\x03R\rverifications\x12\x1c\n" +
+	"\tsuccesses\x18\x03 \x01(\x03R\tsuccesses\x12)\n" +
+	"\x04days\x18\x04 \x03(\v2\x15.tenant.v1.DailyUsageR\x04days\x124\n" +
 	"\n" +
 	"by_api_key\x18\x05 \x03(\v2\x16.tenant.v1.UsageSeriesR\bbyApiKey\x12B\n" +
-	"\x11by_challenge_type\x18\x06 \x03(\v2\x16.tenant.v1.UsageSeriesR\x0fbyChallengeType\"x\n" +
+	"\x11by_challenge_type\x18\x06 \x03(\v2\x16.tenant.v1.UsageSeriesR\x0fbyChallengeType\"\x97\x02\n" +
 	"\vUsageSeries\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x03R\x05total\x12\x18\n" +
-	"\asuccess\x18\x03 \x01(\x03R\asuccess\x12)\n" +
-	"\x04days\x18\x04 \x03(\v2\x15.tenant.v1.DailyUsageR\x04days\"\x11\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1e\n" +
+	"\n" +
+	"challenges\x18\x02 \x01(\x03R\n" +
+	"challenges\x12$\n" +
+	"\rverifications\x18\x03 \x01(\x03R\rverifications\x12\x1c\n" +
+	"\tsuccesses\x18\x04 \x01(\x03R\tsuccesses\x12)\n" +
+	"\x04days\x18\x05 \x03(\v2\x15.tenant.v1.DailyUsageR\x04days\x12\x12\n" +
+	"\x04name\x18\x06 \x01(\tR\x04name\x12\x18\n" +
+	"\adeleted\x18\a \x01(\bR\adeleted\x12;\n" +
+	"\vcreate_date\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"createDate\"\x11\n" +
 	"\x0fGetQuotaRequest\"~\n" +
 	"\x05Quota\x12\x12\n" +
 	"\x04used\x18\x01 \x01(\x03R\x04used\x12\x14\n" +
 	"\x05limit\x18\x02 \x01(\x03R\x05limit\x12\x12\n" +
 	"\x04date\x18\x03 \x01(\tR\x04date\x127\n" +
-	"\tresets_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\bresetsAt\"P\n" +
+	"\tresets_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\bresetsAt\"\x84\x01\n" +
 	"\n" +
 	"DailyUsage\x12\x12\n" +
-	"\x04date\x18\x01 \x01(\tR\x04date\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x03R\x05total\x12\x18\n" +
-	"\asuccess\x18\x03 \x01(\x03R\asuccess\"k\n" +
-	"\x12ChallengeTypeUsage\x12%\n" +
-	"\x0echallenge_type\x18\x01 \x01(\tR\rchallengeType\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x03R\x05total\x12\x18\n" +
-	"\asuccess\x18\x03 \x01(\x03R\asuccess2\xa8\x01\n" +
+	"\x04date\x18\x01 \x01(\tR\x04date\x12\x1e\n" +
+	"\n" +
+	"challenges\x18\x02 \x01(\x03R\n" +
+	"challenges\x12$\n" +
+	"\rverifications\x18\x03 \x01(\x03R\rverifications\x12\x1c\n" +
+	"\tsuccesses\x18\x04 \x01(\x03R\tsuccesses2\xa8\x01\n" +
 	"\fUsageService\x12K\n" +
 	"\bGetUsage\x12\x1a.tenant.v1.GetUsageRequest\x1a\x10.tenant.v1.Usage\"\x11\x82\xd3\xe4\x93\x02\v\x12\t/v1/usage\x12K\n" +
 	"\bGetQuota\x12\x1a.tenant.v1.GetQuotaRequest\x1a\x10.tenant.v1.Quota\"\x11\x82\xd3\xe4\x93\x02\v\x12\t/v1/quotaB\x1bZ\x19common/proto/tenant/v1;v1b\x06proto3"
@@ -516,7 +520,7 @@ func file_tenant_v1_usage_proto_rawDescGZIP() []byte {
 	return file_tenant_v1_usage_proto_rawDescData
 }
 
-var file_tenant_v1_usage_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_tenant_v1_usage_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_tenant_v1_usage_proto_goTypes = []any{
 	(*GetUsageRequest)(nil),       // 0: tenant.v1.GetUsageRequest
 	(*Usage)(nil),                 // 1: tenant.v1.Usage
@@ -524,16 +528,15 @@ var file_tenant_v1_usage_proto_goTypes = []any{
 	(*GetQuotaRequest)(nil),       // 3: tenant.v1.GetQuotaRequest
 	(*Quota)(nil),                 // 4: tenant.v1.Quota
 	(*DailyUsage)(nil),            // 5: tenant.v1.DailyUsage
-	(*ChallengeTypeUsage)(nil),    // 6: tenant.v1.ChallengeTypeUsage
-	(*timestamppb.Timestamp)(nil), // 7: google.protobuf.Timestamp
+	(*timestamppb.Timestamp)(nil), // 6: google.protobuf.Timestamp
 }
 var file_tenant_v1_usage_proto_depIdxs = []int32{
 	5, // 0: tenant.v1.Usage.days:type_name -> tenant.v1.DailyUsage
-	6, // 1: tenant.v1.Usage.challenge_types:type_name -> tenant.v1.ChallengeTypeUsage
-	2, // 2: tenant.v1.Usage.by_api_key:type_name -> tenant.v1.UsageSeries
-	2, // 3: tenant.v1.Usage.by_challenge_type:type_name -> tenant.v1.UsageSeries
-	5, // 4: tenant.v1.UsageSeries.days:type_name -> tenant.v1.DailyUsage
-	7, // 5: tenant.v1.Quota.resets_at:type_name -> google.protobuf.Timestamp
+	2, // 1: tenant.v1.Usage.by_api_key:type_name -> tenant.v1.UsageSeries
+	2, // 2: tenant.v1.Usage.by_challenge_type:type_name -> tenant.v1.UsageSeries
+	5, // 3: tenant.v1.UsageSeries.days:type_name -> tenant.v1.DailyUsage
+	6, // 4: tenant.v1.UsageSeries.create_date:type_name -> google.protobuf.Timestamp
+	6, // 5: tenant.v1.Quota.resets_at:type_name -> google.protobuf.Timestamp
 	0, // 6: tenant.v1.UsageService.GetUsage:input_type -> tenant.v1.GetUsageRequest
 	3, // 7: tenant.v1.UsageService.GetQuota:input_type -> tenant.v1.GetQuotaRequest
 	1, // 8: tenant.v1.UsageService.GetUsage:output_type -> tenant.v1.Usage
@@ -556,7 +559,7 @@ func file_tenant_v1_usage_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_tenant_v1_usage_proto_rawDesc), len(file_tenant_v1_usage_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   7,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

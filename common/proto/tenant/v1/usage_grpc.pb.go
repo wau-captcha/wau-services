@@ -28,7 +28,8 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
 // UsageService reports how often the keys of the signed-in user were exercised.
-// One record is one answer check done by the verify service.
+// One record is one challenge: its /challenge/new call and, once answered, the outcome of its
+// /challenge/verify call. Only right answers count as usage against the quota.
 type UsageServiceClient interface {
 	// GetUsage requires "Authorization: Bearer <access_token>".
 	GetUsage(ctx context.Context, in *GetUsageRequest, opts ...grpc.CallOption) (*Usage, error)
@@ -70,7 +71,8 @@ func (c *usageServiceClient) GetQuota(ctx context.Context, in *GetQuotaRequest, 
 // for forward compatibility.
 //
 // UsageService reports how often the keys of the signed-in user were exercised.
-// One record is one answer check done by the verify service.
+// One record is one challenge: its /challenge/new call and, once answered, the outcome of its
+// /challenge/verify call. Only right answers count as usage against the quota.
 type UsageServiceServer interface {
 	// GetUsage requires "Authorization: Bearer <access_token>".
 	GetUsage(context.Context, *GetUsageRequest) (*Usage, error)

@@ -15,10 +15,11 @@ import (
 const systemUsage = `-- name: SystemUsage :many
 SELECT (l.timestamp AT TIME ZONE $1::text)::date AS day,
        l.challenge_type_id,
-       count(*) AS total,
-       count(*) FILTER (WHERE l.success) AS success
+       count(*) AS challenges,
+       count(l.success) AS verifications,
+       count(*) FILTER (WHERE l.success) AS successes
 FROM usage_logs l
-WHERE l.timestamp >= $2::timestamptz
+WHERE $2::timestamptz IS NULL OR l.timestamp >= $2::timestamptz
 GROUP BY day, l.challenge_type_id
 `
 
@@ -30,8 +31,9 @@ type SystemUsageParams struct {
 type SystemUsageRow struct {
 	Day             pgtype.Date
 	ChallengeTypeID string
-	Total           int64
-	Success         int64
+	Challenges      int64
+	Verifications   int64
+	Successes       int64
 }
 
 // The whole system has too many keys to break down by key, so only by day and type.
@@ -47,8 +49,9 @@ func (q *Queries) SystemUsage(ctx context.Context, arg SystemUsageParams) ([]Sys
 		if err := rows.Scan(
 			&i.Day,
 			&i.ChallengeTypeID,
-			&i.Total,
-			&i.Success,
+			&i.Challenges,
+			&i.Verifications,
+			&i.Successes,
 		); err != nil {
 			return nil, err
 		}
@@ -62,16 +65,20 @@ func (q *Queries) SystemUsage(ctx context.Context, arg SystemUsageParams) ([]Sys
 
 const usageBreakdown = `-- name: UsageBreakdown :many
 SELECT (l.timestamp AT TIME ZONE $1::text)::date AS day,
-       l.api_key_id,
+       k.api_key_id,
+       k.name AS api_key_name,
+       k.is_deleted AS api_key_deleted,
+       k.create_date AS api_key_create_date,
        l.challenge_type_id,
-       count(*) AS total,
-       count(*) FILTER (WHERE l.success) AS success
+       count(*) AS challenges,
+       count(l.success) AS verifications,
+       count(*) FILTER (WHERE l.success) AS successes
 FROM usage_logs l
 JOIN api_keys k ON k.api_key_id = l.api_key_id
-WHERE l.timestamp >= $2::timestamptz
+WHERE ($2::timestamptz IS NULL OR l.timestamp >= $2::timestamptz)
   AND ($3::uuid IS NULL OR k.user_id = $3::uuid)
   AND ($4::uuid IS NULL OR l.api_key_id = $4::uuid)
-GROUP BY day, l.api_key_id, l.challenge_type_id
+GROUP BY day, k.api_key_id, l.challenge_type_id
 `
 
 type UsageBreakdownParams struct {
@@ -82,15 +89,21 @@ type UsageBreakdownParams struct {
 }
 
 type UsageBreakdownRow struct {
-	Day             pgtype.Date
-	APIKeyID        uuid.UUID
-	ChallengeTypeID string
-	Total           int64
-	Success         int64
+	Day              pgtype.Date
+	APIKeyID         uuid.UUID
+	APIKeyName       string
+	APIKeyDeleted    bool
+	APIKeyCreateDate pgtype.Timestamptz
+	ChallengeTypeID  string
+	Challenges       int64
+	Verifications    int64
+	Successes        int64
 }
 
-// Verifications per local day, API key and challenge type. A null user_id or api_key_id
-// means "any"; deleted keys are included. Days are grouped in the caller's time zone.
+// Challenges per local day, API key and challenge type: every /challenge/new call, the ones
+// answered through /challenge/verify (success is set) and the right answers. A null since means
+// all time; a null user_id or api_key_id means "any". Deleted keys are included and say so.
+// Days are grouped in the caller's time zone.
 func (q *Queries) UsageBreakdown(ctx context.Context, arg UsageBreakdownParams) ([]UsageBreakdownRow, error) {
 	rows, err := q.db.Query(ctx, usageBreakdown,
 		arg.TimeZone,
@@ -108,9 +121,13 @@ func (q *Queries) UsageBreakdown(ctx context.Context, arg UsageBreakdownParams) 
 		if err := rows.Scan(
 			&i.Day,
 			&i.APIKeyID,
+			&i.APIKeyName,
+			&i.APIKeyDeleted,
+			&i.APIKeyCreateDate,
 			&i.ChallengeTypeID,
-			&i.Total,
-			&i.Success,
+			&i.Challenges,
+			&i.Verifications,
+			&i.Successes,
 		); err != nil {
 			return nil, err
 		}

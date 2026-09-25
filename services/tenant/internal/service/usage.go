@@ -32,7 +32,7 @@ func (s *UsageService) GetUsage(ctx context.Context, req *v1.GetUsageRequest) (*
 	if err != nil {
 		return nil, err
 	}
-	usage, err := s.usage.Get(ctx, userID, apiKeyID, int(req.GetDays()))
+	usage, err := s.usage.Get(ctx, userID, apiKeyID, biz.UsageWindow{Days: int(req.GetDays()), AllTime: req.GetAllTime()})
 	if err != nil {
 		return nil, err
 	}
@@ -69,28 +69,25 @@ func parseOptionalKeyID(rawID string) (uuid.NullUUID, error) {
 }
 
 func convertUsage(usage *biz.Usage) *v1.Usage {
-	reply := &v1.Usage{
-		Total:           usage.Total,
-		Success:         usage.Success,
+	return &v1.Usage{
+		Challenges:      usage.Challenges,
+		Verifications:   usage.Verifications,
+		Successes:       usage.Successes,
 		Days:            convertDays(usage.Days),
-		ChallengeTypes:  make([]*v1.ChallengeTypeUsage, 0, len(usage.ChallengeTypes)),
 		ByApiKey:        convertSeries(usage.ByApiKey),
 		ByChallengeType: convertSeries(usage.ByChallengeType),
 	}
-	for _, byType := range usage.ChallengeTypes {
-		reply.ChallengeTypes = append(reply.ChallengeTypes, &v1.ChallengeTypeUsage{
-			ChallengeType: byType.ChallengeType,
-			Total:         byType.Total,
-			Success:       byType.Success,
-		})
-	}
-	return reply
 }
 
 func convertDays(days []biz.DailyUsage) []*v1.DailyUsage {
 	reply := make([]*v1.DailyUsage, 0, len(days))
 	for _, day := range days {
-		reply = append(reply, &v1.DailyUsage{Date: day.Date, Total: day.Total, Success: day.Success})
+		reply = append(reply, &v1.DailyUsage{
+			Date:          day.Date,
+			Challenges:    day.Challenges,
+			Verifications: day.Verifications,
+			Successes:     day.Successes,
+		})
 	}
 	return reply
 }
@@ -98,12 +95,19 @@ func convertDays(days []biz.DailyUsage) []*v1.DailyUsage {
 func convertSeries(all []biz.UsageSeries) []*v1.UsageSeries {
 	reply := make([]*v1.UsageSeries, 0, len(all))
 	for _, series := range all {
-		reply = append(reply, &v1.UsageSeries{
-			Id:      series.ID,
-			Total:   series.Total,
-			Success: series.Success,
-			Days:    convertDays(series.Days),
-		})
+		converted := &v1.UsageSeries{
+			Id:            series.ID,
+			Challenges:    series.Challenges,
+			Verifications: series.Verifications,
+			Successes:     series.Successes,
+			Days:          convertDays(series.Days),
+			Name:          series.Key.Name,
+			Deleted:       series.Key.Deleted,
+		}
+		if !series.Key.CreateDate.IsZero() {
+			converted.CreateDate = timestamppb.New(series.Key.CreateDate)
+		}
+		reply = append(reply, converted)
 	}
 	return reply
 }

@@ -31,7 +31,8 @@ type AdminServiceHTTPServer interface {
 	GetAdmin(context.Context, *GetAdminRequest) (*Admin, error)
 	// GetStats GetStats counts accounts and keys across the system.
 	GetStats(context.Context, *GetStatsRequest) (*AdminStats, error)
-	// GetUsage GetUsage reports verifications of the whole system, of one account, or of one key.
+	// GetUsage GetUsage reports challenges, answers and right answers of the whole system, of one account,
+	// or of one key.
 	// by_api_key is only filled in for one account or one key.
 	GetUsage(context.Context, *AdminUsageRequest) (*Usage, error)
 	GetUser(context.Context, *GetUserRequest) (*AdminUser, error)
@@ -228,7 +229,8 @@ type AdminServiceHTTPClient interface {
 	GetAdmin(ctx context.Context, req *GetAdminRequest, opts ...http.CallOption) (rsp *Admin, err error)
 	// GetStats GetStats counts accounts and keys across the system.
 	GetStats(ctx context.Context, req *GetStatsRequest, opts ...http.CallOption) (rsp *AdminStats, err error)
-	// GetUsage GetUsage reports verifications of the whole system, of one account, or of one key.
+	// GetUsage GetUsage reports challenges, answers and right answers of the whole system, of one account,
+	// or of one key.
 	// by_api_key is only filled in for one account or one key.
 	GetUsage(ctx context.Context, req *AdminUsageRequest, opts ...http.CallOption) (rsp *Usage, err error)
 	GetUser(ctx context.Context, req *GetUserRequest, opts ...http.CallOption) (rsp *AdminUser, err error)
@@ -286,7 +288,8 @@ func (c *AdminServiceHTTPClientImpl) GetStats(ctx context.Context, in *GetStatsR
 	return &out, nil
 }
 
-// GetUsage GetUsage reports verifications of the whole system, of one account, or of one key.
+// GetUsage GetUsage reports challenges, answers and right answers of the whole system, of one account,
+// or of one key.
 // by_api_key is only filled in for one account or one key.
 func (c *AdminServiceHTTPClientImpl) GetUsage(ctx context.Context, in *AdminUsageRequest, opts ...http.CallOption) (*Usage, error) {
 	var out Usage

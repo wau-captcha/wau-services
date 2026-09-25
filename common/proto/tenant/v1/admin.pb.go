@@ -760,8 +760,10 @@ type AdminUsageRequest struct {
 	UserId string `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	// Empty means every key in scope.
 	ApiKeyId string `protobuf:"bytes,2,opt,name=api_key_id,json=apiKeyId,proto3" json:"api_key_id,omitempty"`
-	// 1-90 days back; 0 means 30.
-	Days          int32 `protobuf:"varint,3,opt,name=days,proto3" json:"days,omitempty"`
+	// 1-90 days back; 0 means 30. Ignored when all_time is set.
+	Days int32 `protobuf:"varint,3,opt,name=days,proto3" json:"days,omitempty"`
+	// Every day from the first recorded challenge to today.
+	AllTime       bool `protobuf:"varint,4,opt,name=all_time,json=allTime,proto3" json:"all_time,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -815,6 +817,13 @@ func (x *AdminUsageRequest) GetDays() int32 {
 		return x.Days
 	}
 	return 0
+}
+
+func (x *AdminUsageRequest) GetAllTime() bool {
+	if x != nil {
+		return x.AllTime
+	}
+	return false
 }
 
 var File_tenant_v1_admin_proto protoreflect.FileDescriptor
@@ -877,12 +886,13 @@ const file_tenant_v1_admin_proto_rawDesc = "" +
 	"\x19SetApiKeySuspendedRequest\x12!\n" +
 	"\n" +
 	"api_key_id\x18\x01 \x01(\tB\x03\xe0A\x02R\bapiKeyId\x12\x1c\n" +
-	"\tsuspended\x18\x02 \x01(\bR\tsuspended\"^\n" +
+	"\tsuspended\x18\x02 \x01(\bR\tsuspended\"y\n" +
 	"\x11AdminUsageRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1c\n" +
 	"\n" +
 	"api_key_id\x18\x02 \x01(\tR\bapiKeyId\x12\x12\n" +
-	"\x04days\x18\x03 \x01(\x05R\x04days2\xbf\x06\n" +
+	"\x04days\x18\x03 \x01(\x05R\x04days\x12\x19\n" +
+	"\ball_time\x18\x04 \x01(\bR\aallTime2\xbf\x06\n" +
 	"\fAdminService\x12N\n" +
 	"\bGetAdmin\x12\x1a.tenant.v1.GetAdminRequest\x1a\x10.tenant.v1.Admin\"\x14\x82\xd3\xe4\x93\x02\x0e\x12\f/v1/admin/me\x12V\n" +
 	"\bGetStats\x12\x1a.tenant.v1.GetStatsRequest\x1a\x15.tenant.v1.AdminStats\"\x17\x82\xd3\xe4\x93\x02\x11\x12\x0f/v1/admin/stats\x12V\n" +

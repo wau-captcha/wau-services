@@ -11,22 +11,6 @@ import (
 	"github.com/google/uuid"
 )
 
-const createUsageLog = `-- name: CreateUsageLog :exec
-INSERT INTO usage_logs (api_key_id, challenge_type_id, success)
-VALUES ($1, $2, $3)
-`
-
-type CreateUsageLogParams struct {
-	APIKeyID        uuid.UUID
-	ChallengeTypeID string
-	Success         bool
-}
-
-func (q *Queries) CreateUsageLog(ctx context.Context, arg CreateUsageLogParams) error {
-	_, err := q.db.Exec(ctx, createUsageLog, arg.APIKeyID, arg.ChallengeTypeID, arg.Success)
-	return err
-}
-
 const getSiteBySecretKey = `-- name: GetSiteBySecretKey :one
 SELECT k.api_key_id, k.is_suspended, u.is_banned
 FROM api_keys k
@@ -50,4 +34,29 @@ func (q *Queries) GetSiteBySecretKey(ctx context.Context, secretKey string) (Get
 	var i GetSiteBySecretKeyRow
 	err := row.Scan(&i.APIKeyID, &i.IsSuspended, &i.IsBanned)
 	return i, err
+}
+
+const recordAnsweredUsageLog = `-- name: RecordAnsweredUsageLog :exec
+INSERT INTO usage_logs (challenge_id, api_key_id, challenge_type_id, success)
+VALUES ($1::uuid, $2, $3, $4::boolean)
+ON CONFLICT (challenge_id) DO UPDATE SET success = EXCLUDED.success
+`
+
+type RecordAnsweredUsageLogParams struct {
+	ChallengeID     uuid.UUID
+	APIKeyID        uuid.UUID
+	ChallengeTypeID string
+	Success         bool
+}
+
+// The answer to a challenge fills success on the row /challenge/new wrote, or writes that row
+// when the answer arrives before it.
+func (q *Queries) RecordAnsweredUsageLog(ctx context.Context, arg RecordAnsweredUsageLogParams) error {
+	_, err := q.db.Exec(ctx, recordAnsweredUsageLog,
+		arg.ChallengeID,
+		arg.APIKeyID,
+		arg.ChallengeTypeID,
+		arg.Success,
+	)
+	return err
 }

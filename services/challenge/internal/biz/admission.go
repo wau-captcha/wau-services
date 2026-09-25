@@ -6,10 +6,10 @@ import (
 )
 
 const (
-	// A key is judged for scraping once it was issued this many challenges in a day,
+	// A key is judged for spam once it was issued this many challenges (/challenge/new) in a day,
 	scrapingMinChallenges = 200
-	// and taken for a scraper when fewer than this share of them got an answer checked.
-	scrapingMinAnsweredPercent = 30
+	// and taken for a spammer when fewer than this share of them reached /challenge/verify.
+	scrapingMinVerifiedPercent = 20
 )
 
 // CounterRepo keeps the daily counters shared with the verify service (see common/quota).
@@ -48,8 +48,10 @@ func (uc *ChallengeUsecase) admitChallenge(ctx context.Context, site *Site) erro
 	return ErrApiKeySuspended
 }
 
-// isScraping tells a key that fetches challenges without answering them: most scrapers
-// harvest the images and never submit an answer.
+// isScraping tells a key that fetches challenges without answering them: once it has
+// scrapingMinChallenges /challenge/new calls in the day, (/challenge/verify)/(/challenge/new)
+// below scrapingMinVerifiedPercent is spam. Most scrapers harvest the images and never submit
+// an answer.
 func isScraping(issued, answered int64) bool {
-	return issued >= scrapingMinChallenges && answered*100 < issued*scrapingMinAnsweredPercent
+	return issued >= scrapingMinChallenges && answered*100 < issued*scrapingMinVerifiedPercent
 }

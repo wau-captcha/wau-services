@@ -32,7 +32,8 @@ func wireApp(confServer *conf.Server, confData *conf.Data, challenge *conf.Chall
 	siteRepo := data.NewSiteRepo(dataData)
 	challengeRepo := data.NewChallengeRepo(dataData)
 	counterRepo := data.NewCounterRepo(dataData)
-	challengeUsecase, err := biz.NewChallengeUsecase(siteRepo, challengeRepo, counterRepo, challenge, quota)
+	usageRepo := data.NewUsageRepo(dataData)
+	challengeUsecase, err := biz.NewChallengeUsecase(siteRepo, challengeRepo, counterRepo, usageRepo, challenge, quota)
 	if err != nil {
 		cleanup()
 		return nil, nil, err

@@ -30,14 +30,19 @@ func (r *siteRepo) FindBySecretKey(ctx context.Context, secretKey string) (*biz.
 	return &biz.Site{APIKeyID: row.APIKeyID.String(), Suspended: row.IsSuspended, OwnerBanned: row.IsBanned}, nil
 }
 
-func (r *siteRepo) RecordUsage(ctx context.Context, apiKeyID, challengeType string, success bool) error {
-	id, err := uuid.Parse(apiKeyID)
+func (r *siteRepo) RecordAnswer(ctx context.Context, challengeID string, solution *biz.Solution) error {
+	parsedChallengeID, err := uuid.Parse(challengeID)
 	if err != nil {
 		return err
 	}
-	return r.data.queries.CreateUsageLog(ctx, db.CreateUsageLogParams{
-		APIKeyID:        id,
-		ChallengeTypeID: challengeType,
-		Success:         success,
+	apiKeyID, err := uuid.Parse(solution.APIKeyID)
+	if err != nil {
+		return err
+	}
+	return r.data.queries.RecordAnsweredUsageLog(ctx, db.RecordAnsweredUsageLogParams{
+		ChallengeID:     parsedChallengeID,
+		APIKeyID:        apiKeyID,
+		ChallengeTypeID: solution.ChallengeType,
+		Success:         solution.Success,
 	})
 }

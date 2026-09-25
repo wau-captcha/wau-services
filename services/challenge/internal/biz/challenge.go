@@ -89,12 +89,14 @@ type ChallengeUsecase struct {
 	sites      SiteRepo
 	challenges ChallengeRepo
 	counters   CounterRepo
+	usage      UsageRepo
 	ttl        time.Duration
 	location   *time.Location
 	now        func() time.Time
 }
 
-func NewChallengeUsecase(sites SiteRepo, challenges ChallengeRepo, counters CounterRepo, challengeConf *conf.Challenge, quotaConf *conf.Quota) (*ChallengeUsecase, error) {
+func NewChallengeUsecase(sites SiteRepo, challenges ChallengeRepo, counters CounterRepo, usage UsageRepo,
+	challengeConf *conf.Challenge, quotaConf *conf.Quota) (*ChallengeUsecase, error) {
 	ttl := challengeConf.GetTtl().AsDuration()
 	if ttl <= 0 {
 		return nil, fmt.Errorf("challenge ttl must be positive")
@@ -110,6 +112,7 @@ func NewChallengeUsecase(sites SiteRepo, challenges ChallengeRepo, counters Coun
 		sites:      sites,
 		challenges: challenges,
 		counters:   counters,
+		usage:      usage,
 		ttl:        ttl,
 		location:   location,
 		now:        time.Now,
@@ -160,6 +163,7 @@ func (uc *ChallengeUsecase) New(ctx context.Context, siteKey, challengeType stri
 	if err := uc.challenges.Save(ctx, challenge); err != nil {
 		return nil, err
 	}
+	uc.recordIssued(ctx, challenge)
 	return challenge, nil
 }
 

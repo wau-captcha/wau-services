@@ -128,7 +128,7 @@ func (s *AdminService) GetUsage(ctx context.Context, req *v1.AdminUsageRequest) 
 		return nil, err
 	}
 	filter.APIKeyID = apiKeyID
-	usage, err := s.admin.Usage(ctx, filter, int(req.GetDays()))
+	usage, err := s.admin.Usage(ctx, filter, biz.UsageWindow{Days: int(req.GetDays()), AllTime: req.GetAllTime()})
 	if err != nil {
 		return nil, err
 	}

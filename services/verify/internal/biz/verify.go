@@ -10,7 +10,6 @@ import (
 	v1 "common/proto/verify/v1"
 
 	"github.com/go-kratos/kratos/v3/errors"
-	"github.com/go-kratos/kratos/v3/log"
 )
 
 var (
@@ -64,7 +63,8 @@ type GrantRepo interface {
 // SiteRepo resolves secret keys and records usage.
 type SiteRepo interface {
 	FindBySecretKey(ctx context.Context, secretKey string) (*Site, error)
-	RecordUsage(ctx context.Context, apiKeyID, challengeType string, success bool) error
+	// RecordAnswer writes the outcome of a checked answer into the usage history of its challenge.
+	RecordAnswer(ctx context.Context, challengeID string, solution *Solution) error
 }
 
 // VerifyUsecase issues and validates tokens.
@@ -110,9 +110,7 @@ func (uc *VerifyUsecase) VerifyChallenge(ctx context.Context, challengeID, answe
 	if err != nil {
 		return nil, err
 	}
-	if err := uc.sites.RecordUsage(ctx, solution.APIKeyID, solution.ChallengeType, solution.Success); err != nil {
-		log.ErrorContext(ctx, "failed recording usage", "err", err)
-	}
+	uc.recordAnswer(ctx, challengeID, solution)
 	uc.recordCounters(ctx, solution)
 	if !solution.Success {
 		return nil, nil

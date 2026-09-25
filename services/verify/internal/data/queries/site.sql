@@ -9,6 +9,9 @@ WHERE (k.secret_key = @secret_key::text
   AND k.is_active
   AND NOT k.is_deleted;
 
--- name: CreateUsageLog :exec
-INSERT INTO usage_logs (api_key_id, challenge_type_id, success)
-VALUES ($1, $2, $3);
+-- The answer to a challenge fills success on the row /challenge/new wrote, or writes that row
+-- when the answer arrives before it.
+-- name: RecordAnsweredUsageLog :exec
+INSERT INTO usage_logs (challenge_id, api_key_id, challenge_type_id, success)
+VALUES (@challenge_id::uuid, @api_key_id, @challenge_type_id, @success::boolean)
+ON CONFLICT (challenge_id) DO UPDATE SET success = EXCLUDED.success;

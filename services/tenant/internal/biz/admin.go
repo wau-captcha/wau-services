@@ -159,8 +159,8 @@ func (uc *AdminUsecase) SetApiKeySuspended(ctx context.Context, id uuid.UUID, su
 }
 
 // Usage reports verifications of the whole system, of one account, or of one key.
-func (uc *AdminUsecase) Usage(ctx context.Context, filter UsageFilter, days int) (*Usage, error) {
-	return uc.usage.ForAnyone(ctx, filter, days)
+func (uc *AdminUsecase) Usage(ctx context.Context, filter UsageFilter, window UsageWindow) (*Usage, error) {
+	return uc.usage.ForAnyone(ctx, filter, window)
 }
 
 func (uc *AdminUsecase) fillQuota(ctx context.Context, users ...*AdminUser) error {

@@ -42,3 +42,22 @@ func (c *Calendar) WindowStart(days int) time.Time {
 	today := c.now().In(c.location)
 	return time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, c.location).AddDate(0, 0, -(days - 1))
 }
+
+// DatesFrom lists the local dates from first to today, YYYY-MM-DD and oldest first. It is just
+// today when first is today, later, or not a date.
+func (c *Calendar) DatesFrom(first string) []string {
+	today := c.Today()
+	day, err := time.ParseInLocation(time.DateOnly, first, c.location)
+	if err != nil || first >= today {
+		return []string{today}
+	}
+	var dates []string
+	for date := first; ; {
+		dates = append(dates, date)
+		if date >= today {
+			return dates
+		}
+		day = day.AddDate(0, 0, 1)
+		date = day.Format(time.DateOnly)
+	}
+}

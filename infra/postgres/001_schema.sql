@@ -68,6 +68,7 @@ CREATE TABLE tier_challenge_types (
 
 CREATE TABLE usage_logs (
     usage_log_id       BIGSERIAL PRIMARY KEY,
+    challenge_id       UUID UNIQUE,
     api_key_id         UUID NOT NULL REFERENCES api_keys(api_key_id) ON DELETE CASCADE,
     challenge_type_id  TEXT NOT NULL REFERENCES challenge_types(challenge_type_id),
     timestamp          TIMESTAMPTZ NOT NULL DEFAULT now(),

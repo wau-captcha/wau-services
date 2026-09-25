@@ -52,7 +52,8 @@ type AdminServiceClient interface {
 	// SetApiKeySuspended suspends a key or lifts its suspension. Lifting it also resets
 	// today's scraping counters of the key, so it is not suspended again at once.
 	SetApiKeySuspended(ctx context.Context, in *SetApiKeySuspendedRequest, opts ...grpc.CallOption) (*AdminApiKey, error)
-	// GetUsage reports verifications of the whole system, of one account, or of one key.
+	// GetUsage reports challenges, answers and right answers of the whole system, of one account,
+	// or of one key.
 	// by_api_key is only filled in for one account or one key.
 	GetUsage(ctx context.Context, in *AdminUsageRequest, opts ...grpc.CallOption) (*Usage, error)
 }
@@ -168,7 +169,8 @@ type AdminServiceServer interface {
 	// SetApiKeySuspended suspends a key or lifts its suspension. Lifting it also resets
 	// today's scraping counters of the key, so it is not suspended again at once.
 	SetApiKeySuspended(context.Context, *SetApiKeySuspendedRequest) (*AdminApiKey, error)
-	// GetUsage reports verifications of the whole system, of one account, or of one key.
+	// GetUsage reports challenges, answers and right answers of the whole system, of one account,
+	// or of one key.
 	// by_api_key is only filled in for one account or one key.
 	GetUsage(context.Context, *AdminUsageRequest) (*Usage, error)
 	mustEmbedUnimplementedAdminServiceServer()

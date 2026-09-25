@@ -3,6 +3,7 @@ package biz
 import (
 	"context"
 
+	"common/afterresponse"
 	"common/quota"
 
 	"github.com/go-kratos/kratos/v3/log"
@@ -16,8 +17,19 @@ type CounterRepo interface {
 	CountSuccess(ctx context.Context, userID, day string) error
 }
 
+// recordAnswer updates the usage history of the challenge once the response is on its way,
+// so answering never waits for the database. A failure is logged, not returned.
+func (uc *VerifyUsecase) recordAnswer(ctx context.Context, challengeID string, solution *Solution) {
+	afterresponse.Run(ctx, func(ctx context.Context) {
+		if err := uc.sites.RecordAnswer(ctx, challengeID, solution); err != nil {
+			log.ErrorContext(ctx, "failed recording answer", "err", err, "challenge_id", challengeID)
+		}
+	})
+}
+
 // recordCounters feeds the scraping check with every checked answer and the quota with correct
-// ones. Like usage logging, a failure is logged rather than denying the user the token.
+// ones. They are counted before the response, so the quota is exact; a failure is logged rather
+// than denying the user the token.
 func (uc *VerifyUsecase) recordCounters(ctx context.Context, solution *Solution) {
 	day := quota.Day(uc.now(), uc.location)
 	if err := uc.counters.CountVerification(ctx, solution.APIKeyID, day); err != nil {
