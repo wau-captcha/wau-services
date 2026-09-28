@@ -8,9 +8,8 @@ import (
 	"os"
 
 	"tenant/internal/conf"
-
-	_ "common/codec"
-	"common/envconf"
+	_ "tenant/internal/pkg/codec"
+	"tenant/internal/pkg/envconf"
 
 	"github.com/go-kratos/kratos/contrib/otel/v3/tracing"
 	"github.com/go-kratos/kratos/v3"

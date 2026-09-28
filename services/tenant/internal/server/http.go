@@ -4,13 +4,12 @@ import (
 	"context"
 	"strings"
 
+	v1 "tenant/api/tenant/v1"
 	"tenant/internal/auth"
 	"tenant/internal/biz"
 	"tenant/internal/conf"
+	"tenant/internal/pkg/filter"
 	"tenant/internal/service"
-
-	"common/filter"
-	v1 "common/proto/tenant/v1"
 
 	"github.com/go-kratos/kratos/v3/middleware/recovery"
 	"github.com/go-kratos/kratos/v3/middleware/selector"

@@ -1,7 +1,7 @@
 package biz
 
 import (
-	"common/quota"
+	"challenge/internal/pkg/quota"
 	"context"
 )
 
@@ -12,7 +12,7 @@ const (
 	scrapingMinVerifiedPercent = 20
 )
 
-// CounterRepo keeps the daily counters shared with the verify service (see common/quota).
+// CounterRepo keeps the daily counters shared with the verify service (see internal/pkg/quota).
 type CounterRepo interface {
 	// QuotaUsed returns the successful verifications of a user on a day, 0 when none.
 	QuotaUsed(ctx context.Context, userID, day string) (int64, error)

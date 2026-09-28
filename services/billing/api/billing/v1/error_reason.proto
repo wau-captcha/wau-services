@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package billing.v1;
+
+option go_package = "billing/api/billing/v1;v1";
+
+enum ErrorReason {
+  ERROR_REASON_UNSPECIFIED = 0;
+  // Request data broke a validation rule; metadata "field" names it.
+  INVALID_ARGUMENT = 1;
+  // Same meaning, and name, as in wau-tenant, whose access tokens this service accepts.
+  UNAUTHENTICATED = 2;
+  ACCOUNT_BANNED = 3;
+  INTERNAL = 4;
+  // The tier does not exist, is not active or is not sold (the free tier).
+  PLAN_NOT_FOUND = 5;
+  // The tier is below the caller's: a plan can only be renewed or upgraded.
+  PLAN_DOWNGRADE_NOT_ALLOWED = 6;
+  // The caller has this tier with no end date, so there is nothing to renew.
+  PLAN_NOT_RENEWABLE = 7;
+  // Missing, or owned by another user.
+  TRANSACTION_NOT_FOUND = 8;
+}

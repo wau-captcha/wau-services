@@ -3,11 +3,10 @@ package data
 import (
 	"context"
 
+	challengev1 "verify/api/challenge/v1"
 	"verify/internal/conf"
 	"verify/internal/data/db"
-
-	"common/envconf"
-	challengev1 "common/proto/challenge/v1"
+	"verify/internal/pkg/envconf"
 
 	"github.com/go-kratos/kratos/v3/log"
 	"github.com/go-kratos/kratos/v3/transport/grpc"

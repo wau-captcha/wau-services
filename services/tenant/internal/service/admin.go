@@ -3,9 +3,8 @@ package service
 import (
 	"context"
 
+	v1 "tenant/api/tenant/v1"
 	"tenant/internal/biz"
-
-	v1 "common/proto/tenant/v1"
 
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -146,16 +145,17 @@ func parseUserID(id string) (uuid.UUID, error) {
 
 func convertAdminUser(user *biz.AdminUser) *v1.AdminUser {
 	return &v1.AdminUser{
-		Id:          user.ID.String(),
-		Username:    user.Username,
-		Email:       user.Email,
-		TierId:      user.TierID,
-		TierName:    user.TierName,
-		CreateDate:  timestamppb.New(user.CreateDate),
-		IsBanned:    user.IsBanned,
-		ApiKeyCount: int32(user.ApiKeyCount),
-		QuotaUsed:   user.QuotaUsed,
-		DailyQuota:  user.DailyQuota,
+		Id:            user.ID.String(),
+		Username:      user.Username,
+		Email:         user.Email,
+		TierId:        user.TierID,
+		TierName:      user.TierName,
+		CreateDate:    timestamppb.New(user.CreateDate),
+		IsBanned:      user.IsBanned,
+		ApiKeyCount:   int32(user.ApiKeyCount),
+		QuotaUsed:     user.QuotaUsed,
+		DailyQuota:    user.DailyQuota,
+		TierExpiresAt: optionalTime(user.TierExpiresAt),
 	}
 }
 

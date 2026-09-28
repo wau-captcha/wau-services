@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package tenant.v1;
+
+option go_package = "tenant/api/tenant/v1;v1";
+
+enum ErrorReason {
+  // Password sign-in was removed; these numbers and names must not be reused.
+  reserved 2, 3, 4;
+  reserved "USERNAME_TAKEN", "EMAIL_TAKEN", "INVALID_CREDENTIALS";
+
+  ERROR_REASON_UNSPECIFIED = 0;
+  // Request data broke a validation rule; metadata "field" names it.
+  INVALID_ARGUMENT = 1;
+  UNAUTHENTICATED = 5;
+  // Missing, deleted, or owned by another user.
+  API_KEY_NOT_FOUND = 6;
+  API_KEY_LIMIT_REACHED = 7;
+  INTERNAL = 8;
+  // The Google ID token is malformed, expired, meant for another app, or its nonce does not match.
+  GOOGLE_TOKEN_INVALID = 9;
+  // Google has not verified the email of this account, so no WAU account is created for it.
+  GOOGLE_EMAIL_UNVERIFIED = 10;
+  // An existing account already uses this email and cannot be linked to the Google account.
+  GOOGLE_ACCOUNT_CONFLICT = 11;
+  // An administrator banned this account: it cannot sign in and its sessions no longer work.
+  ACCOUNT_BANNED = 12;
+  // Administrator sign-in with a Google account that is not in the admins table, or whose
+  // address Google does not own (only Gmail and Google Workspace addresses are accepted).
+  PERMISSION_DENIED = 13;
+  USER_NOT_FOUND = 14;
+}

@@ -4,8 +4,7 @@ import (
 	"context"
 
 	"verify/internal/biz"
-
-	"common/quota"
+	"verify/internal/pkg/quota"
 
 	"github.com/redis/go-redis/v9"
 )

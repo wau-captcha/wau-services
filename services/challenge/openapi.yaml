@@ -1,0 +1,63 @@
+# Generated with protoc-gen-openapi
+# https://github.com/google/gnostic/tree/master/cmd/protoc-gen-openapi
+
+openapi: 3.0.3
+info:
+    title: ChallengeService API
+    description: ChallengeService issues challenges and checks their answers.
+    version: 0.0.1
+paths:
+    /challenge/new:
+        get:
+            tags:
+                - ChallengeService
+            description: NewChallenge issues a challenge for a site key.
+            operationId: ChallengeService_NewChallenge
+            parameters:
+                - name: site_key
+                  in: query
+                  description: Public site key of the calling site.
+                  schema:
+                    type: string
+                - name: challenge_type
+                  in: query
+                  description: '"image_distort" (default) or "motion_noise".'
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/challenge.v1.Challenge'
+components:
+    schemas:
+        challenge.v1.Challenge:
+            type: object
+            properties:
+                challenge_id:
+                    type: string
+                challenge_type:
+                    type: string
+                    description: Challenge type, e.g. "image_distort".
+                image:
+                    type: string
+                    description: 'Media to solve: a PNG for image_distort, a 5-second animated GIF for motion_noise.'
+                    format: bytes
+                expires_in:
+                    type: integer
+                    description: Seconds until the challenge expires.
+                    format: int32
+                mime_type:
+                    type: string
+                    description: MIME type of image, e.g. "image/gif".
+                width:
+                    type: integer
+                    description: Size to display image at, in CSS pixels. The media may hold more pixels for finer dots.
+                    format: int32
+                height:
+                    type: integer
+                    format: int32
+tags:
+    - name: ChallengeService

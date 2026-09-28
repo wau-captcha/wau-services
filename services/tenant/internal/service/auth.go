@@ -2,10 +2,10 @@ package service
 
 import (
 	"context"
+	"time"
 
+	v1 "tenant/api/tenant/v1"
 	"tenant/internal/biz"
-
-	v1 "common/proto/tenant/v1"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -64,13 +64,22 @@ func convertSession(session *biz.Session) *v1.AuthReply {
 
 func convertUser(user *biz.User) *v1.User {
 	return &v1.User{
-		Id:         user.ID.String(),
-		Username:   user.Username,
-		Email:      user.Email,
-		TierId:     user.TierID,
-		TierName:   user.TierName,
-		CreateDate: timestamppb.New(user.CreateDate),
+		Id:            user.ID.String(),
+		Username:      user.Username,
+		Email:         user.Email,
+		TierId:        user.TierID,
+		TierName:      user.TierName,
+		CreateDate:    timestamppb.New(user.CreateDate),
+		TierExpiresAt: optionalTime(user.TierExpiresAt),
 	}
+}
+
+// optionalTime leaves a zero time out of the reply.
+func optionalTime(t time.Time) *timestamppb.Timestamp {
+	if t.IsZero() {
+		return nil
+	}
+	return timestamppb.New(t)
 }
 
 func convertAdmin(admin *biz.Admin) *v1.Admin {

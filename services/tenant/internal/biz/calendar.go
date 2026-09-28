@@ -4,8 +4,7 @@ import (
 	"time"
 
 	"tenant/internal/conf"
-
-	"common/quota"
+	"tenant/internal/pkg/quota"
 )
 
 // Calendar is the local calendar that usage charts and the daily quota follow, so a

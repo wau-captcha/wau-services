@@ -6,11 +6,10 @@ import (
 	"net/url"
 
 	"gateway/internal/conf"
+	"gateway/internal/pkg/clientip"
+	"gateway/internal/pkg/envconf"
 	"gateway/internal/proxy"
 	"gateway/internal/ratelimit"
-
-	"common/clientip"
-	"common/envconf"
 )
 
 // NewHandler builds the proxy described by the config, wrapped in the rate limit

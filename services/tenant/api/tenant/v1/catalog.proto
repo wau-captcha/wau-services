@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package tenant.v1;
+
+import "google/api/annotations.proto";
+
+option go_package = "tenant/api/tenant/v1;v1";
+
+// CatalogService lists what the tier of the signed-in user may use.
+service CatalogService {
+  // ListChallengeTypes requires "Authorization: Bearer <access_token>".
+  rpc ListChallengeTypes(ListChallengeTypesRequest) returns (ChallengeTypeSet) {
+    option (google.api.http) = {get: "/v1/challenge-types"};
+  }
+}
+
+message ListChallengeTypesRequest {}
+
+message ChallengeTypeSet {
+  repeated ChallengeType challenge_types = 1;
+}
+
+message ChallengeType {
+  // Value accepted by /challenge/new?challenge_type=, e.g. "image_distort".
+  string id = 1;
+  string code = 2;
+}

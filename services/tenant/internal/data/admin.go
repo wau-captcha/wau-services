@@ -104,6 +104,8 @@ func toAdminUser(row db.GetAdminUserRow) *biz.AdminUser {
 			CreateDate: row.CreateDate.Time,
 			DailyQuota: int64(row.DailyQuota),
 			IsBanned:   row.IsBanned,
+			// NULL scans as the zero time: a tier that never ends.
+			TierExpiresAt: row.TierExpiresAt.Time,
 		},
 		ApiKeyCount: int(row.APIKeyCount),
 	}

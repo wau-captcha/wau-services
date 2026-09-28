@@ -8,9 +8,8 @@ import (
 	"os"
 
 	"gateway/internal/conf"
+	"gateway/internal/pkg/envconf"
 	"gateway/internal/server"
-
-	"common/envconf"
 
 	"github.com/go-kratos/kratos/contrib/otel/v3/tracing"
 	"github.com/go-kratos/kratos/v3"

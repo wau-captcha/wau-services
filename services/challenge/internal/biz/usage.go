@@ -3,7 +3,7 @@ package biz
 import (
 	"context"
 
-	"common/afterresponse"
+	"challenge/internal/pkg/afterresponse"
 
 	"github.com/go-kratos/kratos/v3/log"
 )

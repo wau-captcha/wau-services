@@ -1,0 +1,118 @@
+syntax = "proto3";
+
+package billing.v1;
+
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "billing/api/billing/v1;v1";
+
+// BillingService sells paid tiers by the month or by the year, paid by bank transfer (QR)
+// through SePay.
+// Every RPC requires "Authorization: Bearer <access_token>", the user token of wau-tenant.
+// SePay reports payments to POST /v1/billing/sepay/ipn, which is not part of this service.
+service BillingService {
+  // ListPlans returns the active tiers, cheapest first, and what the caller may buy.
+  rpc ListPlans(ListPlansRequest) returns (PlanSet) {
+    option (google.api.http) = {get: "/v1/billing/plans"};
+  }
+
+  // CreateCheckout opens a pending transaction for one month or one year of a tier and returns
+  // the form the browser posts to SePay. The price is fixed now and always paid in full.
+  rpc CreateCheckout(CreateCheckoutRequest) returns (Checkout) {
+    option (google.api.http) = {
+      post: "/v1/billing/checkout"
+      body: "*"
+    };
+  }
+
+  // ListTransactions returns the caller's latest 50 transactions, newest first.
+  rpc ListTransactions(ListTransactionsRequest) returns (TransactionSet) {
+    option (google.api.http) = {get: "/v1/billing/transactions"};
+  }
+
+  rpc GetTransaction(GetTransactionRequest) returns (Transaction) {
+    option (google.api.http) = {get: "/v1/billing/transactions/{id}"};
+  }
+}
+
+// Plan is a tier as it is sold.
+message Plan {
+  string tier_id = 1;
+  string tier_name = 2;
+  string description = 3;
+  // Price of one month in VND; 0 for a tier that is not sold (free). Tiers rank by it.
+  int64 monthly_price = 4;
+  // Successful verifications per day.
+  int64 daily_quota = 5;
+  // Challenge types the tier includes, active ones only.
+  repeated string challenge_types = 6;
+  // What buying the tier does for the caller, for a month or a year alike: "upgrade" (the tier
+  // starts now and runs for the period bought; what is left of the current tier is dropped),
+  // "renew" (the current end moves one period later) or empty when it cannot be bought: not
+  // sold, below the caller's tier, or the caller's tier with no end date.
+  string purchase = 7;
+  // Price of one year in VND; 0 when the tier is not sold by the year.
+  int64 yearly_price = 8;
+}
+
+message ListPlansRequest {}
+
+message PlanSet {
+  repeated Plan plans = 1;
+  // The caller's tier now; a tier past its end counts as free.
+  string current_tier_id = 2;
+  // When the caller's tier ends and the account goes back to free; empty when it never ends.
+  google.protobuf.Timestamp current_tier_expires_at = 3;
+}
+
+message CreateCheckoutRequest {
+  string tier_id = 1 [(google.api.field_behavior) = REQUIRED];
+  // "month" (the default when empty) or "year".
+  string period = 2;
+}
+
+message Checkout {
+  Transaction transaction = 1;
+  // SePay's checkout address, where the browser posts fields.
+  string action_url = 2;
+  // Signed form fields, in the order they must be posted.
+  repeated FormField fields = 3;
+}
+
+message FormField {
+  string name = 1;
+  string value = 2;
+}
+
+// Transaction is one month or one year of a tier, bought or being bought.
+message Transaction {
+  string id = 1;
+  string tier_id = 2;
+  string tier_name = 3;
+  // VND.
+  int64 amount = 4;
+  // "pending", "succeeded" or "expired". An expired transaction was not paid in time; it
+  // still succeeds if SePay reports it paid later.
+  string status = 5;
+  // The order invoice number sent to SePay.
+  string payment_code = 6;
+  google.protobuf.Timestamp create_date = 7;
+  // When a pending transaction expires.
+  google.protobuf.Timestamp expires_at = 8;
+  // When SePay's payment was applied; empty until then.
+  google.protobuf.Timestamp paid_at = 9;
+  // "month" or "year": how long the payment extends the tier.
+  string period = 10;
+}
+
+message ListTransactionsRequest {}
+
+message TransactionSet {
+  repeated Transaction transactions = 1;
+}
+
+message GetTransactionRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}

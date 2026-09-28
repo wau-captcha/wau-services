@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	v1 "verify/api/verify/v1"
 	"verify/internal/conf"
-
-	v1 "common/proto/verify/v1"
 
 	"github.com/go-kratos/kratos/v3/errors"
 )

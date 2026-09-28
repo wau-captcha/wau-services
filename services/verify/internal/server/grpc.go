@@ -1,10 +1,9 @@
 package server
 
 import (
+	v1 "verify/api/verify/v1"
 	"verify/internal/conf"
 	"verify/internal/service"
-
-	v1 "common/proto/verify/v1"
 
 	"github.com/go-kratos/kratos/v3/middleware/recovery"
 	"github.com/go-kratos/kratos/v3/transport/grpc"

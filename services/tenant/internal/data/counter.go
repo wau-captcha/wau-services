@@ -5,8 +5,7 @@ import (
 	"errors"
 
 	"tenant/internal/biz"
-
-	"common/quota"
+	"tenant/internal/pkg/quota"
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"

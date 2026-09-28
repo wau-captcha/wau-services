@@ -1,3 +1,4 @@
+-- The key, its account and the tier the account has now: a paid tier past its end counts as free.
 -- name: GetSiteBySiteKey :one
 SELECT
     k.api_key_id,
@@ -20,7 +21,7 @@ SELECT
     )::text[] AS challenge_types
 FROM api_keys k
 JOIN users u ON u.user_id = k.user_id
-JOIN tiers t ON t.tier_id = u.tier_id
+JOIN tiers t ON t.tier_id = CASE WHEN u.tier_expires_at <= now() THEN 'free' ELSE u.tier_id END
 WHERE k.site_key = $1
   AND k.is_active
   AND NOT k.is_deleted;

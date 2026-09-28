@@ -4,12 +4,11 @@ import (
 	"context"
 	"net/netip"
 
+	v1 "challenge/api/challenge/v1"
 	"challenge/internal/biz"
 	"challenge/internal/conf"
-
-	"common/clientip"
-	"common/envconf"
-	v1 "common/proto/challenge/v1"
+	"challenge/internal/pkg/clientip"
+	"challenge/internal/pkg/envconf"
 
 	"github.com/go-kratos/kratos/v3/transport"
 	khttp "github.com/go-kratos/kratos/v3/transport/http"

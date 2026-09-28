@@ -5,8 +5,7 @@ import (
 	"errors"
 
 	"challenge/internal/biz"
-
-	"common/quota"
+	"challenge/internal/pkg/quota"
 
 	"github.com/redis/go-redis/v9"
 )

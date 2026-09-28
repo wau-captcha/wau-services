@@ -3,7 +3,7 @@ package biz
 import (
 	"context"
 
-	v1 "common/proto/tenant/v1"
+	v1 "tenant/api/tenant/v1"
 
 	"github.com/go-kratos/kratos/v3/errors"
 )

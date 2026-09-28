@@ -5,7 +5,9 @@ CREATE TABLE tiers (
     tier_name   TEXT NOT NULL,
     description TEXT,
     is_active   BOOLEAN NOT NULL DEFAULT true,
-    daily_quota INTEGER NOT NULL CONSTRAINT tiers_daily_quota_check CHECK (daily_quota >= 0)
+    daily_quota INTEGER NOT NULL CONSTRAINT tiers_daily_quota_check CHECK (daily_quota >= 0),
+    monthly_price INTEGER NOT NULL DEFAULT 0 CHECK (monthly_price >= 0),
+    yearly_price INTEGER NOT NULL DEFAULT 0 CHECK (yearly_price >= 0)
 );
 
 CREATE TABLE users (
@@ -14,11 +16,13 @@ CREATE TABLE users (
     email       TEXT NOT NULL UNIQUE,
     create_date TIMESTAMPTZ NOT NULL DEFAULT now(),
     tier_id     TEXT NOT NULL REFERENCES tiers(tier_id) DEFAULT 'free',
+    tier_expires_at TIMESTAMPTZ,
     google_sub  TEXT UNIQUE,
     is_banned   BOOLEAN NOT NULL DEFAULT false
 );
 
 CREATE INDEX idx_users_tier_id ON users(tier_id);
+CREATE INDEX idx_users_tier_expires_at ON users(tier_expires_at) WHERE tier_expires_at IS NOT NULL;
 
 CREATE TABLE admins (
     admin_id    UUID PRIMARY KEY DEFAULT uuidv7(),
@@ -29,6 +33,7 @@ CREATE TABLE admins (
 
 CREATE TABLE api_keys (
     api_key_id  UUID PRIMARY KEY DEFAULT uuidv7(),
+    name        TEXT NOT NULL DEFAULT '',
     site_key    TEXT NOT NULL UNIQUE,
     secret_key  TEXT NOT NULL UNIQUE,
     is_active   BOOLEAN NOT NULL DEFAULT true,
@@ -76,3 +81,21 @@ CREATE TABLE usage_logs (
 );
 
 CREATE INDEX idx_usage_log_api_key_time ON usage_logs(api_key_id, timestamp DESC);
+
+CREATE TABLE billing_transactions (
+    billing_transaction_id  UUID PRIMARY KEY DEFAULT uuidv7(),
+    user_id                 UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    tier_id                 TEXT NOT NULL REFERENCES tiers(tier_id),
+    payment_code            TEXT NOT NULL UNIQUE,
+    amount                  INTEGER NOT NULL CHECK (amount > 0),
+    period                  TEXT NOT NULL DEFAULT 'month' CHECK (period IN ('month', 'year')),
+    status                  TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'succeeded', 'expired')),
+    sepay_transaction_id    TEXT UNIQUE,
+    paid_at                 TIMESTAMPTZ,
+    create_date             TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at              TIMESTAMPTZ NOT NULL,
+    CONSTRAINT billing_transactions_payment_check CHECK ((status = 'succeeded') = (sepay_transaction_id IS NOT NULL) AND (status = 'succeeded') = (paid_at IS NOT NULL))
+);
+
+CREATE INDEX idx_billing_transactions_user_id ON billing_transactions(user_id, create_date DESC);
+CREATE INDEX idx_billing_transactions_pending ON billing_transactions(expires_at) WHERE status = 'pending';

@@ -1,0 +1,87 @@
+syntax = "proto3";
+
+package tenant.v1;
+
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "tenant/api/tenant/v1;v1";
+
+// AuthService signs people in with their Google account: dashboard users, and apart from
+// them the administrators of the admins table. The two get different access tokens.
+service AuthService {
+  // SignInWithGoogle exchanges a Google ID token for an access token.
+  // The first sign-in of a Google account creates its WAU account.
+  rpc SignInWithGoogle(SignInWithGoogleRequest) returns (AuthReply) {
+    option (google.api.http) = {
+      post: "/v1/auth/google"
+      body: "*"
+    };
+  }
+
+  // GetMe returns the signed-in user. Requires "Authorization: Bearer <access_token>".
+  rpc GetMe(GetMeRequest) returns (User) {
+    option (google.api.http) = {get: "/v1/me"};
+  }
+
+  // SignInAdminWithGoogle exchanges a Google ID token for an administrator access token.
+  // Only a Google account whose email is in the admins table gets one; nothing is created,
+  // and a dashboard account with the same email is left alone. The token only works for
+  // AdminService, and a user's token never does.
+  rpc SignInAdminWithGoogle(SignInWithGoogleRequest) returns (AdminAuthReply) {
+    option (google.api.http) = {
+      post: "/v1/auth/admin/google"
+      body: "*"
+    };
+  }
+}
+
+message SignInWithGoogleRequest {
+  // The `credential` returned by Google Identity Services.
+  string id_token = 1 [(google.api.field_behavior) = REQUIRED];
+  // The nonce given to Google Identity Services for this sign-in; it must match the token.
+  string nonce = 2 [(google.api.field_behavior) = REQUIRED];
+}
+
+message GetMeRequest {}
+
+message AuthReply {
+  string access_token = 1;
+  // Seconds until the token expires.
+  int32 expires_in = 2;
+  User user = 3;
+}
+
+message User {
+  // Administrators are no longer users; see Admin.
+  reserved 7;
+  reserved "is_admin";
+
+  string id = 1;
+  // Display name taken from the Google profile; not used to sign in and not unique.
+  string username = 2;
+  string email = 3;
+  // The tier now: a paid tier past tier_expires_at is already reported as free.
+  string tier_id = 4;
+  string tier_name = 5;
+  google.protobuf.Timestamp create_date = 6;
+  // When the paid tier ends and the account goes back to free; empty when it never ends.
+  google.protobuf.Timestamp tier_expires_at = 8;
+}
+
+message AdminAuthReply {
+  string access_token = 1;
+  // Seconds until the token expires.
+  int32 expires_in = 2;
+  Admin admin = 3;
+}
+
+// Admin is an administrator: a row of the admins table, added with SQL. It is not a
+// dashboard user, even when a user has the same email.
+message Admin {
+  string id = 1;
+  string username = 2;
+  string email = 3;
+  google.protobuf.Timestamp create_date = 4;
+}

@@ -1,0 +1,142 @@
+syntax = "proto3";
+
+package tenant.v1;
+
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "tenant/api/tenant/v1;v1";
+
+// ApiKeyService manages the captcha keys of the signed-in user.
+// Every RPC requires "Authorization: Bearer <access_token>".
+service ApiKeyService {
+  // ListApiKeys returns the keys that are not deleted, newest first.
+  rpc ListApiKeys(ListApiKeysRequest) returns (ApiKeySet) {
+    option (google.api.http) = {get: "/v1/api-keys"};
+  }
+
+  // CreateApiKey issues a new site key and secret key.
+  rpc CreateApiKey(CreateApiKeyRequest) returns (ApiKey) {
+    option (google.api.http) = {
+      post: "/v1/api-keys"
+      body: "*"
+    };
+  }
+
+  rpc GetApiKey(GetApiKeyRequest) returns (ApiKey) {
+    option (google.api.http) = {get: "/v1/api-keys/{id}"};
+  }
+
+  // UpdateApiKey applies a partial update; update_mask accepts "name" and "is_active".
+  rpc UpdateApiKey(UpdateApiKeyRequest) returns (ApiKey) {
+    option (google.api.http) = {
+      patch: "/v1/api-keys/{api_key.id}"
+      body: "*"
+    };
+  }
+
+  // RotateSecretKey issues a new secret key in one step and keeps the replaced one
+  // working as previous_secret_key until previous_secret_key_expires_at, so a site can
+  // roll the key out without downtime. Only one previous key is kept: resetting again
+  // inside that window overwrites it.
+  rpc RotateSecretKey(RotateSecretKeyRequest) returns (ApiKey) {
+    option (google.api.http) = {post: "/v1/api-keys/{id}/rotate-secret"};
+  }
+
+  // RevokePreviousSecret drops the previous secret key before it expires, for a site
+  // that has finished rolling the new one out. It does nothing when there is none.
+  rpc RevokePreviousSecret(RevokePreviousSecretRequest) returns (ApiKey) {
+    option (google.api.http) = {post: "/v1/api-keys/{id}/revoke-previous-secret"};
+  }
+
+  // SetAllowedOrigins replaces the addresses allowed to use the site key with the list
+  // given; an empty list lets every address use it again. Entries that stay keep their
+  // create_date.
+  rpc SetAllowedOrigins(SetAllowedOriginsRequest) returns (ApiKey) {
+    option (google.api.http) = {
+      put: "/v1/api-keys/{id}/allowed-origins"
+      body: "*"
+    };
+  }
+
+  // DeleteApiKey soft-deletes the key and deactivates it.
+  rpc DeleteApiKey(DeleteApiKeyRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {delete: "/v1/api-keys/{id}"};
+  }
+}
+
+message ApiKey {
+  string id = 1;
+  // Label chosen by the user, 1-64 characters.
+  string name = 2;
+  // Public key used by the site frontend.
+  string site_key = 3;
+  // Private key used by the site backend on /siteverify.
+  string secret_key = 4;
+  bool is_active = 5;
+  google.protobuf.Timestamp create_date = 6;
+  // Blocked by an administrator or automatically; the key stops working whatever
+  // is_active says, and only an administrator can lift it.
+  bool is_suspended = 7;
+  // "ADMIN" or "SCRAPING" while suspended, empty otherwise.
+  string suspend_reason = 8;
+  // Addresses allowed to use the site key. Empty means every address may, which is also
+  // what an account gets to start with. Only GetApiKey and SetAllowedOrigins fill this in.
+  repeated AllowedOrigin allowed_origins = 9;
+  // The secret key the last reset replaced; it keeps working until it expires. Empty when
+  // there is none, i.e. it expired or was revoked.
+  string previous_secret_key = 10;
+  google.protobuf.Timestamp previous_secret_key_expires_at = 11;
+}
+
+// AllowedOrigin is one address, or network, allowed to use a site key.
+message AllowedOrigin {
+  // IPv4 or IPv6 address, with an optional prefix length: "203.0.113.4", "203.0.113.0/24",
+  // "2001:db8::/32". "0.0.0.0" stands for every address, of either family.
+  string ip_address = 1 [(google.api.field_behavior) = REQUIRED];
+  // What this address is, e.g. the name of the site or office it belongs to.
+  string description = 2;
+  google.protobuf.Timestamp create_date = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+message SetAllowedOriginsRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+  // The whole list; addresses left out are dropped. Empty allows every address.
+  repeated AllowedOrigin allowed_origins = 2;
+}
+
+message ListApiKeysRequest {}
+
+message ApiKeySet {
+  repeated ApiKey api_keys = 1;
+  // How many keys this user may hold at once.
+  int32 max_api_keys = 2;
+}
+
+message CreateApiKeyRequest {
+  string name = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message GetApiKeyRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message UpdateApiKeyRequest {
+  ApiKey api_key = 1 [(google.api.field_behavior) = REQUIRED];
+  google.protobuf.FieldMask update_mask = 2 [(google.api.field_behavior) = REQUIRED];
+}
+
+message RotateSecretKeyRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message RevokePreviousSecretRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message DeleteApiKeyRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}

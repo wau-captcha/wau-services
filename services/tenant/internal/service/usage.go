@@ -3,9 +3,8 @@ package service
 import (
 	"context"
 
+	v1 "tenant/api/tenant/v1"
 	"tenant/internal/biz"
-
-	v1 "common/proto/tenant/v1"
 
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"

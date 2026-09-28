@@ -2,10 +2,7 @@ module gateway
 
 go 1.27.0
 
-replace common => ../../common
-
 require (
-	common v0.0.0
 	github.com/go-kratos/kratos/contrib/otel/v3 v3.0.0-20260626125723-668db92c2c00
 	github.com/go-kratos/kratos/v3 v3.0.0
 	github.com/joho/godotenv v1.5.1

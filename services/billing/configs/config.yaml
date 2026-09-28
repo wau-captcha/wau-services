@@ -1,0 +1,18 @@
+server:
+  http:
+    addr: ${KRATOS_HTTP_ADDR}
+    timeout: 3s
+data:
+  database:
+    source: ${KRATOS_DATABASE_SOURCE}
+auth:
+  secret: ${KRATOS_AUTH_SECRET}
+sepay:
+  merchant_id: ${SEPAY_MERCHANT_ID}
+  secret_key: ${SEPAY_SECRET_KEY}
+  checkout_url: ${SEPAY_CHECKOUT_URL}
+billing:
+  return_url: ${KRATOS_BILLING_RETURN_URL}
+  checkout_ttl: 900s
+  sweep_interval: 60s
+  time_zone: Asia/Ho_Chi_Minh

@@ -11,6 +11,7 @@ import (
 
 type APIKey struct {
 	APIKeyID                   uuid.UUID
+	Name                       string
 	SiteKey                    string
 	SecretKey                  string
 	IsActive                   bool
@@ -21,7 +22,6 @@ type APIKey struct {
 	SuspendReason              pgtype.Text
 	PreviousSecretKey          pgtype.Text
 	PreviousSecretKeyExpiresAt pgtype.Timestamptz
-	Name                       string
 }
 
 type Admin struct {

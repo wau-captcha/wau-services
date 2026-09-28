@@ -1,14 +1,15 @@
-INSERT INTO tiers (tier_id, tier_name, description, is_active, daily_quota) VALUES
-    ('free',    'Free',    'Free plan — access to basic challenge types', true, 1000),
-    ('premium', 'Premium', 'Paid plan — unlocks advanced challenge types', true, 100000);
+INSERT INTO tiers (tier_id, tier_name, description, is_active, daily_quota, monthly_price, yearly_price) VALUES
+    ('free',        'Free',    'For trying out and small personal projects. Basic challenge types with a limited daily quota.', true, 5000, 0, 0),
+    ('plus',        'Plus',    'For growing websites. Unlocks advanced challenge types with a higher daily quota.', true, 100000, 10000, 100000),
+    ('pro',         'Pro',     'For established, higher-traffic sites. Larger daily quota with all advanced challenge types.', true, 1000000, 30000, 30000),
+    ('enterprise',  'Enterprise', 'For high-volume platforms. Highest daily quota with full access to every challenge type.', true, 10000000, 50000, 50000);
 
 INSERT INTO challenge_types (challenge_type_id, code, is_active) VALUES
-    ('image_distort',       'IMAGE_DISTORT',       true),
-    ('slide_puzzle',        'SLIDE_PUZZLE',        true),
-    ('behavioral_advanced', 'BEHAVIORAL_ADVANCED', true);
+    ('image_distort',   'IMAGE_DISTORT',    true),
+    ('motion_noise',    'MOTION_NOISE',     true);
 
 INSERT INTO users (user_id, username, email, tier_id) VALUES
-    (uuidv7(), 'John Doe',    'john.doe@example.com',    'premium'),
+    (uuidv7(), 'John Doe',    'john.doe@example.com',    'pro'),
     (uuidv7(), 'Jane Smith',  'jane.smith@example.com',  'free'),
     (uuidv7(), 'Acme Shop',   'contact@acmeshop.example','free');
 
@@ -26,7 +27,11 @@ INSERT INTO api_keys (site_key, secret_key, user_id) VALUES
         (SELECT user_id FROM users WHERE email = 'contact@acmeshop.example'));
 
 INSERT INTO tier_challenge_types (tier_id, challenge_type_id) VALUES
-    ('free',    'image_distort'),
-    ('premium', 'image_distort'),
-    ('premium', 'slide_puzzle'),
-    ('premium', 'behavioral_advanced');
+    ('free',        'image_distort'),
+    ('free',        'motion_noise'),
+    ('plus',        'image_distort'),
+    ('plus',        'motion_noise'),
+    ('pro',         'image_distort'),
+    ('pro',         'motion_noise'),
+    ('enterprise',  'image_distort'),
+    ('enterprise',  'motion_noise');

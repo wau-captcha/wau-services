@@ -18,8 +18,8 @@ import (
 )
 
 import (
-	_ "common/codec"
 	_ "go.uber.org/automaxprocs"
+	_ "tenant/internal/pkg/codec"
 	_ "time/tzdata"
 )
 

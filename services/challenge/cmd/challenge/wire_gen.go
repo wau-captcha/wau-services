@@ -17,7 +17,7 @@ import (
 )
 
 import (
-	_ "common/codec"
+	_ "challenge/internal/pkg/codec"
 	_ "go.uber.org/automaxprocs"
 )
 

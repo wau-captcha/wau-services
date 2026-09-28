@@ -4,9 +4,8 @@ import (
 	"context"
 	"strings"
 
+	v1 "verify/api/verify/v1"
 	"verify/internal/biz"
-
-	v1 "common/proto/verify/v1"
 
 	"github.com/go-kratos/kratos/v3/transport"
 	"google.golang.org/protobuf/types/known/timestamppb"

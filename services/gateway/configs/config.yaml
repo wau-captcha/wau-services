@@ -5,6 +5,8 @@ server:
 routes:
   - prefix: /v1/
     upstream: ${KRATOS_TENANT_UPSTREAM}
+  - prefix: /v1/billing/
+    upstream: ${KRATOS_BILLING_UPSTREAM}
   - prefix: /challenge/new
     upstream: ${KRATOS_CHALLENGE_UPSTREAM}
   - prefix: /challenge/verify

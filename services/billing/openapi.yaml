@@ -1,0 +1,199 @@
+# Generated with protoc-gen-openapi
+# https://github.com/google/gnostic/tree/master/cmd/protoc-gen-openapi
+
+openapi: 3.0.3
+info:
+    title: BillingService API
+    description: |-
+        BillingService sells paid tiers by the month or by the year, paid by bank transfer (QR)
+         through SePay.
+         Every RPC requires "Authorization: Bearer <access_token>", the user token of wau-tenant.
+         SePay reports payments to POST /v1/billing/sepay/ipn, which is not part of this service.
+    version: 0.0.1
+paths:
+    /v1/billing/checkout:
+        post:
+            tags:
+                - BillingService
+            description: |-
+                CreateCheckout opens a pending transaction for one month or one year of a tier and returns
+                 the form the browser posts to SePay. The price is fixed now and always paid in full.
+            operationId: BillingService_CreateCheckout
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/billing.v1.CreateCheckoutRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/billing.v1.Checkout'
+    /v1/billing/plans:
+        get:
+            tags:
+                - BillingService
+            description: ListPlans returns the active tiers, cheapest first, and what the caller may buy.
+            operationId: BillingService_ListPlans
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/billing.v1.PlanSet'
+    /v1/billing/transactions:
+        get:
+            tags:
+                - BillingService
+            description: ListTransactions returns the caller's latest 50 transactions, newest first.
+            operationId: BillingService_ListTransactions
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/billing.v1.TransactionSet'
+    /v1/billing/transactions/{id}:
+        get:
+            tags:
+                - BillingService
+            operationId: BillingService_GetTransaction
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/billing.v1.Transaction'
+components:
+    schemas:
+        billing.v1.Checkout:
+            type: object
+            properties:
+                transaction:
+                    $ref: '#/components/schemas/billing.v1.Transaction'
+                action_url:
+                    type: string
+                    description: SePay's checkout address, where the browser posts fields.
+                fields:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/billing.v1.FormField'
+                    description: Signed form fields, in the order they must be posted.
+        billing.v1.CreateCheckoutRequest:
+            required:
+                - tier_id
+            type: object
+            properties:
+                tier_id:
+                    type: string
+                period:
+                    type: string
+                    description: '"month" (the default when empty) or "year".'
+        billing.v1.FormField:
+            type: object
+            properties:
+                name:
+                    type: string
+                value:
+                    type: string
+        billing.v1.Plan:
+            type: object
+            properties:
+                tier_id:
+                    type: string
+                tier_name:
+                    type: string
+                description:
+                    type: string
+                monthly_price:
+                    type: string
+                    description: Price of one month in VND; 0 for a tier that is not sold (free). Tiers rank by it.
+                daily_quota:
+                    type: string
+                    description: Successful verifications per day.
+                challenge_types:
+                    type: array
+                    items:
+                        type: string
+                    description: Challenge types the tier includes, active ones only.
+                purchase:
+                    type: string
+                    description: |-
+                        What buying the tier does for the caller, for a month or a year alike: "upgrade" (the tier
+                         starts now and runs for the period bought; what is left of the current tier is dropped),
+                         "renew" (the current end moves one period later) or empty when it cannot be bought: not
+                         sold, below the caller's tier, or the caller's tier with no end date.
+                yearly_price:
+                    type: string
+                    description: Price of one year in VND; 0 when the tier is not sold by the year.
+            description: Plan is a tier as it is sold.
+        billing.v1.PlanSet:
+            type: object
+            properties:
+                plans:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/billing.v1.Plan'
+                current_tier_id:
+                    type: string
+                    description: The caller's tier now; a tier past its end counts as free.
+                current_tier_expires_at:
+                    type: string
+                    description: When the caller's tier ends and the account goes back to free; empty when it never ends.
+                    format: date-time
+        billing.v1.Transaction:
+            type: object
+            properties:
+                id:
+                    type: string
+                tier_id:
+                    type: string
+                tier_name:
+                    type: string
+                amount:
+                    type: string
+                    description: VND.
+                status:
+                    type: string
+                    description: |-
+                        "pending", "succeeded" or "expired". An expired transaction was not paid in time; it
+                         still succeeds if SePay reports it paid later.
+                payment_code:
+                    type: string
+                    description: The order invoice number sent to SePay.
+                create_date:
+                    type: string
+                    format: date-time
+                expires_at:
+                    type: string
+                    description: When a pending transaction expires.
+                    format: date-time
+                paid_at:
+                    type: string
+                    description: When SePay's payment was applied; empty until then.
+                    format: date-time
+                period:
+                    type: string
+                    description: '"month" or "year": how long the payment extends the tier.'
+            description: Transaction is one month or one year of a tier, bought or being bought.
+        billing.v1.TransactionSet:
+            type: object
+            properties:
+                transactions:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/billing.v1.Transaction'
+tags:
+    - name: BillingService

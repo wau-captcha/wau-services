@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package verify.v1;
+
+option go_package = "verify/api/verify/v1;v1";
+
+enum ErrorReason {
+  ERROR_REASON_UNSPECIFIED = 0;
+  SECRET_KEY_INVALID = 1;
+  // Suspended by an administrator or automatically for scraping.
+  API_KEY_SUSPENDED = 2;
+  // The owner of the key was banned by an administrator.
+  ACCOUNT_BANNED = 3;
+}

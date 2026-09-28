@@ -23,7 +23,7 @@ type ScrapingCount struct {
 }
 
 // CounterRepo reads the daily counters the challenge and verify services keep in Redis
-// (see common/quota). Counters that do not exist yet read as zero.
+// (see internal/pkg/quota). Counters that do not exist yet read as zero.
 type CounterRepo interface {
 	// QuotaUsed returns the successful verifications of each user on day, in order.
 	QuotaUsed(ctx context.Context, userIDs []uuid.UUID, day string) ([]int64, error)

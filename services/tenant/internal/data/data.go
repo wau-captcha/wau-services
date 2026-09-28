@@ -5,8 +5,7 @@ import (
 
 	"tenant/internal/conf"
 	"tenant/internal/data/db"
-
-	"common/envconf"
+	"tenant/internal/pkg/envconf"
 
 	"github.com/go-kratos/kratos/v3/log"
 	"github.com/google/wire"

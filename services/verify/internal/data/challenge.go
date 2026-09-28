@@ -3,9 +3,8 @@ package data
 import (
 	"context"
 
+	challengev1 "verify/api/challenge/v1"
 	"verify/internal/biz"
-
-	challengev1 "common/proto/challenge/v1"
 )
 
 type challengeClient struct {

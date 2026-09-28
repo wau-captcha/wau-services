@@ -60,23 +60,26 @@ func (q *Queries) GetAccountStatus(ctx context.Context, userID uuid.UUID) (bool,
 }
 
 const getUserProfile = `-- name: GetUserProfile :one
-SELECT u.user_id, u.username, u.email, u.create_date, u.tier_id, t.tier_name, t.daily_quota, u.is_banned
+SELECT u.user_id, u.username, u.email, u.create_date, t.tier_id, t.tier_name, t.daily_quota, u.is_banned,
+       (CASE WHEN u.tier_expires_at > now() THEN u.tier_expires_at END)::timestamptz AS tier_expires_at
 FROM users u
-JOIN tiers t ON t.tier_id = u.tier_id
+JOIN tiers t ON t.tier_id = CASE WHEN u.tier_expires_at <= now() THEN 'free' ELSE u.tier_id END
 WHERE u.user_id = $1
 `
 
 type GetUserProfileRow struct {
-	UserID     uuid.UUID
-	Username   string
-	Email      string
-	CreateDate pgtype.Timestamptz
-	TierID     string
-	TierName   string
-	DailyQuota int32
-	IsBanned   bool
+	UserID        uuid.UUID
+	Username      string
+	Email         string
+	CreateDate    pgtype.Timestamptz
+	TierID        string
+	TierName      string
+	DailyQuota    int32
+	IsBanned      bool
+	TierExpiresAt pgtype.Timestamptz
 }
 
+// A paid tier past tier_expires_at is already free here, before billing's sweep stores it.
 func (q *Queries) GetUserProfile(ctx context.Context, userID uuid.UUID) (GetUserProfileRow, error) {
 	row := q.db.QueryRow(ctx, getUserProfile, userID)
 	var i GetUserProfileRow
@@ -89,6 +92,7 @@ func (q *Queries) GetUserProfile(ctx context.Context, userID uuid.UUID) (GetUser
 		&i.TierName,
 		&i.DailyQuota,
 		&i.IsBanned,
+		&i.TierExpiresAt,
 	)
 	return i, err
 }

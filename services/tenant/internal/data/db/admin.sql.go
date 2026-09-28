@@ -93,23 +93,25 @@ func (q *Queries) GetAdminStats(ctx context.Context) (GetAdminStatsRow, error) {
 }
 
 const getAdminUser = `-- name: GetAdminUser :one
-SELECT u.user_id, u.username, u.email, u.create_date, u.tier_id, t.tier_name, t.daily_quota, u.is_banned,
-       (SELECT count(*) FROM api_keys k WHERE k.user_id = u.user_id AND NOT k.is_deleted) AS api_key_count
+SELECT u.user_id, u.username, u.email, u.create_date, t.tier_id, t.tier_name, t.daily_quota, u.is_banned,
+       (SELECT count(*) FROM api_keys k WHERE k.user_id = u.user_id AND NOT k.is_deleted) AS api_key_count,
+       (CASE WHEN u.tier_expires_at > now() THEN u.tier_expires_at END)::timestamptz AS tier_expires_at
 FROM users u
-JOIN tiers t ON t.tier_id = u.tier_id
+JOIN tiers t ON t.tier_id = CASE WHEN u.tier_expires_at <= now() THEN 'free' ELSE u.tier_id END
 WHERE u.user_id = $1
 `
 
 type GetAdminUserRow struct {
-	UserID      uuid.UUID
-	Username    string
-	Email       string
-	CreateDate  pgtype.Timestamptz
-	TierID      string
-	TierName    string
-	DailyQuota  int32
-	IsBanned    bool
-	APIKeyCount int64
+	UserID        uuid.UUID
+	Username      string
+	Email         string
+	CreateDate    pgtype.Timestamptz
+	TierID        string
+	TierName      string
+	DailyQuota    int32
+	IsBanned      bool
+	APIKeyCount   int64
+	TierExpiresAt pgtype.Timestamptz
 }
 
 func (q *Queries) GetAdminUser(ctx context.Context, userID uuid.UUID) (GetAdminUserRow, error) {
@@ -125,6 +127,7 @@ func (q *Queries) GetAdminUser(ctx context.Context, userID uuid.UUID) (GetAdminU
 		&i.DailyQuota,
 		&i.IsBanned,
 		&i.APIKeyCount,
+		&i.TierExpiresAt,
 	)
 	return i, err
 }
@@ -176,10 +179,11 @@ func (q *Queries) ListAdminAPIKeys(ctx context.Context, userID uuid.UUID) ([]Lis
 }
 
 const listAdminUsers = `-- name: ListAdminUsers :many
-SELECT u.user_id, u.username, u.email, u.create_date, u.tier_id, t.tier_name, t.daily_quota, u.is_banned,
-       (SELECT count(*) FROM api_keys k WHERE k.user_id = u.user_id AND NOT k.is_deleted) AS api_key_count
+SELECT u.user_id, u.username, u.email, u.create_date, t.tier_id, t.tier_name, t.daily_quota, u.is_banned,
+       (SELECT count(*) FROM api_keys k WHERE k.user_id = u.user_id AND NOT k.is_deleted) AS api_key_count,
+       (CASE WHEN u.tier_expires_at > now() THEN u.tier_expires_at END)::timestamptz AS tier_expires_at
 FROM users u
-JOIN tiers t ON t.tier_id = u.tier_id
+JOIN tiers t ON t.tier_id = CASE WHEN u.tier_expires_at <= now() THEN 'free' ELSE u.tier_id END
 WHERE $1::text = '' OR u.email ILIKE $1::text OR u.username ILIKE $1::text
 ORDER BY u.create_date DESC, u.user_id
 LIMIT $3::bigint OFFSET $2::bigint
@@ -192,15 +196,16 @@ type ListAdminUsersParams struct {
 }
 
 type ListAdminUsersRow struct {
-	UserID      uuid.UUID
-	Username    string
-	Email       string
-	CreateDate  pgtype.Timestamptz
-	TierID      string
-	TierName    string
-	DailyQuota  int32
-	IsBanned    bool
-	APIKeyCount int64
+	UserID        uuid.UUID
+	Username      string
+	Email         string
+	CreateDate    pgtype.Timestamptz
+	TierID        string
+	TierName      string
+	DailyQuota    int32
+	IsBanned      bool
+	APIKeyCount   int64
+	TierExpiresAt pgtype.Timestamptz
 }
 
 // An empty pattern matches everyone; otherwise email or display name, case-insensitively.
@@ -223,6 +228,7 @@ func (q *Queries) ListAdminUsers(ctx context.Context, arg ListAdminUsersParams) 
 			&i.DailyQuota,
 			&i.IsBanned,
 			&i.APIKeyCount,
+			&i.TierExpiresAt,
 		); err != nil {
 			return nil, err
 		}

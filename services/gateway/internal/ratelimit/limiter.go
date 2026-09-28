@@ -10,8 +10,7 @@ import (
 	"time"
 
 	"gateway/internal/httpx"
-
-	"common/clientip"
+	"gateway/internal/pkg/clientip"
 )
 
 // Limiter counts requests per key in fixed windows.

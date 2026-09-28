@@ -19,10 +19,11 @@ SELECT (SELECT count(*) FROM users) AS users,
 
 -- An empty pattern matches everyone; otherwise email or display name, case-insensitively.
 -- name: ListAdminUsers :many
-SELECT u.user_id, u.username, u.email, u.create_date, u.tier_id, t.tier_name, t.daily_quota, u.is_banned,
-       (SELECT count(*) FROM api_keys k WHERE k.user_id = u.user_id AND NOT k.is_deleted) AS api_key_count
+SELECT u.user_id, u.username, u.email, u.create_date, t.tier_id, t.tier_name, t.daily_quota, u.is_banned,
+       (SELECT count(*) FROM api_keys k WHERE k.user_id = u.user_id AND NOT k.is_deleted) AS api_key_count,
+       (CASE WHEN u.tier_expires_at > now() THEN u.tier_expires_at END)::timestamptz AS tier_expires_at
 FROM users u
-JOIN tiers t ON t.tier_id = u.tier_id
+JOIN tiers t ON t.tier_id = CASE WHEN u.tier_expires_at <= now() THEN 'free' ELSE u.tier_id END
 WHERE @pattern::text = '' OR u.email ILIKE @pattern::text OR u.username ILIKE @pattern::text
 ORDER BY u.create_date DESC, u.user_id
 LIMIT @page_limit::bigint OFFSET @page_offset::bigint;
@@ -33,10 +34,11 @@ FROM users u
 WHERE @pattern::text = '' OR u.email ILIKE @pattern::text OR u.username ILIKE @pattern::text;
 
 -- name: GetAdminUser :one
-SELECT u.user_id, u.username, u.email, u.create_date, u.tier_id, t.tier_name, t.daily_quota, u.is_banned,
-       (SELECT count(*) FROM api_keys k WHERE k.user_id = u.user_id AND NOT k.is_deleted) AS api_key_count
+SELECT u.user_id, u.username, u.email, u.create_date, t.tier_id, t.tier_name, t.daily_quota, u.is_banned,
+       (SELECT count(*) FROM api_keys k WHERE k.user_id = u.user_id AND NOT k.is_deleted) AS api_key_count,
+       (CASE WHEN u.tier_expires_at > now() THEN u.tier_expires_at END)::timestamptz AS tier_expires_at
 FROM users u
-JOIN tiers t ON t.tier_id = u.tier_id
+JOIN tiers t ON t.tier_id = CASE WHEN u.tier_expires_at <= now() THEN 'free' ELSE u.tier_id END
 WHERE u.user_id = $1;
 
 -- name: SetUserBanned :execrows

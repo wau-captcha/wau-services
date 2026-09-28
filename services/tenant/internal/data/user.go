@@ -79,6 +79,8 @@ func (r *userRepo) Profile(ctx context.Context, id uuid.UUID) (*biz.User, error)
 		CreateDate: row.CreateDate.Time,
 		DailyQuota: int64(row.DailyQuota),
 		IsBanned:   row.IsBanned,
+		// NULL scans as the zero time: a tier that never ends.
+		TierExpiresAt: row.TierExpiresAt.Time,
 	}, nil
 }
 

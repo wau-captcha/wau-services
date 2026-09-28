@@ -28,10 +28,12 @@ SET username = COALESCE(NULLIF(@username::text, ''), u.username),
     END
 WHERE u.user_id = @user_id;
 
+-- A paid tier past tier_expires_at is already free here, before billing's sweep stores it.
 -- name: GetUserProfile :one
-SELECT u.user_id, u.username, u.email, u.create_date, u.tier_id, t.tier_name, t.daily_quota, u.is_banned
+SELECT u.user_id, u.username, u.email, u.create_date, t.tier_id, t.tier_name, t.daily_quota, u.is_banned,
+       (CASE WHEN u.tier_expires_at > now() THEN u.tier_expires_at END)::timestamptz AS tier_expires_at
 FROM users u
-JOIN tiers t ON t.tier_id = u.tier_id
+JOIN tiers t ON t.tier_id = CASE WHEN u.tier_expires_at <= now() THEN 'free' ELSE u.tier_id END
 WHERE u.user_id = $1;
 
 -- Access tokens cannot be revoked, so every request checks that its account still exists

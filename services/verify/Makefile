@@ -9,6 +9,11 @@ init:
 	go install github.com/bufbuild/buf/cmd/buf@latest
 	go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
 
+.PHONY: api
+# generate api proto: Go, gRPC and HTTP stubs in api/, openapi.yaml
+api:
+	buf generate --template buf.gen.yaml
+
 .PHONY: config
 # generate internal proto
 config:
@@ -33,6 +38,7 @@ generate:
 .PHONY: all
 # generate all
 all:
+	make api
 	make config
 	make sqlc
 	make generate

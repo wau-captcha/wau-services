@@ -3,13 +3,13 @@ package biz
 import (
 	"context"
 
-	"common/afterresponse"
-	"common/quota"
+	"verify/internal/pkg/afterresponse"
+	"verify/internal/pkg/quota"
 
 	"github.com/go-kratos/kratos/v3/log"
 )
 
-// CounterRepo keeps the daily counters shared with the challenge service (see common/quota).
+// CounterRepo keeps the daily counters shared with the challenge service (see internal/pkg/quota).
 type CounterRepo interface {
 	// CountVerification records an answer checked for a challenge of the API key.
 	CountVerification(ctx context.Context, apiKeyID, day string) error

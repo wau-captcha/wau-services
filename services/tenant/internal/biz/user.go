@@ -22,6 +22,8 @@ type User struct {
 	// Successful verifications the tier allows per local day.
 	DailyQuota int64
 	IsBanned   bool
+	// When the paid tier ends; zero when it never ends. TierID already counts an ended tier as free.
+	TierExpiresAt time.Time
 }
 
 // AccountStatus is what every authenticated request checks: tokens cannot be revoked, so

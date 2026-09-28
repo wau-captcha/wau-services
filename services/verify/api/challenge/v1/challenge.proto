@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+// A copy of challenge/api/challenge/v1/challenge.proto of the challenge service, for the gRPC
+// client verify uses to call CheckAnswer. Keep it identical to the original but for go_package.
+package challenge.v1;
+
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+
+option go_package = "verify/api/challenge/v1;v1";
+
+// ChallengeService issues challenges and checks their answers.
+service ChallengeService {
+  // NewChallenge issues a challenge for a site key.
+  rpc NewChallenge(NewChallengeRequest) returns (Challenge) {
+    option (google.api.http) = {get: "/challenge/new"};
+  }
+
+  // CheckAnswer consumes a challenge and reports whether the answer is correct.
+  // Internal: gRPC only.
+  rpc CheckAnswer(CheckAnswerRequest) returns (CheckAnswerReply);
+}
+
+message NewChallengeRequest {
+  // Public site key of the calling site.
+  string site_key = 1 [(google.api.field_behavior) = REQUIRED];
+  // "image_distort" (default) or "motion_noise".
+  string challenge_type = 2;
+}
+
+message Challenge {
+  string challenge_id = 1;
+  // Challenge type, e.g. "image_distort".
+  string challenge_type = 2;
+  // Media to solve: a PNG for image_distort, a 5-second animated GIF for motion_noise.
+  bytes image = 3;
+  // Seconds until the challenge expires.
+  int32 expires_in = 4;
+  // MIME type of image, e.g. "image/gif".
+  string mime_type = 5;
+  // Size to display image at, in CSS pixels. The media may hold more pixels for finer dots.
+  int32 width = 6;
+  int32 height = 7;
+}
+
+message CheckAnswerRequest {
+  string challenge_id = 1 [(google.api.field_behavior) = REQUIRED];
+  string answer = 2 [(google.api.field_behavior) = REQUIRED];
+}
+
+message CheckAnswerReply {
+  bool success = 1;
+  // API key the challenge was issued for.
+  string api_key_id = 2;
+  string challenge_type = 3;
+  // Owner of the API key, whose daily quota a correct answer counts against.
+  string user_id = 4;
+}

@@ -1,9 +1,7 @@
 version: "2"
 sql:
   - engine: postgresql
-    schema:
-      - ../../infra/postgres/001_schema.sql
-      - ../../infra/postgres/004_tenant.sql
+    schema: ../../infra/postgres/001_schema.sql
     queries: internal/data/queries
     gen:
       go:

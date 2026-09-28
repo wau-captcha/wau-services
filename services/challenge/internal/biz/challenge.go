@@ -9,9 +9,8 @@ import (
 	"strings"
 	"time"
 
+	v1 "challenge/api/challenge/v1"
 	"challenge/internal/conf"
-
-	v1 "common/proto/challenge/v1"
 
 	"github.com/go-kratos/kratos/v3/errors"
 	"github.com/google/uuid"

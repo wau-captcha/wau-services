@@ -17,8 +17,8 @@ import (
 )
 
 import (
-	_ "common/codec"
 	_ "go.uber.org/automaxprocs"
+	_ "verify/internal/pkg/codec"
 )
 
 // Injectors from wire.go:

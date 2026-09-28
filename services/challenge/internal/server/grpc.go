@@ -1,10 +1,9 @@
 package server
 
 import (
+	v1 "challenge/api/challenge/v1"
 	"challenge/internal/conf"
 	"challenge/internal/service"
-
-	v1 "common/proto/challenge/v1"
 
 	"github.com/go-kratos/kratos/v3/middleware/recovery"
 	"github.com/go-kratos/kratos/v3/transport/grpc"

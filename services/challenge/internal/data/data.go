@@ -5,8 +5,7 @@ import (
 
 	"challenge/internal/conf"
 	"challenge/internal/data/db"
-
-	"common/envconf"
+	"challenge/internal/pkg/envconf"
 
 	"github.com/go-kratos/kratos/v3/log"
 	"github.com/google/wire"

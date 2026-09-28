@@ -1,0 +1,57 @@
+syntax = "proto3";
+package kratos.api;
+
+option go_package = "billing/internal/conf;conf";
+
+import "google/protobuf/duration.proto";
+
+message Bootstrap {
+  Server server = 1;
+  Data data = 2;
+  Auth auth = 3;
+  Sepay sepay = 4;
+  Billing billing = 5;
+}
+
+message Server {
+  message HTTP {
+    string network = 1;
+    string addr = 2;
+    google.protobuf.Duration timeout = 3;
+  }
+  HTTP http = 1;
+}
+
+message Data {
+  message Database {
+    // PostgreSQL DSN, the database wau-tenant uses. Keep credentials out of version control.
+    string source = 1;
+  }
+  Database database = 1;
+}
+
+message Auth {
+  // The access token secret of wau-tenant: this service checks the user tokens it issues.
+  string secret = 1;
+}
+
+// Sepay is the SePay payment gateway account (my.sepay.vn → Cổng thanh toán).
+message Sepay {
+  string merchant_id = 1;
+  // Signs checkout forms, and SePay sends it back in X-Secret-Key with every IPN.
+  string secret_key = 2;
+  // Checkout form address: https://pay-sandbox.sepay.vn/v1/checkout/init while testing,
+  // https://pay.sepay.vn/v1/checkout/init in production.
+  string checkout_url = 3;
+}
+
+message Billing {
+  // Dashboard page SePay sends the payer back to, e.g. https://dashboard.example.com/billing.
+  string return_url = 1;
+  // How long a checkout waits for its payment before it is marked expired.
+  google.protobuf.Duration checkout_ttl = 2;
+  // How often ended tiers and expired checkouts are swept.
+  google.protobuf.Duration sweep_interval = 3;
+  // IANA zone in which a month of a tier is counted, the same as the quota day of the other services.
+  string time_zone = 4;
+}
