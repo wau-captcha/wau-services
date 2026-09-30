@@ -40,5 +40,6 @@ func NewHTTPServer(serverConf *conf.Server, challenge *service.ChallengeService)
 	}
 	httpServer := http.NewServer(opts...)
 	v1.RegisterChallengeServiceHTTPServer(httpServer, challenge)
+	httpServer.HandleFunc("/healthz", healthz)
 	return httpServer
 }

@@ -14,8 +14,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// NewHTTPServer serves BillingService, every operation of which takes a user token, and the
-// SePay IPN, which Kratos middleware does not see: it checks SePay's secret key itself.
+// NewHTTPServer serves BillingService, every operation of which takes a user token, the SePay
+// IPN and /healthz. Kratos middleware does not see the last two: the IPN checks SePay's secret
+// key itself.
 func NewHTTPServer(
 	serverConf *conf.Server,
 	tokens *auth.Tokens,
@@ -48,5 +49,6 @@ func NewHTTPServer(
 	httpServer := http.NewServer(opts...)
 	v1.RegisterBillingServiceHTTPServer(httpServer, billing)
 	httpServer.Handle(service.SepayIPNPath, sepayIPN)
+	httpServer.HandleFunc("/healthz", healthz)
 	return httpServer
 }

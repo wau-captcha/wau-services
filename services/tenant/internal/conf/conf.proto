@@ -34,6 +34,8 @@ message Data {
     string password = 2;
     google.protobuf.Duration read_timeout = 3;
     google.protobuf.Duration write_timeout = 4;
+    // Speak TLS to every node, as ElastiCache with in-transit encryption requires. Off by default.
+    bool tls = 5;
   }
   Database database = 1;
   // Read for the daily quota counters that challenge and verify keep.

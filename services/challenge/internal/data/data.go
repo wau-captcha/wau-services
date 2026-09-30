@@ -2,6 +2,8 @@ package data
 
 import (
 	"context"
+	"crypto/tls"
+	"net"
 
 	"challenge/internal/conf"
 	"challenge/internal/data/db"
@@ -26,11 +28,13 @@ func NewData(dataConf *conf.Data) (*Data, func(), error) {
 		return nil, nil, err
 	}
 	redisConf := dataConf.GetRedis()
+	addrs := envconf.SplitList(redisConf.GetAddrs())
 	redisClient := redis.NewClusterClient(&redis.ClusterOptions{
-		Addrs:        envconf.SplitList(redisConf.GetAddrs()),
+		Addrs:        addrs,
 		Password:     redisConf.GetPassword(),
 		ReadTimeout:  redisConf.GetReadTimeout().AsDuration(),
 		WriteTimeout: redisConf.GetWriteTimeout().AsDuration(),
+		TLSConfig:    redisTLS(redisConf.GetTls(), addrs),
 	})
 	cleanup := func() {
 		log.Info("closing the data resources")
@@ -40,4 +44,21 @@ func NewData(dataConf *conf.Data) (*Data, func(), error) {
 		}
 	}
 	return &Data{queries: db.New(pool), redis: redisClient}, cleanup, nil
+}
+
+// redisTLS is nil, plain TCP, unless tls is on. Every node is then checked against the name of
+// the first seed node, as go-redis does for rediss:// cluster URLs: nodes may announce themselves
+// by IP address, which the cluster's certificate does not name (ElastiCache issues one for
+// *.<cluster>.<id>.<region>.cache.amazonaws.com, covering the configuration endpoint and nodes).
+func redisTLS(on bool, addrs []string) *tls.Config {
+	if !on {
+		return nil
+	}
+	config := &tls.Config{MinVersion: tls.VersionTLS12}
+	if len(addrs) > 0 {
+		if host, _, err := net.SplitHostPort(addrs[0]); err == nil {
+			config.ServerName = host
+		}
+	}
+	return config
 }

@@ -40,5 +40,6 @@ func NewHTTPServer(serverConf *conf.Server, verify *service.VerifyService) *http
 	}
 	httpServer := http.NewServer(opts...)
 	v1.RegisterVerifyServiceHTTPServer(httpServer, verify)
+	httpServer.HandleFunc("/healthz", healthz)
 	return httpServer
 }

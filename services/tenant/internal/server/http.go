@@ -61,6 +61,7 @@ func NewHTTPServer(
 	v1.RegisterUsageServiceHTTPServer(httpServer, usage)
 	v1.RegisterCatalogServiceHTTPServer(httpServer, catalog)
 	v1.RegisterAdminServiceHTTPServer(httpServer, admin)
+	httpServer.HandleFunc("/healthz", healthz)
 	return httpServer
 }
 

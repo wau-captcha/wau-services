@@ -1,0 +1,36 @@
+# Local stand-in for the ALB Ingress: one base URL, http://localhost:8080, for the SDKs and the
+# test apps. The services run on the host (kratos run / go run), listening on 0.0.0.0.
+{
+	admin off
+	auto_https off
+}
+
+:8080 {
+	handle /challenge/new* {
+		reverse_proxy host.docker.internal:8000
+	}
+
+	@verify path /challenge/verify* /siteverify*
+	handle @verify {
+		reverse_proxy host.docker.internal:8001
+	}
+
+	handle /v1/billing/* {
+		reverse_proxy host.docker.internal:8003
+	}
+
+	handle /v1/* {
+		reverse_proxy host.docker.internal:8002
+	}
+
+	# Errors keep the services' JSON shape, so clients parse one format whoever answered.
+	handle {
+		header Content-Type "application/json; charset=utf-8"
+		respond `{"code":404,"reason":"ROUTE_NOT_FOUND","message":"no service handles this path","metadata":{}}` 404
+	}
+
+	handle_errors {
+		header Content-Type "application/json; charset=utf-8"
+		respond `{"code":502,"reason":"UPSTREAM_UNAVAILABLE","message":"the service is unavailable, try again later","metadata":{}}` 502
+	}
+}

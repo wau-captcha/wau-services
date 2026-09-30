@@ -10,9 +10,9 @@ import (
 )
 
 const (
-	codeLength        = 5
 	alphanumericChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-	uppercaseChars    = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	// Capitals and digits without O, 0, Q, I and 1, which look alike once only motion shows them.
+	distinctChars = "ABCDEFGHJKLMNPRSTUVWXYZ23456789"
 )
 
 // codeFont is Go Mono Bold, which keeps 0/O and 1/l/I distinguishable.
@@ -31,10 +31,10 @@ func newRandomSource() *mrand.Rand {
 	return mrand.New(mrand.NewChaCha8(seed))
 }
 
-// newCode returns codeLength random characters from chars.
-func newCode(chars string) string {
+// newCode returns length random characters from chars.
+func newCode(chars string, length int) string {
 	random := newRandomSource()
-	code := make([]byte, codeLength)
+	code := make([]byte, length)
 	for i := range code {
 		code[i] = chars[random.IntN(len(chars))]
 	}

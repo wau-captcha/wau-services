@@ -24,12 +24,13 @@ const (
 // challengeKind is how a challenge type builds its code and draws it as media.
 type challengeKind struct {
 	chars  string
+	length int
 	render func(code string) (Media, error)
 }
 
 var challengeKinds = map[string]challengeKind{
-	TypeImageDistort: {chars: alphanumericChars, render: renderImageDistort},
-	TypeMotionNoise:  {chars: uppercaseChars, render: renderMotionNoise},
+	TypeImageDistort: {chars: alphanumericChars, length: 5, render: renderImageDistort},
+	TypeMotionNoise:  {chars: distinctChars, length: 4, render: renderMotionNoise},
 }
 
 var (
@@ -145,7 +146,7 @@ func (uc *ChallengeUsecase) New(ctx context.Context, siteKey, challengeType stri
 	if err := uc.admitChallenge(ctx, site); err != nil {
 		return nil, err
 	}
-	code := newCode(kind.chars)
+	code := newCode(kind.chars, kind.length)
 	media, err := kind.render(code)
 	if err != nil {
 		return nil, err

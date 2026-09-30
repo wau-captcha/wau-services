@@ -7,11 +7,6 @@ import (
 	"image/gif"
 	mrand "math/rand/v2"
 	"sync"
-
-	"golang.org/x/image/font"
-	"golang.org/x/image/font/gofont/gomedium"
-	"golang.org/x/image/font/opentype"
-	"golang.org/x/image/math/fixed"
 )
 
 const (
@@ -21,19 +16,24 @@ const (
 	pixelScale    = 1 // video pixels per display pixel; 1 matches the dot size of the reference video
 	videoWidth    = displayWidth * pixelScale
 	videoHeight   = displayHeight * pixelScale
-	videoFPS      = 20 // must divide 100: GIF delays are whole centiseconds
-	videoSeconds  = 5
-	videoFrames   = videoFPS * videoSeconds
-	frameDelay    = 100 / videoFPS   // centiseconds per frame
-	textMaxSize   = 80 * pixelScale  // font size, shrunk for words wider than textMaxWidth
-	textMaxWidth  = 280 * pixelScale // widest word; a narrow margin is enough since the text bounces
-	textGap       = 12 * pixelScale  // between letters, wider than a stroke so the eye can split letters seen only through motion
-	textStep      = 1                // video pixels per frame: the slowest speed that still moves the text every frame
-	noiseStep     = 3                // video pixels per frame; longer jumps of 1 px dots look like flicker, not motion
-	dotChroma     = 0.5              // share of color kept around each dot's luminance, like the reference video's compression
+	videoFPS      = 50  // must divide 100 (GIF delays are whole centiseconds); browsers play 50 at most
+	videoFrames   = 100 // 2 s, looping without a seam: text and background end where they started
+	frameDelay    = 100 / videoFPS
+	textCapHeight = 72 * pixelScale            // height of the capitals; codes too wide for textArea get smaller ones
+	textMargin    = 8 * pixelScale             // kept clear around the text's whole path
+	textGap       = 16 * pixelScale            // between letters, wider than a stroke so the eye can split letters seen only through motion
+	textStep      = 1                          // video pixels per frame: the slowest speed that still moves the text every frame
+	textTravel    = textStep * videoFrames / 2 // down or up, then back, once per loop
+	noiseStep     = 3                          // video pixels per frame; longer jumps of 1 px dots look like flicker, not motion
+	noisePeriod   = noiseStep * videoFrames    // background width: one loop moves it by exactly one period
+	dotChroma     = 0.5                        // share of color kept around each dot's luminance, like the reference video's compression
 )
 
-var directions = []image.Point{{0, -1}, {0, 1}, {-1, 0}, {1, 0}} // up, down, left, right
+// The background must not repeat within a frame.
+const _ uint = noisePeriod - videoWidth
+
+// textArea is where the text may go: the frame inside textMargin.
+var textArea = image.Pt(videoWidth-2*textMargin, videoHeight-2*textMargin)
 
 // dotPalette spreads 27 colors evenly over the RGB cube, which reads as random RGB noise. Each
 // color keeps its luminance, which carries the motion, but only dotChroma of its color.
@@ -52,33 +52,16 @@ var dotPalette = func() color.Palette {
 	return palette
 }()
 
-// textFont is Go Medium, a sans-serif close to the letters of the reference video.
-var textFont = func() *opentype.Font {
-	parsed, err := opentype.Parse(gomedium.TTF)
-	if err != nil {
-		panic(err)
-	}
-	return parsed
-}()
-
 // renderMotionNoise hides the code in moving dot noise. A single frame is pure noise; the text
-// only shows because its dots move with it, against a background moving another way.
+// only shows because its dots move with it, up and down, across a background flowing sideways.
 func renderMotionNoise(code string) (Media, error) {
 	random := newRandomSource()
 	textBlock, err := newText(random, code)
 	if err != nil {
 		return Media{}, err
 	}
-
-	// Background dots, longer along the motion axis so pixels entering the frame are new.
-	noiseDirection := directions[random.IntN(len(directions))]
-	noiseWidth, noiseHeight := videoWidth, videoHeight
-	if noiseDirection.X != 0 {
-		noiseWidth += noiseStep * videoFrames
-	} else {
-		noiseHeight += noiseStep * videoFrames
-	}
-	noise := newDots(random, noiseWidth, noiseHeight)
+	noise := newDots(random, noisePeriod, videoHeight)
+	noiseDirection := image.Pt(1-2*random.IntN(2), 0)
 
 	// Frames only read the shared inputs, so they are drawn concurrently.
 	bounds := image.Rect(0, 0, videoWidth, videoHeight)
@@ -115,92 +98,6 @@ func renderMotionNoise(code string) (Media, error) {
 		return Media{}, err
 	}
 	return Media{Data: buf.Bytes(), MIMEType: "image/gif", Width: displayWidth, Height: displayHeight}, nil
-}
-
-// movingText is the whole code as one block of dots, drifting and bouncing off the frame edges.
-type movingText struct {
-	mask      *image.Alpha
-	dots      dots        // travel with the text
-	maxCorner image.Point // largest top-left corner that keeps the text inside the frame
-	start     image.Point
-	direction image.Point
-}
-
-// newText renders the code and gives it a random start and direction.
-func newText(random *mrand.Rand, code string) (movingText, error) {
-	mask, err := textMask(code)
-	if err != nil {
-		return movingText{}, err
-	}
-	size := mask.Rect.Size()
-	maxCorner := image.Pt(videoWidth-size.X, videoHeight-size.Y)
-	return movingText{
-		mask:      mask,
-		dots:      newDots(random, size.X, size.Y),
-		maxCorner: maxCorner,
-		start:     image.Pt(random.IntN(maxCorner.X+1), random.IntN(maxCorner.Y+1)),
-		direction: directions[random.IntN(len(directions))],
-	}, nil
-}
-
-// cornerAt returns the text's top-left corner by frame.
-func (t movingText) cornerAt(frame int) image.Point {
-	moved := t.direction.Mul(textStep * frame)
-	return image.Pt(bounce(t.start.X+moved.X, t.maxCorner.X), bounce(t.start.Y+moved.Y, t.maxCorner.Y))
-}
-
-// bounce folds an unbounded coordinate back into [0, hi], as if it reflected off both ends.
-func bounce(coordinate, limit int) int {
-	if limit == 0 {
-		return 0
-	}
-	coordinate %= 2 * limit
-	if coordinate < 0 {
-		coordinate += 2 * limit
-	}
-	if coordinate > limit {
-		coordinate = 2*limit - coordinate
-	}
-	return coordinate
-}
-
-// textMask renders code as one alpha mask, shrinking the font from textMaxSize until the word
-// is at most textMaxWidth wide.
-func textMask(code string) (*image.Alpha, error) {
-	for size := float64(textMaxSize); ; size-- {
-		face, err := opentype.NewFace(textFont, &opentype.FaceOptions{Size: size, DPI: 72, Hinting: font.HintingFull})
-		if err != nil {
-			return nil, err
-		}
-		mask := layoutWord(face, []rune(code))
-		face.Close()
-		if mask.Rect.Dx() <= textMaxWidth {
-			return mask, nil
-		}
-	}
-}
-
-// layoutWord draws each letter textGap pixels after the ink of the previous one, into a mask
-// cropped to the word's ink.
-func layoutWord(face font.Face, letters []rune) *image.Alpha {
-	letterX := make([]fixed.Int26_6, len(letters))
-	var right, top, bottom fixed.Int26_6
-	for i, letter := range letters {
-		ink, _, _ := face.GlyphBounds(letter)
-		letterX[i] = -ink.Min.X
-		if i > 0 {
-			letterX[i] += right + fixed.I(textGap)
-		}
-		right = letterX[i] + ink.Max.X
-		top, bottom = min(top, ink.Min.Y), max(bottom, ink.Max.Y)
-	}
-	mask := image.NewAlpha(image.Rect(0, 0, right.Ceil(), (bottom - top).Ceil()))
-	drawer := font.Drawer{Dst: mask, Src: image.Opaque, Face: face}
-	for i, letter := range letters {
-		drawer.Dot = fixed.Point26_6{X: letterX[i], Y: -top}
-		drawer.DrawString(string(letter))
-	}
-	return mask
 }
 
 // dots is a grid of one-pixel random palette indices that wraps at its edges.

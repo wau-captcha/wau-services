@@ -94,8 +94,9 @@ type Server struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Http  *Server_HTTP           `protobuf:"bytes,1,opt,name=http,proto3" json:"http,omitempty"`
 	Grpc  *Server_GRPC           `protobuf:"bytes,2,opt,name=grpc,proto3" json:"grpc,omitempty"`
-	// CIDR blocks whose X-Forwarded-For header is believed, comma separated; the gateway
-	// sits in one of them. Requests from anywhere else are known by their own address.
+	// CIDR blocks whose X-Forwarded-For header is believed, comma separated: where the load
+	// balancer connects from (the ALB's VPC on EKS; loopback behind the local Caddy on Docker
+	// Desktop). Requests from anywhere else are known by their own address.
 	TrustedProxies string `protobuf:"bytes,3,opt,name=trusted_proxies,json=trustedProxies,proto3" json:"trusted_proxies,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
@@ -462,10 +463,12 @@ func (x *Data_Database) GetSource() string {
 type Data_Redis struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Comma-separated Redis Cluster seed nodes (host:port).
-	Addrs         string               `protobuf:"bytes,1,opt,name=addrs,proto3" json:"addrs,omitempty"`
-	Password      string               `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
-	ReadTimeout   *durationpb.Duration `protobuf:"bytes,3,opt,name=read_timeout,json=readTimeout,proto3" json:"read_timeout,omitempty"`
-	WriteTimeout  *durationpb.Duration `protobuf:"bytes,4,opt,name=write_timeout,json=writeTimeout,proto3" json:"write_timeout,omitempty"`
+	Addrs        string               `protobuf:"bytes,1,opt,name=addrs,proto3" json:"addrs,omitempty"`
+	Password     string               `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
+	ReadTimeout  *durationpb.Duration `protobuf:"bytes,3,opt,name=read_timeout,json=readTimeout,proto3" json:"read_timeout,omitempty"`
+	WriteTimeout *durationpb.Duration `protobuf:"bytes,4,opt,name=write_timeout,json=writeTimeout,proto3" json:"write_timeout,omitempty"`
+	// Speak TLS to every node, as ElastiCache with in-transit encryption requires. Off by default.
+	Tls           bool `protobuf:"varint,5,opt,name=tls,proto3" json:"tls,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -528,6 +531,13 @@ func (x *Data_Redis) GetWriteTimeout() *durationpb.Duration {
 	return nil
 }
 
+func (x *Data_Redis) GetTls() bool {
+	if x != nil {
+		return x.Tls
+	}
+	return false
+}
+
 var File_conf_conf_proto protoreflect.FileDescriptor
 
 const file_conf_conf_proto_rawDesc = "" +
@@ -550,17 +560,18 @@ const file_conf_conf_proto_rawDesc = "" +
 	"\x04GRPC\x12\x18\n" +
 	"\anetwork\x18\x01 \x01(\tR\anetwork\x12\x12\n" +
 	"\x04addr\x18\x02 \x01(\tR\x04addr\x123\n" +
-	"\atimeout\x18\x03 \x01(\v2\x19.google.protobuf.DurationR\atimeout\"\xc9\x02\n" +
+	"\atimeout\x18\x03 \x01(\v2\x19.google.protobuf.DurationR\atimeout\"\xdb\x02\n" +
 	"\x04Data\x125\n" +
 	"\bdatabase\x18\x01 \x01(\v2\x19.kratos.api.Data.DatabaseR\bdatabase\x12,\n" +
 	"\x05redis\x18\x02 \x01(\v2\x16.kratos.api.Data.RedisR\x05redis\x1a\"\n" +
 	"\bDatabase\x12\x16\n" +
-	"\x06source\x18\x01 \x01(\tR\x06source\x1a\xb7\x01\n" +
+	"\x06source\x18\x01 \x01(\tR\x06source\x1a\xc9\x01\n" +
 	"\x05Redis\x12\x14\n" +
 	"\x05addrs\x18\x01 \x01(\tR\x05addrs\x12\x1a\n" +
 	"\bpassword\x18\x02 \x01(\tR\bpassword\x12<\n" +
 	"\fread_timeout\x18\x03 \x01(\v2\x19.google.protobuf.DurationR\vreadTimeout\x12>\n" +
-	"\rwrite_timeout\x18\x04 \x01(\v2\x19.google.protobuf.DurationR\fwriteTimeout\"8\n" +
+	"\rwrite_timeout\x18\x04 \x01(\v2\x19.google.protobuf.DurationR\fwriteTimeout\x12\x10\n" +
+	"\x03tls\x18\x05 \x01(\bR\x03tls\"8\n" +
 	"\tChallenge\x12+\n" +
 	"\x03ttl\x18\x01 \x01(\v2\x19.google.protobuf.DurationR\x03ttl\"$\n" +
 	"\x05Quota\x12\x1b\n" +

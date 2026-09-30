@@ -25,8 +25,9 @@ message Server {
   }
   HTTP http = 1;
   GRPC grpc = 2;
-  // CIDR blocks whose X-Forwarded-For header is believed, comma separated; the gateway
-  // sits in one of them. Requests from anywhere else are known by their own address.
+  // CIDR blocks whose X-Forwarded-For header is believed, comma separated: where the load
+  // balancer connects from (the ALB's VPC on EKS; loopback behind the local Caddy on Docker
+  // Desktop). Requests from anywhere else are known by their own address.
   string trusted_proxies = 3;
 }
 
@@ -41,6 +42,8 @@ message Data {
     string password = 2;
     google.protobuf.Duration read_timeout = 3;
     google.protobuf.Duration write_timeout = 4;
+    // Speak TLS to every node, as ElastiCache with in-transit encryption requires. Off by default.
+    bool tls = 5;
   }
   Database database = 1;
   Redis redis = 2;

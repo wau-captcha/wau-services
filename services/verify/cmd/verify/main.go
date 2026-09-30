@@ -1,13 +1,16 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"io/fs"
 	"log/slog"
 	"os"
+	"time"
 
 	"verify/internal/conf"
+	"verify/internal/pkg/afterresponse"
 	_ "verify/internal/pkg/codec"
 	"verify/internal/pkg/envconf"
 
@@ -21,7 +24,14 @@ import (
 	"github.com/joho/godotenv"
 
 	_ "go.uber.org/automaxprocs"
+	// The daily quota follows the calendar of quota.time_zone, and debian:stable-slim may have
+	// no zone database, so it travels with the binary.
+	_ "time/tzdata"
 )
+
+// drainTimeout bounds the wait at shutdown for the usage writes still running. Each gives up
+// after 10s by itself (afterresponse), well within Kubernetes' default 30s grace period.
+const drainTimeout = 15 * time.Second
 
 // go build -ldflags "-X main.Version=x.y.z"
 var (
@@ -50,7 +60,20 @@ func newApp(logger *slog.Logger, grpcServer *grpc.Server, httpServer *http.Serve
 			grpcServer,
 			httpServer,
 		),
+		kratos.AfterStop(drainAfterResponse),
 	)
+}
+
+// drainAfterResponse lets the usage writes started by the last requests finish once the servers
+// have stopped, before main closes Postgres and Redis. Kratos hands AfterStop hooks a context
+// that is already cancelled, hence the fresh deadline.
+func drainAfterResponse(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), drainTimeout)
+	defer cancel()
+	if err := afterresponse.Wait(ctx); err != nil {
+		log.Warn("usage writes still running at shutdown", "err", err)
+	}
+	return nil
 }
 
 func main() {

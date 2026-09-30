@@ -19,7 +19,7 @@ type ChallengeService struct {
 	v1.UnimplementedChallengeServiceServer
 
 	challenges *biz.ChallengeUsecase
-	// Proxies whose X-Forwarded-For names the real caller, e.g. the gateway.
+	// Proxies whose X-Forwarded-For names the real caller, e.g. the load balancer.
 	trusted []netip.Prefix
 }
 

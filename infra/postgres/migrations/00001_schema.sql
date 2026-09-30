@@ -1,3 +1,4 @@
+-- +goose Up
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 CREATE TABLE tiers (
@@ -99,3 +100,14 @@ CREATE TABLE billing_transactions (
 
 CREATE INDEX idx_billing_transactions_user_id ON billing_transactions(user_id, create_date DESC);
 CREATE INDEX idx_billing_transactions_pending ON billing_transactions(expires_at) WHERE status = 'pending';
+
+-- +goose Down
+DROP TABLE billing_transactions;
+DROP TABLE usage_logs;
+DROP TABLE tier_challenge_types;
+DROP TABLE challenge_types;
+DROP TABLE api_key_allowed_origins;
+DROP TABLE api_keys;
+DROP TABLE admins;
+DROP TABLE users;
+DROP TABLE tiers;

@@ -1,5 +1,4 @@
 // Package clientip finds the address a request really comes from, behind proxies.
-// challenge and gateway each keep a copy of this package: keep the copies identical.
 package clientip
 
 import (
@@ -49,11 +48,6 @@ func From(r *http.Request, trusted []netip.Prefix) netip.Addr {
 		}
 	}
 	return remote
-}
-
-// Key is From as a map key, e.g. for rate limiting; unknown addresses share one key.
-func Key(r *http.Request, trusted []netip.Prefix) string {
-	return From(r, trusted).String()
 }
 
 func remoteAddr(r *http.Request) netip.Addr {

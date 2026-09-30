@@ -31,7 +31,7 @@ func renderImageDistort(code string) (Media, error) {
 
 	img := image.NewRGBA(image.Rect(0, 0, imageWidth, imageHeight))
 	draw.Draw(img, img.Bounds(), image.NewUniform(randomColor(random, 210, 255)), image.Point{}, draw.Src)
-	step := float64(imageWidth-20) / codeLength
+	step := float64(imageWidth-20) / float64(len(code))
 	for i, char := range code {
 		glyph := renderGlyph(face, string(char), randomColor(random, 0, 120))
 		sin, cos := math.Sincos((random.Float64()*2 - 1) * math.Pi / 6) // up to ±30°

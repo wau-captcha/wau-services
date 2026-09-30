@@ -168,12 +168,42 @@ services:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql
-      - ./postgres:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 3s
       retries: 10
+
+  migrate:
+    build: ./postgres
+    image: wau-migrate
+    container_name: wau-migrate
+    restart: "no"
+    networks:
+      - wau-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      GOOSE_DBSTRING: host=postgres dbname=${POSTGRES_DB} sslmode=disable
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./postgres/migrations:/migrations:ro
+      - ./postgres/seed:/seed:ro
+    entrypoint: ["sh", "-c", "goose up && goose -dir /seed -table goose_seed_version up"]
+
+  caddy:
+    image: caddy:2.11-alpine
+    container_name: wau-caddy
+    networks:
+      - wau-net
+    ports:
+      - "8080:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
 
 networks:
   wau-net:

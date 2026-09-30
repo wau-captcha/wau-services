@@ -1,5 +1,6 @@
 // Package afterresponse runs work once the HTTP response has been written, so the caller never
-// waits for it, e.g. the database writes behind /challenge/new and /challenge/verify.
+// waits for it, e.g. the database writes behind /challenge/new and /challenge/verify. Wait lets
+// the service finish that work before it exits.
 package afterresponse
 
 import (
@@ -11,6 +12,9 @@ import (
 
 // taskTimeout bounds each task, which outlives the request it was queued by.
 const taskTimeout = 10 * time.Second
+
+// running tracks the background goroutines that run tasks, for Wait.
+var running sync.WaitGroup
 
 type queueKey struct{}
 
@@ -36,11 +40,13 @@ func Filter(next http.Handler) http.Handler {
 			flusher.Flush()
 		}
 		ctx := context.WithoutCancel(r.Context())
-		go func() {
+		// Started before this handler returns, so a server shutting down waits for the handler
+		// and Wait then sees the tasks.
+		running.Go(func() {
 			for _, task := range tasks {
 				runTask(ctx, task)
 			}
-		}()
+		})
 	})
 }
 
@@ -53,7 +59,25 @@ func Run(ctx context.Context, task func(context.Context)) {
 		pending.mu.Unlock()
 		return
 	}
-	go runTask(context.WithoutCancel(ctx), task)
+	ctx = context.WithoutCancel(ctx)
+	running.Go(func() { runTask(ctx, task) })
+}
+
+// Wait blocks until every task started so far has finished, or until ctx is done. Call it once
+// the servers have stopped, so no request is left to start another, and before closing what the
+// tasks write to. Each task gives up after taskTimeout, so Wait never lasts much longer.
+func Wait(ctx context.Context) error {
+	done := make(chan struct{})
+	go func() {
+		running.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func runTask(ctx context.Context, task func(context.Context)) {
