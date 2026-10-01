@@ -15,17 +15,17 @@ resources:
 # One place for the registry and the release tag of every app.
 images:
   - name: wau/challenge
-    newName: ACCOUNT_ID.dkr.ecr.ap-southeast-1.amazonaws.com/wau/challenge
+    newName: 430030410164.dkr.ecr.ap-southeast-1.amazonaws.com/wau/challenge
     newTag: v1
   - name: wau/verify
-    newName: ACCOUNT_ID.dkr.ecr.ap-southeast-1.amazonaws.com/wau/verify
+    newName: 430030410164.dkr.ecr.ap-southeast-1.amazonaws.com/wau/verify
     newTag: v1
   - name: wau/tenant
-    newName: ACCOUNT_ID.dkr.ecr.ap-southeast-1.amazonaws.com/wau/tenant
+    newName: 430030410164.dkr.ecr.ap-southeast-1.amazonaws.com/wau/tenant
     newTag: v1
   - name: wau/billing
-    newName: ACCOUNT_ID.dkr.ecr.ap-southeast-1.amazonaws.com/wau/billing
+    newName: 430030410164.dkr.ecr.ap-southeast-1.amazonaws.com/wau/billing
     newTag: v1
   - name: wau/dashboard
-    newName: ACCOUNT_ID.dkr.ecr.ap-southeast-1.amazonaws.com/wau/dashboard
+    newName: 430030410164.dkr.ecr.ap-southeast-1.amazonaws.com/wau/dashboard
     newTag: v1

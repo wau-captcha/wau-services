@@ -27,7 +27,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: migrate
-          image: ACCOUNT_ID.dkr.ecr.ap-southeast-1.amazonaws.com/wau/migrate:v1
+          image: 430030410164.dkr.ecr.ap-southeast-1.amazonaws.com/wau/migrate:v1
           args: ["up"]
           env:
             - name: GOOSE_DBSTRING

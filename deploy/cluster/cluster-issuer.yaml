@@ -9,7 +9,7 @@ spec:
   acme:
     server: https://acme-v02.api.letsencrypt.org/directory
     # Replace with a real address of yours: Let's Encrypt registers the account under it.
-    email: CHANGE_ME@example.org
+    email: daophuckhang091@gmail.com
     privateKeySecretRef:
       name: letsencrypt-account-key
     solvers:
