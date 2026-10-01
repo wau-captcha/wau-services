@@ -1,0 +1,31 @@
+# kubectl apply -k deploy/k3s
+# jobs/migrate.yaml is not listed: the migration Job is run by hand (deploy/README.md). The
+# namespace, the Secret wau-env and the pull secret ecr-pull are created beforehand.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: wau
+resources:
+  - challenge.yaml
+  - verify.yaml
+  - tenant.yaml
+  - billing.yaml
+  - dashboard.yaml
+  - ingress.yaml
+  - login-ratelimit.yaml
+# One place for the registry and the release tag of every app.
+images:
+  - name: wau/challenge
+    newName: ACCOUNT_ID.dkr.ecr.ap-southeast-1.amazonaws.com/wau/challenge
+    newTag: v1
+  - name: wau/verify
+    newName: ACCOUNT_ID.dkr.ecr.ap-southeast-1.amazonaws.com/wau/verify
+    newTag: v1
+  - name: wau/tenant
+    newName: ACCOUNT_ID.dkr.ecr.ap-southeast-1.amazonaws.com/wau/tenant
+    newTag: v1
+  - name: wau/billing
+    newName: ACCOUNT_ID.dkr.ecr.ap-southeast-1.amazonaws.com/wau/billing
+    newTag: v1
+  - name: wau/dashboard
+    newName: ACCOUNT_ID.dkr.ecr.ap-southeast-1.amazonaws.com/wau/dashboard
+    newTag: v1

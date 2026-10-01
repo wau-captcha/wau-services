@@ -1,0 +1,82 @@
+# wau-tenant: accounts, API keys and usage for the dashboard (internal only: /v1/*).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tenant
+  labels:
+    app: tenant
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tenant
+  template:
+    metadata:
+      labels:
+        app: tenant
+    spec:
+      imagePullSecrets:
+        - name: ecr-pull
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: tenant
+          image: wau/tenant
+          ports:
+            - name: http
+              containerPort: 8002
+          # Secrets and shared settings (database, Redis, keys); see wau.env.example.
+          envFrom:
+            - secretRef:
+                name: wau-env
+          env:
+            - name: KRATOS_HTTP_ADDR
+              value: 0.0.0.0:8002
+            - name: KRATOS_GOOGLE_JWKS_URL
+              value: https://www.googleapis.com/oauth2/v3/certs
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          lifecycle:
+            # Gives Traefik time to drop the pod from its endpoints before SIGTERM arrives. The
+            # image has no shell or sleep binary, hence the kubelet's own sleep action.
+            preStop:
+              sleep:
+                seconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tenant
+  labels:
+    app: tenant
+spec:
+  selector:
+    app: tenant
+  ports:
+    - name: http
+      port: 8002
+      targetPort: http

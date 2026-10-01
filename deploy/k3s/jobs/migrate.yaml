@@ -1,0 +1,55 @@
+# goose up against RDS, as user wau_app. Run by hand, before the apps of a release that brings a
+# migration (deploy/README.md); not part of the kustomization. The demo seed never runs here.
+#   kubectl -n wau delete job migrate --ignore-not-found
+#   kubectl apply -f deploy/k3s/jobs/migrate.yaml
+#   kubectl -n wau wait --for=condition=complete job/migrate --timeout=5m; kubectl -n wau logs job/migrate
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate
+  namespace: wau
+spec:
+  # A failed migration is rolled back by goose; look at the logs before running it again.
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 86400
+  template:
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: ecr-pull
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        # The image's user "nobody" is a name, which the kubelet cannot check against runAsNonRoot.
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migrate
+          image: ACCOUNT_ID.dkr.ecr.ap-southeast-1.amazonaws.com/wau/migrate:v1
+          args: ["up"]
+          env:
+            - name: GOOSE_DBSTRING
+              value: host=wau-captcha.ctyiqygq6ujb.ap-southeast-1.rds.amazonaws.com dbname=wau_captcha sslmode=require
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: wau-env
+                  key: PGUSER
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wau-env
+                  key: PGPASSWORD
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]

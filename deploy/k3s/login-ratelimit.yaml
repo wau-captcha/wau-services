@@ -1,0 +1,51 @@
+# Sign-in limit, per visitor address (the real one, thanks to externalTrafficPolicy: Local on
+# Traefik's Service): 20 requests a minute, bursts of 20. Signing in is a Server Action, a POST to
+# the sign-in page; the two routes below (HTTPS, HTTP) outrank the Ingress's for those requests
+# only. Each route keeps its own count.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: login-ratelimit
+spec:
+  rateLimit:
+    average: 20
+    period: 1m
+    burst: 20
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: dashboard-login
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`waucaptcha.com`) && Method(`POST`) && (Path(`/login`) || Path(`/admin/login`))
+      priority: 1000
+      middlewares:
+        - name: login-ratelimit
+      services:
+        - name: dashboard
+          port: 3000
+  tls:
+    secretName: dashboard-tls
+---
+# The same limit over plain HTTP: Traefik serves the Ingress on the web entrypoint too, so without
+# this route a POST to http://waucaptcha.com/login would skip the limit.
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: dashboard-login-http
+spec:
+  entryPoints:
+    - web
+  routes:
+    - kind: Rule
+      match: Host(`waucaptcha.com`) && Method(`POST`) && (Path(`/login`) || Path(`/admin/login`))
+      priority: 1000
+      middlewares:
+        - name: login-ratelimit
+      services:
+        - name: dashboard
+          port: 3000

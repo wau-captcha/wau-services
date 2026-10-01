@@ -1,0 +1,89 @@
+# wau-verify: turns right answers into tokens (public: /challenge/verify, /siteverify).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: verify
+  labels:
+    app: verify
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: verify
+  template:
+    metadata:
+      labels:
+        app: verify
+    spec:
+      imagePullSecrets:
+        - name: ecr-pull
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: verify
+          image: wau/verify
+          ports:
+            - name: http
+              containerPort: 8001
+            - name: grpc
+              containerPort: 9001
+          # Secrets and shared settings (database, Redis, keys); see wau.env.example.
+          envFrom:
+            - secretRef:
+                name: wau-env
+          env:
+            - name: KRATOS_HTTP_ADDR
+              value: 0.0.0.0:8001
+            - name: KRATOS_GRPC_ADDR
+              value: 0.0.0.0:9001
+            - name: KRATOS_CHALLENGE_GRPC_ENDPOINT
+              value: challenge:9000
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          lifecycle:
+            # Gives Traefik time to drop the pod from its endpoints before SIGTERM arrives. The
+            # image has no shell or sleep binary, hence the kubelet's own sleep action.
+            preStop:
+              sleep:
+                seconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: verify
+  labels:
+    app: verify
+spec:
+  selector:
+    app: verify
+  ports:
+    - name: http
+      port: 8001
+      targetPort: http
+    - name: grpc
+      port: 9001
+      targetPort: grpc

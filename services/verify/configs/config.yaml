@@ -13,7 +13,7 @@ data:
     password: ${KRATOS_REDIS_PASSWORD}
     read_timeout: 0.2s
     write_timeout: 0.2s
-    tls: false
+    tls: ${KRATOS_REDIS_TLS}
 client:
   challenge:
     endpoint: ${KRATOS_CHALLENGE_GRPC_ENDPOINT}

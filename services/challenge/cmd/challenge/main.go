@@ -96,7 +96,7 @@ func main() {
 	log.SetDefault(logger)
 	configSource := config.New(
 		config.WithSource(file.NewSource(configPath)),
-		config.WithResolver(envconf.Resolve),
+		config.WithResolver(envconf.Resolver(&conf.Bootstrap{})),
 	)
 	defer configSource.Close()
 

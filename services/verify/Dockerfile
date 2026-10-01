@@ -1,25 +1,24 @@
 # Build from the repository root: docker build -f services/verify/Dockerfile .
-FROM golang:1.27 AS builder
+# The builder runs on the build machine and cross-compiles for the target platform, so
+# --platform linux/arm64 needs no emulation.
+FROM --platform=$BUILDPLATFORM golang:1.27 AS builder
 
-COPY . /src
-WORKDIR /src/services/verify
+WORKDIR /src
+COPY services/verify/go.mod services/verify/go.sum ./
+RUN go mod download
+COPY services/verify/ ./
 
-RUN make build
+ARG TARGETOS TARGETARCH VERSION=dev
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
+	go build -trimpath -ldflags "-s -w -X main.Version=$VERSION" -o /out/verify ./cmd/verify
 
-FROM debian:stable-slim
+FROM gcr.io/distroless/static-debian12:nonroot
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-		ca-certificates  \
-        netbase \
-        && rm -rf /var/lib/apt/lists/ \
-        && apt-get autoremove -y && apt-get autoclean -y
-
-COPY --from=builder /src/services/verify/bin /app
+COPY --from=builder /out/verify /app/verify
+COPY services/verify/configs/config.yaml /data/conf/config.yaml
 
 WORKDIR /app
 
-EXPOSE 8001
-EXPOSE 9001
-VOLUME /data/conf
+EXPOSE 8001 9001
 
 CMD ["./verify", "-conf", "/data/conf"]

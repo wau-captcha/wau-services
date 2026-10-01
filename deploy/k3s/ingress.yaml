@@ -1,0 +1,61 @@
+# waucaptcha.com is the dashboard. api.waucaptcha.com opens only the four paths sites and SePay
+# call; everything else there, /v1/* included, gets Traefik's 404. The paths are Exact because
+# Traefik turns Prefix into a plain string prefix (/challenge/new would also match
+# /challenge/newer). cert-manager issues both certificates (ClusterIssuer letsencrypt).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: wau
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - waucaptcha.com
+      secretName: dashboard-tls
+    - hosts:
+        - api.waucaptcha.com
+      secretName: api-tls
+  rules:
+    - host: waucaptcha.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: dashboard
+                port:
+                  number: 3000
+    - host: api.waucaptcha.com
+      http:
+        paths:
+          - path: /challenge/new
+            pathType: Exact
+            backend:
+              service:
+                name: challenge
+                port:
+                  number: 8000
+          - path: /challenge/verify
+            pathType: Exact
+            backend:
+              service:
+                name: verify
+                port:
+                  number: 8001
+          - path: /siteverify
+            pathType: Exact
+            backend:
+              service:
+                name: verify
+                port:
+                  number: 8001
+          - path: /v1/billing/sepay/ipn
+            pathType: Exact
+            backend:
+              service:
+                name: billing
+                port:
+                  number: 8003

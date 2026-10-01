@@ -1,0 +1,95 @@
+# wau-challenge: issues challenges (HTTP, public: /challenge/new) and checks answers for verify (gRPC).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: challenge
+  labels:
+    app: challenge
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: challenge
+  template:
+    metadata:
+      labels:
+        app: challenge
+    spec:
+      imagePullSecrets:
+        - name: ecr-pull
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: challenge
+          image: wau/challenge
+          ports:
+            - name: http
+              containerPort: 8000
+            - name: grpc
+              containerPort: 9000
+          # Secrets and shared settings (database, Redis, keys); see wau.env.example.
+          envFrom:
+            - secretRef:
+                name: wau-env
+          env:
+            - name: KRATOS_HTTP_ADDR
+              value: 0.0.0.0:8000
+            - name: KRATOS_GRPC_ADDR
+              value: 0.0.0.0:9000
+            # X-Forwarded-For is believed from pods only: Traefik, which sets it to the visitor's address.
+            - name: KRATOS_TRUSTED_PROXIES
+              value: 10.42.0.0/16
+            # Each motion_noise challenge holds its GIF several times over (frames, GIF, base64,
+            # JSON): 20 at once got the pod OOMKilled at 256Mi, and pass once the GC aims below
+            # the limit. Keep it near 80% of limits.memory.
+            - name: GOMEMLIMIT
+              value: 200MiB
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          lifecycle:
+            # Gives Traefik time to drop the pod from its endpoints before SIGTERM arrives. The
+            # image has no shell or sleep binary, hence the kubelet's own sleep action.
+            preStop:
+              sleep:
+                seconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: challenge
+  labels:
+    app: challenge
+spec:
+  selector:
+    app: challenge
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+    - name: grpc
+      port: 9000
+      targetPort: grpc

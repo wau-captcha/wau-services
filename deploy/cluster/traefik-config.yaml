@@ -1,0 +1,17 @@
+# Settings for the Traefik that k3s bundles. Not applied with kubectl: copy this file to
+# /var/lib/rancher/k3s/server/manifests/ on the k3s node, which k3s watches and applies to its
+# Traefik chart.
+#   sudo cp deploy/cluster/traefik-config.yaml /var/lib/rancher/k3s/server/manifests/
+# externalTrafficPolicy Local keeps the visitor's own address as the source of the connections
+# Traefik gets, so X-Forwarded-For (challenge's allowed origins) and the sign-in rate limit see
+# the real visitor rather than the node.
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    service:
+      spec:
+        externalTrafficPolicy: Local

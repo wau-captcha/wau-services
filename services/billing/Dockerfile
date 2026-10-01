@@ -1,24 +1,24 @@
 # Build from the repository root: docker build -f services/billing/Dockerfile .
-FROM golang:1.27 AS builder
+# The builder runs on the build machine and cross-compiles for the target platform, so
+# --platform linux/arm64 needs no emulation.
+FROM --platform=$BUILDPLATFORM golang:1.27 AS builder
 
-COPY . /src
-WORKDIR /src/services/billing
+WORKDIR /src
+COPY services/billing/go.mod services/billing/go.sum ./
+RUN go mod download
+COPY services/billing/ ./
 
-RUN make build
+ARG TARGETOS TARGETARCH VERSION=dev
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
+	go build -trimpath -ldflags "-s -w -X main.Version=$VERSION" -o /out/billing ./cmd/billing
 
-FROM debian:stable-slim
+FROM gcr.io/distroless/static-debian12:nonroot
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-		ca-certificates  \
-        netbase \
-        && rm -rf /var/lib/apt/lists/ \
-        && apt-get autoremove -y && apt-get autoclean -y
-
-COPY --from=builder /src/services/billing/bin /app
+COPY --from=builder /out/billing /app/billing
+COPY services/billing/configs/config.yaml /data/conf/config.yaml
 
 WORKDIR /app
 
 EXPOSE 8003
-VOLUME /data/conf
 
 CMD ["./billing", "-conf", "/data/conf"]

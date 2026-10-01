@@ -76,7 +76,7 @@ func main() {
 	configSource := config.New(
 		config.WithSource(file.NewSource(configPath)),
 		// ${NAME} placeholders are filled from the environment; the file holds no fallback values.
-		config.WithResolver(envconf.Resolve),
+		config.WithResolver(envconf.Resolver(&conf.Bootstrap{})),
 	)
 	defer configSource.Close()
 

@@ -1,0 +1,83 @@
+# wau-dashboard: the website at waucaptcha.com (Next.js standalone server).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dashboard
+  labels:
+    app: dashboard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dashboard
+  template:
+    metadata:
+      labels:
+        app: dashboard
+    spec:
+      imagePullSecrets:
+        - name: ecr-pull
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        # The image's user "node" is a name, which the kubelet cannot check against runAsNonRoot.
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: dashboard
+          image: wau/dashboard
+          ports:
+            - name: http
+              containerPort: 3000
+          # GOOGLE_CLIENT_ID comes from here; see wau.env.example.
+          envFrom:
+            - secretRef:
+                name: wau-env
+          env:
+            # Tenant and billing are called inside the cluster: /v1 is not public.
+            - name: WAU_TENANT_URL
+              value: http://tenant:8002
+            - name: WAU_BILLING_URL
+              value: http://billing:8003
+            # Only shown to customers, in the code samples.
+            - name: WAU_PUBLIC_API_URL
+              value: https://api.waucaptcha.com
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+          lifecycle:
+            # Gives Traefik time to drop the pod from its endpoints before SIGTERM arrives.
+            preStop:
+              sleep:
+                seconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 192Mi
+            limits:
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dashboard
+  labels:
+    app: dashboard
+spec:
+  selector:
+    app: dashboard
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
