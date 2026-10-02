@@ -1,0 +1,31 @@
+# Argo CD Application for deploy/k3s on main. Applied once by hand, not part of the kustomization:
+#   kubectl apply -f deploy/argocd/wau.yaml
+# The namespace wau, the Secret wau-env and the pull secret ecr-pull are made by hand; nothing
+# here creates or owns them, so neither prune nor a deleted Application can remove them.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: wau
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/wau-captcha/wau-services.git
+    targetRevision: main
+    path: deploy/k3s
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: wau
+  syncPolicy:
+    # main is the truth: resources dropped from Git are deleted, and changes made by hand in the
+    # cluster are reverted.
+    automated:
+      prune: true
+      selfHeal: true
+    # No CreateNamespace=true: the namespace stays outside Argo CD.
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m

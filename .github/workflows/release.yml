@@ -1,0 +1,141 @@
+name: release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - services/**
+      - infra/postgres/**
+  # Rebuilds every image from main, e.g. after a base image update.
+  workflow_dispatch:
+
+# Releases queue up rather than cancel one another halfway through a push.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: write
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  build-and-tag:
+    needs: ci
+    # The AWS role trusts main only (OIDC sub ...:ref:refs/heads/main); never add an
+    # environment here, it would change the sub claim.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Tag
+        id: tag
+        run: echo "tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ap-southeast-1
+
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # The Dockerfiles cross-compile on the runner ($BUILDPLATFORM), so arm64 needs no QEMU.
+      - uses: docker/setup-buildx-action@v4
+
+      - name: challenge
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: services/challenge/Dockerfile
+          platforms: linux/arm64
+          build-args: VERSION=${{ steps.tag.outputs.tag }}
+          push: true
+          tags: ${{ steps.ecr.outputs.registry }}/wau/challenge:${{ steps.tag.outputs.tag }}
+          cache-from: type=gha,scope=challenge
+          cache-to: type=gha,scope=challenge,mode=max
+
+      - name: verify
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: services/verify/Dockerfile
+          platforms: linux/arm64
+          build-args: VERSION=${{ steps.tag.outputs.tag }}
+          push: true
+          tags: ${{ steps.ecr.outputs.registry }}/wau/verify:${{ steps.tag.outputs.tag }}
+          cache-from: type=gha,scope=verify
+          cache-to: type=gha,scope=verify,mode=max
+
+      - name: tenant
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: services/tenant/Dockerfile
+          platforms: linux/arm64
+          build-args: VERSION=${{ steps.tag.outputs.tag }}
+          push: true
+          tags: ${{ steps.ecr.outputs.registry }}/wau/tenant:${{ steps.tag.outputs.tag }}
+          cache-from: type=gha,scope=tenant
+          cache-to: type=gha,scope=tenant,mode=max
+
+      - name: billing
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: services/billing/Dockerfile
+          platforms: linux/arm64
+          build-args: VERSION=${{ steps.tag.outputs.tag }}
+          push: true
+          tags: ${{ steps.ecr.outputs.registry }}/wau/billing:${{ steps.tag.outputs.tag }}
+          cache-from: type=gha,scope=billing
+          cache-to: type=gha,scope=billing,mode=max
+
+      - name: migrate
+        uses: docker/build-push-action@v7
+        with:
+          context: infra/postgres
+          platforms: linux/arm64
+          push: true
+          tags: ${{ steps.ecr.outputs.registry }}/wau/migrate:${{ steps.tag.outputs.tag }}
+          cache-from: type=gha,scope=migrate
+          cache-to: type=gha,scope=migrate,mode=max
+
+      # The dashboard entry is left alone: wau-dashboard's release sets it.
+      - name: Set the tag in deploy/k3s
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          file=deploy/k3s/kustomization.yaml
+          yq -i '(.images[] | select(.name == "wau/challenge" or .name == "wau/verify" or .name == "wau/tenant"
+            or .name == "wau/billing" or .name == "wau/migrate") | .newTag) = strenv(TAG)' "$file"
+          # yq ignores names it does not find; a renamed entry must fail the release instead.
+          test "$(yq '[.images[] | select(.newTag == strenv(TAG))] | length' "$file")" = 5
+          git diff -- "$file"
+
+      - run: kubectl kustomize deploy/k3s > /dev/null
+
+      - name: Commit and push to main
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          file=deploy/k3s/kustomization.yaml
+          if git diff --quiet -- "$file"; then
+            echo "$file already has $TAG"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore(deploy): release $TAG [skip ci]" -- "$file"
+          for retry in 0 1 2 3; do
+            git push origin HEAD:main && exit 0
+            [ "$retry" -lt 3 ] || break
+            # main moved on (e.g. a dashboard release); replay this commit on top of it.
+            git pull --rebase origin main
+          done
+          exit 1

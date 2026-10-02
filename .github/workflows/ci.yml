@@ -1,0 +1,53 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: ["**"]
+  # release.yml runs this before building images.
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    name: go (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    strategy:
+      # One broken module should not hide the state of the others.
+      fail-fast: false
+      matrix:
+        service: [challenge, verify, tenant, billing]
+    defaults:
+      run:
+        working-directory: services/${{ matrix.service }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # Each service is its own module, so each gets its own Go version and module cache.
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: services/${{ matrix.service }}/go.mod
+          cache-dependency-path: services/${{ matrix.service }}/go.sum
+
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "::error::not gofmt-formatted:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - run: go vet ./...
+      - run: go build ./...
+      - run: go test ./...
+
+  manifests:
+    name: kustomize (deploy/k3s)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # What Argo CD deploys: a manifest that does not render would stop every sync.
+      - run: kubectl kustomize deploy/k3s > /dev/null
