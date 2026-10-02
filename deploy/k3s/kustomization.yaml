@@ -1,6 +1,6 @@
-# kubectl apply -k deploy/k3s
-# jobs/migrate.yaml is not listed: the migration Job is run by hand (deploy/README.md). The
-# namespace, the Secret wau-env and the pull secret ecr-pull are created beforehand.
+# Argo CD (deploy/argocd/wau.yaml) syncs this from main; nobody applies it by hand any more.
+# migrate.yaml is its PreSync hook. The namespace, the Secret wau-env and the pull secret
+# ecr-pull are created by hand and stay out of Git and out of Argo CD.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: wau
@@ -12,7 +12,9 @@ resources:
   - dashboard.yaml
   - ingress.yaml
   - login-ratelimit.yaml
-# One place for the registry and the release tag of every app.
+  - migrate.yaml
+# One place for the registry and the release tag of every image. The release workflows set
+# newTag (sha-<commit>): wau-services for its services and migrate, wau-dashboard for dashboard.
 images:
   - name: wau/challenge
     newName: 430030410164.dkr.ecr.ap-southeast-1.amazonaws.com/wau/challenge
@@ -25,6 +27,9 @@ images:
     newTag: v1
   - name: wau/billing
     newName: 430030410164.dkr.ecr.ap-southeast-1.amazonaws.com/wau/billing
+    newTag: v1
+  - name: wau/migrate
+    newName: 430030410164.dkr.ecr.ap-southeast-1.amazonaws.com/wau/migrate
     newTag: v1
   - name: wau/dashboard
     newName: 430030410164.dkr.ecr.ap-southeast-1.amazonaws.com/wau/dashboard
