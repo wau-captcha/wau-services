@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-kratos/kratos/v3/transport"
 	khttp "github.com/go-kratos/kratos/v3/transport/http"
+	"google.golang.org/protobuf/proto"
 )
 
 // ChallengeService implements the challenge API.
@@ -38,7 +39,7 @@ func (s *ChallengeService) NewChallenge(ctx context.Context, req *v1.NewChalleng
 	if err != nil {
 		return nil, err
 	}
-	return &v1.Challenge{
+	reply := &v1.Challenge{
 		ChallengeId:   challenge.ID,
 		ChallengeType: challenge.Type,
 		Image:         challenge.Media.Data,
@@ -46,7 +47,15 @@ func (s *ChallengeService) NewChallenge(ctx context.Context, req *v1.NewChalleng
 		Width:         int32(challenge.Media.Width),
 		Height:        int32(challenge.Media.Height),
 		ExpiresIn:     int32(challenge.TTL.Seconds()),
-	}, nil
+	}
+	// Left unset for the other types, so their replies carry none of the piece fields.
+	if piece := challenge.Media.Piece; piece != nil {
+		reply.PieceImage = piece.Data
+		reply.PieceY = proto.Int32(int32(piece.Y))
+		reply.PieceWidth = proto.Int32(int32(piece.Width))
+		reply.PieceHeight = proto.Int32(int32(piece.Height))
+	}
+	return reply, nil
 }
 
 // clientAddr is the address the request comes from, read through the proxies we trust.

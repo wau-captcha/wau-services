@@ -3,10 +3,10 @@ package biz
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/http"
 	"net/netip"
 	"slices"
-	"strings"
 	"time"
 
 	v1 "challenge/api/challenge/v1"
@@ -19,19 +19,8 @@ import (
 const (
 	TypeImageDistort = "image_distort"
 	TypeMotionNoise  = "motion_noise"
+	TypeSlidePuzzle  = "slide_puzzle"
 )
-
-// challengeKind is how a challenge type builds its code and draws it as media.
-type challengeKind struct {
-	chars  string
-	length int
-	render func(code string) (Media, error)
-}
-
-var challengeKinds = map[string]challengeKind{
-	TypeImageDistort: {chars: alphanumericChars, length: 5, render: renderImageDistort},
-	TypeMotionNoise:  {chars: distinctChars, length: 4, render: renderMotionNoise},
-}
 
 var (
 	ErrSiteKeyInvalid           = errors.Unauthorized(v1.ErrorReason_SITE_KEY_INVALID.String(), "site key is invalid")
@@ -62,6 +51,15 @@ type Media struct {
 	MIMEType string
 	// Width and Height are the display size in CSS pixels, which may be smaller than the media.
 	Width, Height int
+	// Piece is the cut-out to drag over Data, set for slide_puzzle only.
+	Piece *Piece
+}
+
+// Piece is a PNG with alpha shown over the background at x = 0, y = Y, and dragged sideways.
+// Y, Width and Height are in CSS pixels of the background.
+type Piece struct {
+	Data             []byte
+	Y, Width, Height int
 }
 
 type Challenge struct {
@@ -73,6 +71,8 @@ type Challenge struct {
 	Answer string
 	Media  Media
 	TTL    time.Duration
+	// IssuedAt is zero for a challenge stored by a version that did not record it.
+	IssuedAt time.Time
 }
 
 type SiteRepo interface {
@@ -146,8 +146,7 @@ func (uc *ChallengeUsecase) New(ctx context.Context, siteKey, challengeType stri
 	if err := uc.admitChallenge(ctx, site); err != nil {
 		return nil, err
 	}
-	code := newCode(kind.chars, kind.length)
-	media, err := kind.render(code)
+	answer, media, err := kind.generate()
 	if err != nil {
 		return nil, err
 	}
@@ -156,9 +155,10 @@ func (uc *ChallengeUsecase) New(ctx context.Context, siteKey, challengeType stri
 		Type:     challengeType,
 		APIKeyID: site.APIKeyID,
 		UserID:   site.UserID,
-		Answer:   code,
+		Answer:   answer,
 		Media:    media,
 		TTL:      uc.ttl,
+		IssuedAt: uc.now(),
 	}
 	if err := uc.challenges.Save(ctx, challenge); err != nil {
 		return nil, err
@@ -186,10 +186,25 @@ func addressAllowed(allowed []netip.Prefix, client netip.Addr) bool {
 	return false
 }
 
+// Check takes the challenge, so each one is answered once, and reports whether answer solves it.
+// A malformed answer is a wrong one, not an error.
 func (uc *ChallengeUsecase) Check(ctx context.Context, id, answer string) (*Challenge, bool, error) {
 	challenge, err := uc.challenges.Take(ctx, id)
 	if err != nil {
 		return nil, false, err
 	}
-	return challenge, strings.EqualFold(strings.TrimSpace(answer), challenge.Answer), nil
+	kind, ok := challengeKinds[challenge.Type]
+	if !ok {
+		return challenge, false, nil
+	}
+	return challenge, kind.check(answer, challenge.Answer, uc.sinceIssue(challenge)), nil
+}
+
+// sinceIssue is how long ago the challenge was issued. One stored without its issue time, by the
+// version before during a rollout, counts as issued long ago.
+func (uc *ChallengeUsecase) sinceIssue(challenge *Challenge) time.Duration {
+	if challenge.IssuedAt.IsZero() {
+		return math.MaxInt64
+	}
+	return uc.now().Sub(challenge.IssuedAt)
 }

@@ -21,7 +21,7 @@ paths:
                     type: string
                 - name: challenge_type
                   in: query
-                  description: '"image_distort" (default) or "motion_noise".'
+                  description: '"image_distort" (default), "motion_noise" or "slide_puzzle".'
                   schema:
                     type: string
             responses:
@@ -43,7 +43,9 @@ components:
                     description: Challenge type, e.g. "image_distort".
                 image:
                     type: string
-                    description: 'Media to solve: a PNG for image_distort, a 5-second animated GIF for motion_noise.'
+                    description: |-
+                        Media to solve: a PNG for image_distort, an animated GIF for motion_noise, and for
+                         slide_puzzle a JPEG background with the hole the piece fits into.
                     format: bytes
                 expires_in:
                     type: integer
@@ -58,6 +60,25 @@ components:
                     format: int32
                 height:
                     type: integer
+                    format: int32
+                piece_image:
+                    type: string
+                    description: |-
+                        slide_puzzle only: the piece to drag, a PNG with alpha. It starts at x = 0 and moves
+                         horizontally only; the answer is where its left edge ends up. The piece fields are optional,
+                         so the other types send none of them.
+                    format: bytes
+                piece_y:
+                    type: integer
+                    description: 'slide_puzzle only: top edge of the piece, in CSS pixels of image.'
+                    format: int32
+                piece_width:
+                    type: integer
+                    description: 'slide_puzzle only: width of the piece, in CSS pixels of image.'
+                    format: int32
+                piece_height:
+                    type: integer
+                    description: 'slide_puzzle only: height of the piece, in CSS pixels of image.'
                     format: int32
 tags:
     - name: ChallengeService

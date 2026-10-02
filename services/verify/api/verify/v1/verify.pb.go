@@ -26,7 +26,9 @@ const (
 type VerifyChallengeRequest struct {
 	state       protoimpl.MessageState `protogen:"open.v1"`
 	ChallengeId string                 `protobuf:"bytes,1,opt,name=challenge_id,json=challengeId,proto3" json:"challenge_id,omitempty"`
-	// Text read from the challenge image.
+	// Text read from the challenge image. For slide_puzzle, the JSON the SDK writes from the drag:
+	// {"x": <final left edge of the piece>, "t": [[ms, x, y], ...]}; see the challenge's
+	// CheckAnswerRequest.answer.
 	Answer        string `protobuf:"bytes,2,opt,name=answer,proto3" json:"answer,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

@@ -26,7 +26,7 @@ type NewChallengeRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Public site key of the calling site.
 	SiteKey string `protobuf:"bytes,1,opt,name=site_key,json=siteKey,proto3" json:"site_key,omitempty"`
-	// "image_distort" (default) or "motion_noise".
+	// "image_distort" (default), "motion_noise" or "slide_puzzle".
 	ChallengeType string `protobuf:"bytes,2,opt,name=challenge_type,json=challengeType,proto3" json:"challenge_type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -81,15 +81,26 @@ type Challenge struct {
 	ChallengeId string                 `protobuf:"bytes,1,opt,name=challenge_id,json=challengeId,proto3" json:"challenge_id,omitempty"`
 	// Challenge type, e.g. "image_distort".
 	ChallengeType string `protobuf:"bytes,2,opt,name=challenge_type,json=challengeType,proto3" json:"challenge_type,omitempty"`
-	// Media to solve: a PNG for image_distort, a 5-second animated GIF for motion_noise.
+	// Media to solve: a PNG for image_distort, an animated GIF for motion_noise, and for
+	// slide_puzzle a JPEG background with the hole the piece fits into.
 	Image []byte `protobuf:"bytes,3,opt,name=image,proto3" json:"image,omitempty"`
 	// Seconds until the challenge expires.
 	ExpiresIn int32 `protobuf:"varint,4,opt,name=expires_in,json=expiresIn,proto3" json:"expires_in,omitempty"`
 	// MIME type of image, e.g. "image/gif".
 	MimeType string `protobuf:"bytes,5,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
 	// Size to display image at, in CSS pixels. The media may hold more pixels for finer dots.
-	Width         int32 `protobuf:"varint,6,opt,name=width,proto3" json:"width,omitempty"`
-	Height        int32 `protobuf:"varint,7,opt,name=height,proto3" json:"height,omitempty"`
+	Width  int32 `protobuf:"varint,6,opt,name=width,proto3" json:"width,omitempty"`
+	Height int32 `protobuf:"varint,7,opt,name=height,proto3" json:"height,omitempty"`
+	// slide_puzzle only: the piece to drag, a PNG with alpha. It starts at x = 0 and moves
+	// horizontally only; the answer is where its left edge ends up. The piece fields are optional,
+	// so the other types send none of them.
+	PieceImage []byte `protobuf:"bytes,8,opt,name=piece_image,json=pieceImage,proto3,oneof" json:"piece_image,omitempty"`
+	// slide_puzzle only: top edge of the piece, in CSS pixels of image.
+	PieceY *int32 `protobuf:"varint,9,opt,name=piece_y,json=pieceY,proto3,oneof" json:"piece_y,omitempty"`
+	// slide_puzzle only: width of the piece, in CSS pixels of image.
+	PieceWidth *int32 `protobuf:"varint,10,opt,name=piece_width,json=pieceWidth,proto3,oneof" json:"piece_width,omitempty"`
+	// slide_puzzle only: height of the piece, in CSS pixels of image.
+	PieceHeight   *int32 `protobuf:"varint,11,opt,name=piece_height,json=pieceHeight,proto3,oneof" json:"piece_height,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -173,10 +184,42 @@ func (x *Challenge) GetHeight() int32 {
 	return 0
 }
 
+func (x *Challenge) GetPieceImage() []byte {
+	if x != nil {
+		return x.PieceImage
+	}
+	return nil
+}
+
+func (x *Challenge) GetPieceY() int32 {
+	if x != nil && x.PieceY != nil {
+		return *x.PieceY
+	}
+	return 0
+}
+
+func (x *Challenge) GetPieceWidth() int32 {
+	if x != nil && x.PieceWidth != nil {
+		return *x.PieceWidth
+	}
+	return 0
+}
+
+func (x *Challenge) GetPieceHeight() int32 {
+	if x != nil && x.PieceHeight != nil {
+		return *x.PieceHeight
+	}
+	return 0
+}
+
 type CheckAnswerRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ChallengeId   string                 `protobuf:"bytes,1,opt,name=challenge_id,json=challengeId,proto3" json:"challenge_id,omitempty"`
-	Answer        string                 `protobuf:"bytes,2,opt,name=answer,proto3" json:"answer,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	ChallengeId string                 `protobuf:"bytes,1,opt,name=challenge_id,json=challengeId,proto3" json:"challenge_id,omitempty"`
+	// The text read from the image. For slide_puzzle, the JSON the SDK writes from the drag:
+	// {"x": <final left edge of the piece>, "t": [[ms, x, y], ...]}, each point the time since
+	// pointerdown, the piece's left edge and the pointer's vertical offset from where it went
+	// down, in CSS pixels of image.
+	Answer        string `protobuf:"bytes,2,opt,name=answer,proto3" json:"answer,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -302,7 +345,7 @@ const file_challenge_v1_challenge_proto_rawDesc = "" +
 	"\x1cchallenge/v1/challenge.proto\x12\fchallenge.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\"\\\n" +
 	"\x13NewChallengeRequest\x12\x1e\n" +
 	"\bsite_key\x18\x01 \x01(\tB\x03\xe0A\x02R\asiteKey\x12%\n" +
-	"\x0echallenge_type\x18\x02 \x01(\tR\rchallengeType\"\xd5\x01\n" +
+	"\x0echallenge_type\x18\x02 \x01(\tR\rchallengeType\"\xa4\x03\n" +
 	"\tChallenge\x12!\n" +
 	"\fchallenge_id\x18\x01 \x01(\tR\vchallengeId\x12%\n" +
 	"\x0echallenge_type\x18\x02 \x01(\tR\rchallengeType\x12\x14\n" +
@@ -311,7 +354,19 @@ const file_challenge_v1_challenge_proto_rawDesc = "" +
 	"expires_in\x18\x04 \x01(\x05R\texpiresIn\x12\x1b\n" +
 	"\tmime_type\x18\x05 \x01(\tR\bmimeType\x12\x14\n" +
 	"\x05width\x18\x06 \x01(\x05R\x05width\x12\x16\n" +
-	"\x06height\x18\a \x01(\x05R\x06height\"Y\n" +
+	"\x06height\x18\a \x01(\x05R\x06height\x12$\n" +
+	"\vpiece_image\x18\b \x01(\fH\x00R\n" +
+	"pieceImage\x88\x01\x01\x12\x1c\n" +
+	"\apiece_y\x18\t \x01(\x05H\x01R\x06pieceY\x88\x01\x01\x12$\n" +
+	"\vpiece_width\x18\n" +
+	" \x01(\x05H\x02R\n" +
+	"pieceWidth\x88\x01\x01\x12&\n" +
+	"\fpiece_height\x18\v \x01(\x05H\x03R\vpieceHeight\x88\x01\x01B\x0e\n" +
+	"\f_piece_imageB\n" +
+	"\n" +
+	"\b_piece_yB\x0e\n" +
+	"\f_piece_widthB\x0f\n" +
+	"\r_piece_height\"Y\n" +
 	"\x12CheckAnswerRequest\x12&\n" +
 	"\fchallenge_id\x18\x01 \x01(\tB\x03\xe0A\x02R\vchallengeId\x12\x1b\n" +
 	"\x06answer\x18\x02 \x01(\tB\x03\xe0A\x02R\x06answer\"\x8a\x01\n" +
@@ -361,6 +416,7 @@ func file_challenge_v1_challenge_proto_init() {
 	if File_challenge_v1_challenge_proto != nil {
 		return
 	}
+	file_challenge_v1_challenge_proto_msgTypes[1].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

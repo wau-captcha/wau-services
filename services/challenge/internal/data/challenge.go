@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"challenge/internal/biz"
 
@@ -17,6 +18,8 @@ type challengePO struct {
 	APIKeyID string `json:"api_key_id"`
 	UserID   string `json:"user_id"`
 	Answer   string `json:"answer"`
+	// Unix milliseconds; absent from records the previous version wrote.
+	IssuedAt int64 `json:"issued_at,omitempty"`
 }
 
 type challengeRepo struct {
@@ -28,7 +31,8 @@ func NewChallengeRepo(data *Data) biz.ChallengeRepo {
 }
 
 func (r *challengeRepo) Save(ctx context.Context, challenge *biz.Challenge) error {
-	payload, err := json.Marshal(challengePO{Type: challenge.Type, APIKeyID: challenge.APIKeyID, UserID: challenge.UserID, Answer: challenge.Answer})
+	payload, err := json.Marshal(challengePO{Type: challenge.Type, APIKeyID: challenge.APIKeyID, UserID: challenge.UserID,
+		Answer: challenge.Answer, IssuedAt: challenge.IssuedAt.UnixMilli()})
 	if err != nil {
 		return err
 	}
@@ -47,5 +51,9 @@ func (r *challengeRepo) Take(ctx context.Context, id string) (*biz.Challenge, er
 	if err := json.Unmarshal(payload, &record); err != nil {
 		return nil, err
 	}
-	return &biz.Challenge{ID: id, Type: record.Type, APIKeyID: record.APIKeyID, UserID: record.UserID, Answer: record.Answer}, nil
+	challenge := &biz.Challenge{ID: id, Type: record.Type, APIKeyID: record.APIKeyID, UserID: record.UserID, Answer: record.Answer}
+	if record.IssuedAt > 0 {
+		challenge.IssuedAt = time.UnixMilli(record.IssuedAt)
+	}
+	return challenge, nil
 }
