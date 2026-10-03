@@ -15,9 +15,16 @@ SELECT b.billing_transaction_id,
        (CASE WHEN b.status = 'pending' AND b.expires_at <= now() THEN 'expired' ELSE b.status END)::text AS status,
        b.paid_at,
        b.create_date,
-       b.expires_at
+       b.expires_at,
+       b.sepay_transaction_id,
+       b.grant_kind,
+       b.granted_tier_id,
+       g.tier_name AS granted_tier_name,
+       b.plan_starts_at,
+       b.plan_ends_at
 FROM billing_transactions b
 JOIN tiers t ON t.tier_id = b.tier_id
+LEFT JOIN tiers g ON g.tier_id = b.granted_tier_id
 WHERE b.user_id = $1
 ORDER BY b.create_date DESC, b.billing_transaction_id DESC
 LIMIT $2;
@@ -33,9 +40,16 @@ SELECT b.billing_transaction_id,
        (CASE WHEN b.status = 'pending' AND b.expires_at <= now() THEN 'expired' ELSE b.status END)::text AS status,
        b.paid_at,
        b.create_date,
-       b.expires_at
+       b.expires_at,
+       b.sepay_transaction_id,
+       b.grant_kind,
+       b.granted_tier_id,
+       g.tier_name AS granted_tier_name,
+       b.plan_starts_at,
+       b.plan_ends_at
 FROM billing_transactions b
 JOIN tiers t ON t.tier_id = b.tier_id
+LEFT JOIN tiers g ON g.tier_id = b.granted_tier_id
 WHERE b.billing_transaction_id = $1
   AND b.user_id = $2;
 
@@ -59,7 +73,11 @@ FOR UPDATE OF b;
 UPDATE billing_transactions
 SET status = 'succeeded',
     sepay_transaction_id = @sepay_transaction_id::text,
-    paid_at = @paid_at
+    paid_at = @paid_at,
+    grant_kind = @grant_kind::text,
+    granted_tier_id = @granted_tier_id::text,
+    plan_starts_at = @plan_starts_at,
+    plan_ends_at = @plan_ends_at
 WHERE billing_transaction_id = @billing_transaction_id;
 
 -- name: ExpireTransactions :execrows

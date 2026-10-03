@@ -416,7 +416,12 @@ type Transaction struct {
 	// When SePay's payment was applied; empty until then.
 	PaidAt *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=paid_at,json=paidAt,proto3" json:"paid_at,omitempty"`
 	// "month" or "year": how long the payment extends the tier.
-	Period        string `protobuf:"bytes,10,opt,name=period,proto3" json:"period,omitempty"`
+	Period string `protobuf:"bytes,10,opt,name=period,proto3" json:"period,omitempty"`
+	// SePay's id of the payment; empty until paid.
+	SepayTransactionId string `protobuf:"bytes,11,opt,name=sepay_transaction_id,json=sepayTransactionId,proto3" json:"sepay_transaction_id,omitempty"`
+	// What the payment did to the caller's plan; unset until it is paid, and for payments applied
+	// before wau-billing recorded it.
+	Grant         *PlanGrant `protobuf:"bytes,12,opt,name=grant,proto3" json:"grant,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -521,6 +526,103 @@ func (x *Transaction) GetPeriod() string {
 	return ""
 }
 
+func (x *Transaction) GetSepayTransactionId() string {
+	if x != nil {
+		return x.SepayTransactionId
+	}
+	return ""
+}
+
+func (x *Transaction) GetGrant() *PlanGrant {
+	if x != nil {
+		return x.Grant
+	}
+	return nil
+}
+
+// PlanGrant is what applying a payment did to the account's plan.
+type PlanGrant struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// "upgrade": tier started when the payment was applied, in place of the plan before;
+	// "renew": the account's tier got the period after its end; "extend": the payment, for a tier
+	// below the one the account had by then, bought time on that tier at its monthly price.
+	Kind string `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`
+	// The tier the payment went to: the one bought, except for "extend".
+	TierId   string `protobuf:"bytes,2,opt,name=tier_id,json=tierId,proto3" json:"tier_id,omitempty"`
+	TierName string `protobuf:"bytes,3,opt,name=tier_name,json=tierName,proto3" json:"tier_name,omitempty"`
+	// The time the payment bought on tier, from starts_at to ends_at; both unset when it bought
+	// none, on a tier that never ends.
+	StartsAt      *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=starts_at,json=startsAt,proto3" json:"starts_at,omitempty"`
+	EndsAt        *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=ends_at,json=endsAt,proto3" json:"ends_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PlanGrant) Reset() {
+	*x = PlanGrant{}
+	mi := &file_billing_v1_billing_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PlanGrant) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PlanGrant) ProtoMessage() {}
+
+func (x *PlanGrant) ProtoReflect() protoreflect.Message {
+	mi := &file_billing_v1_billing_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PlanGrant.ProtoReflect.Descriptor instead.
+func (*PlanGrant) Descriptor() ([]byte, []int) {
+	return file_billing_v1_billing_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *PlanGrant) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *PlanGrant) GetTierId() string {
+	if x != nil {
+		return x.TierId
+	}
+	return ""
+}
+
+func (x *PlanGrant) GetTierName() string {
+	if x != nil {
+		return x.TierName
+	}
+	return ""
+}
+
+func (x *PlanGrant) GetStartsAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.StartsAt
+	}
+	return nil
+}
+
+func (x *PlanGrant) GetEndsAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.EndsAt
+	}
+	return nil
+}
+
 type ListTransactionsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -529,7 +631,7 @@ type ListTransactionsRequest struct {
 
 func (x *ListTransactionsRequest) Reset() {
 	*x = ListTransactionsRequest{}
-	mi := &file_billing_v1_billing_proto_msgTypes[7]
+	mi := &file_billing_v1_billing_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -541,7 +643,7 @@ func (x *ListTransactionsRequest) String() string {
 func (*ListTransactionsRequest) ProtoMessage() {}
 
 func (x *ListTransactionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_billing_v1_billing_proto_msgTypes[7]
+	mi := &file_billing_v1_billing_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -554,7 +656,7 @@ func (x *ListTransactionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTransactionsRequest.ProtoReflect.Descriptor instead.
 func (*ListTransactionsRequest) Descriptor() ([]byte, []int) {
-	return file_billing_v1_billing_proto_rawDescGZIP(), []int{7}
+	return file_billing_v1_billing_proto_rawDescGZIP(), []int{8}
 }
 
 type TransactionSet struct {
@@ -566,7 +668,7 @@ type TransactionSet struct {
 
 func (x *TransactionSet) Reset() {
 	*x = TransactionSet{}
-	mi := &file_billing_v1_billing_proto_msgTypes[8]
+	mi := &file_billing_v1_billing_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -578,7 +680,7 @@ func (x *TransactionSet) String() string {
 func (*TransactionSet) ProtoMessage() {}
 
 func (x *TransactionSet) ProtoReflect() protoreflect.Message {
-	mi := &file_billing_v1_billing_proto_msgTypes[8]
+	mi := &file_billing_v1_billing_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -591,7 +693,7 @@ func (x *TransactionSet) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TransactionSet.ProtoReflect.Descriptor instead.
 func (*TransactionSet) Descriptor() ([]byte, []int) {
-	return file_billing_v1_billing_proto_rawDescGZIP(), []int{8}
+	return file_billing_v1_billing_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *TransactionSet) GetTransactions() []*Transaction {
@@ -610,7 +712,7 @@ type GetTransactionRequest struct {
 
 func (x *GetTransactionRequest) Reset() {
 	*x = GetTransactionRequest{}
-	mi := &file_billing_v1_billing_proto_msgTypes[9]
+	mi := &file_billing_v1_billing_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -622,7 +724,7 @@ func (x *GetTransactionRequest) String() string {
 func (*GetTransactionRequest) ProtoMessage() {}
 
 func (x *GetTransactionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_billing_v1_billing_proto_msgTypes[9]
+	mi := &file_billing_v1_billing_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -635,7 +737,7 @@ func (x *GetTransactionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTransactionRequest.ProtoReflect.Descriptor instead.
 func (*GetTransactionRequest) Descriptor() ([]byte, []int) {
-	return file_billing_v1_billing_proto_rawDescGZIP(), []int{9}
+	return file_billing_v1_billing_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *GetTransactionRequest) GetId() string {
@@ -676,7 +778,7 @@ const file_billing_v1_billing_proto_rawDesc = "" +
 	"\x06fields\x18\x03 \x03(\v2\x15.billing.v1.FormFieldR\x06fields\"5\n" +
 	"\tFormField\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value\"\xeb\x02\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value\"\xca\x03\n" +
 	"\vTransaction\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\atier_id\x18\x02 \x01(\tR\x06tierId\x12\x1b\n" +
@@ -690,7 +792,15 @@ const file_billing_v1_billing_proto_rawDesc = "" +
 	"expires_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x123\n" +
 	"\apaid_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\x06paidAt\x12\x16\n" +
 	"\x06period\x18\n" +
-	" \x01(\tR\x06period\"\x19\n" +
+	" \x01(\tR\x06period\x120\n" +
+	"\x14sepay_transaction_id\x18\v \x01(\tR\x12sepayTransactionId\x12+\n" +
+	"\x05grant\x18\f \x01(\v2\x15.billing.v1.PlanGrantR\x05grant\"\xc3\x01\n" +
+	"\tPlanGrant\x12\x12\n" +
+	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x17\n" +
+	"\atier_id\x18\x02 \x01(\tR\x06tierId\x12\x1b\n" +
+	"\ttier_name\x18\x03 \x01(\tR\btierName\x127\n" +
+	"\tstarts_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\bstartsAt\x123\n" +
+	"\aends_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\x06endsAt\"\x19\n" +
 	"\x17ListTransactionsRequest\"M\n" +
 	"\x0eTransactionSet\x12;\n" +
 	"\ftransactions\x18\x01 \x03(\v2\x17.billing.v1.TransactionR\ftransactions\",\n" +
@@ -714,7 +824,7 @@ func file_billing_v1_billing_proto_rawDescGZIP() []byte {
 	return file_billing_v1_billing_proto_rawDescData
 }
 
-var file_billing_v1_billing_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_billing_v1_billing_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_billing_v1_billing_proto_goTypes = []any{
 	(*Plan)(nil),                    // 0: billing.v1.Plan
 	(*ListPlansRequest)(nil),        // 1: billing.v1.ListPlansRequest
@@ -723,33 +833,37 @@ var file_billing_v1_billing_proto_goTypes = []any{
 	(*Checkout)(nil),                // 4: billing.v1.Checkout
 	(*FormField)(nil),               // 5: billing.v1.FormField
 	(*Transaction)(nil),             // 6: billing.v1.Transaction
-	(*ListTransactionsRequest)(nil), // 7: billing.v1.ListTransactionsRequest
-	(*TransactionSet)(nil),          // 8: billing.v1.TransactionSet
-	(*GetTransactionRequest)(nil),   // 9: billing.v1.GetTransactionRequest
-	(*timestamppb.Timestamp)(nil),   // 10: google.protobuf.Timestamp
+	(*PlanGrant)(nil),               // 7: billing.v1.PlanGrant
+	(*ListTransactionsRequest)(nil), // 8: billing.v1.ListTransactionsRequest
+	(*TransactionSet)(nil),          // 9: billing.v1.TransactionSet
+	(*GetTransactionRequest)(nil),   // 10: billing.v1.GetTransactionRequest
+	(*timestamppb.Timestamp)(nil),   // 11: google.protobuf.Timestamp
 }
 var file_billing_v1_billing_proto_depIdxs = []int32{
 	0,  // 0: billing.v1.PlanSet.plans:type_name -> billing.v1.Plan
-	10, // 1: billing.v1.PlanSet.current_tier_expires_at:type_name -> google.protobuf.Timestamp
+	11, // 1: billing.v1.PlanSet.current_tier_expires_at:type_name -> google.protobuf.Timestamp
 	6,  // 2: billing.v1.Checkout.transaction:type_name -> billing.v1.Transaction
 	5,  // 3: billing.v1.Checkout.fields:type_name -> billing.v1.FormField
-	10, // 4: billing.v1.Transaction.create_date:type_name -> google.protobuf.Timestamp
-	10, // 5: billing.v1.Transaction.expires_at:type_name -> google.protobuf.Timestamp
-	10, // 6: billing.v1.Transaction.paid_at:type_name -> google.protobuf.Timestamp
-	6,  // 7: billing.v1.TransactionSet.transactions:type_name -> billing.v1.Transaction
-	1,  // 8: billing.v1.BillingService.ListPlans:input_type -> billing.v1.ListPlansRequest
-	3,  // 9: billing.v1.BillingService.CreateCheckout:input_type -> billing.v1.CreateCheckoutRequest
-	7,  // 10: billing.v1.BillingService.ListTransactions:input_type -> billing.v1.ListTransactionsRequest
-	9,  // 11: billing.v1.BillingService.GetTransaction:input_type -> billing.v1.GetTransactionRequest
-	2,  // 12: billing.v1.BillingService.ListPlans:output_type -> billing.v1.PlanSet
-	4,  // 13: billing.v1.BillingService.CreateCheckout:output_type -> billing.v1.Checkout
-	8,  // 14: billing.v1.BillingService.ListTransactions:output_type -> billing.v1.TransactionSet
-	6,  // 15: billing.v1.BillingService.GetTransaction:output_type -> billing.v1.Transaction
-	12, // [12:16] is the sub-list for method output_type
-	8,  // [8:12] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	11, // 4: billing.v1.Transaction.create_date:type_name -> google.protobuf.Timestamp
+	11, // 5: billing.v1.Transaction.expires_at:type_name -> google.protobuf.Timestamp
+	11, // 6: billing.v1.Transaction.paid_at:type_name -> google.protobuf.Timestamp
+	7,  // 7: billing.v1.Transaction.grant:type_name -> billing.v1.PlanGrant
+	11, // 8: billing.v1.PlanGrant.starts_at:type_name -> google.protobuf.Timestamp
+	11, // 9: billing.v1.PlanGrant.ends_at:type_name -> google.protobuf.Timestamp
+	6,  // 10: billing.v1.TransactionSet.transactions:type_name -> billing.v1.Transaction
+	1,  // 11: billing.v1.BillingService.ListPlans:input_type -> billing.v1.ListPlansRequest
+	3,  // 12: billing.v1.BillingService.CreateCheckout:input_type -> billing.v1.CreateCheckoutRequest
+	8,  // 13: billing.v1.BillingService.ListTransactions:input_type -> billing.v1.ListTransactionsRequest
+	10, // 14: billing.v1.BillingService.GetTransaction:input_type -> billing.v1.GetTransactionRequest
+	2,  // 15: billing.v1.BillingService.ListPlans:output_type -> billing.v1.PlanSet
+	4,  // 16: billing.v1.BillingService.CreateCheckout:output_type -> billing.v1.Checkout
+	9,  // 17: billing.v1.BillingService.ListTransactions:output_type -> billing.v1.TransactionSet
+	6,  // 18: billing.v1.BillingService.GetTransaction:output_type -> billing.v1.Transaction
+	15, // [15:19] is the sub-list for method output_type
+	11, // [11:15] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_billing_v1_billing_proto_init() }
@@ -763,7 +877,7 @@ func file_billing_v1_billing_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_billing_v1_billing_proto_rawDesc), len(file_billing_v1_billing_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

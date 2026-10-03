@@ -117,6 +117,9 @@ type Grant struct {
 	ExpiresAt time.Time
 	// "upgrade", "renew" or "extend".
 	Kind string
+	// Where the time paid for starts; it runs to ExpiresAt. Zero when the payment added no time:
+	// it went to a tier that never ends or is not sold.
+	StartsAt time.Time
 }
 
 // grantFor applies months paid of the tier paidTierID (ranked by paidTierPrice, its monthly price),
@@ -126,22 +129,23 @@ type Grant struct {
 // current one can only come from an older checkout paid late; plans are never downgraded, so
 // the money buys time on the current tier at its monthly price instead.
 func (c *Calendar) grantFor(current AccountPlan, paidTierID string, paidTierPrice, amount int64, months int, now time.Time) Grant {
+	start := later(current.ExpiresAt, now)
 	switch PurchaseOf(current, paidTierID, paidTierPrice) {
 	case PurchaseRenew:
-		return Grant{TierID: current.TierID, ExpiresAt: c.AddMonths(later(current.ExpiresAt, now), months), Kind: "renew"}
+		return Grant{TierID: current.TierID, ExpiresAt: c.AddMonths(start, months), Kind: "renew", StartsAt: start}
 	case PurchaseUpgrade:
-		return Grant{TierID: paidTierID, ExpiresAt: c.AddMonths(now, months), Kind: "upgrade"}
+		return Grant{TierID: paidTierID, ExpiresAt: c.AddMonths(now, months), Kind: "upgrade", StartsAt: now}
 	}
 	if current.ExpiresAt.IsZero() || current.MonthlyPrice <= 0 {
 		// The current tier never ends, or the tier is not sold: there is no time to add.
 		return Grant{TierID: current.TierID, ExpiresAt: current.ExpiresAt, Kind: "extend"}
 	}
 	// Whole months at the current price, then the share of one more month the rest pays for.
-	end := c.AddMonths(later(current.ExpiresAt, now), int(amount/current.MonthlyPrice))
+	end := c.AddMonths(start, int(amount/current.MonthlyPrice))
 	if rest := amount % current.MonthlyPrice; rest > 0 {
 		end = end.Add(c.AddMonths(end, 1).Sub(end) / time.Duration(current.MonthlyPrice) * time.Duration(rest))
 	}
-	return Grant{TierID: current.TierID, ExpiresAt: end, Kind: "extend"}
+	return Grant{TierID: current.TierID, ExpiresAt: end, Kind: "extend", StartsAt: start}
 }
 
 func later(a, b time.Time) time.Time {

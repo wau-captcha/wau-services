@@ -46,7 +46,7 @@ func (uc *BillingUsecase) ConfirmPayment(ctx context.Context, payment Payment) (
 		if err := uc.accounts.SetPlan(ctx, transaction.UserID, applied.TierID, applied.ExpiresAt); err != nil {
 			return err
 		}
-		if err := uc.transactions.MarkPaid(ctx, transaction.ID, payment.GatewayTransactionID, now); err != nil {
+		if err := uc.transactions.MarkPaid(ctx, transaction.ID, payment.GatewayTransactionID, now, applied); err != nil {
 			return err
 		}
 		grant = &applied
