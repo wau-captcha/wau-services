@@ -108,16 +108,27 @@ func (s *BillingService) GetTransaction(ctx context.Context, req *v1.GetTransact
 }
 
 func convertTransaction(transaction *biz.Transaction) *v1.Transaction {
-	return &v1.Transaction{
-		Id:          transaction.ID.String(),
-		TierId:      transaction.TierID,
-		TierName:    transaction.TierName,
-		Amount:      transaction.Amount,
-		Period:      string(transaction.Period),
-		Status:      transaction.Status,
-		PaymentCode: transaction.PaymentCode,
-		CreateDate:  timestamppb.New(transaction.CreateDate),
-		ExpiresAt:   timestamppb.New(transaction.ExpiresAt),
-		PaidAt:      optionalTime(transaction.PaidAt),
+	reply := &v1.Transaction{
+		Id:                 transaction.ID.String(),
+		TierId:             transaction.TierID,
+		TierName:           transaction.TierName,
+		Amount:             transaction.Amount,
+		Period:             string(transaction.Period),
+		Status:             transaction.Status,
+		PaymentCode:        transaction.PaymentCode,
+		CreateDate:         timestamppb.New(transaction.CreateDate),
+		ExpiresAt:          timestamppb.New(transaction.ExpiresAt),
+		PaidAt:             optionalTime(transaction.PaidAt),
+		SepayTransactionId: transaction.GatewayTransactionID,
 	}
+	if grant := transaction.Grant; grant.Kind != "" {
+		reply.Grant = &v1.PlanGrant{
+			Kind:     grant.Kind,
+			TierId:   grant.TierID,
+			TierName: transaction.GrantTierName,
+			StartsAt: optionalTime(grant.StartsAt),
+			EndsAt:   optionalTime(grant.ExpiresAt),
+		}
+	}
+	return reply
 }

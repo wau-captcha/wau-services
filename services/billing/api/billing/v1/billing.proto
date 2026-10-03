@@ -105,6 +105,26 @@ message Transaction {
   google.protobuf.Timestamp paid_at = 9;
   // "month" or "year": how long the payment extends the tier.
   string period = 10;
+  // SePay's id of the payment; empty until paid.
+  string sepay_transaction_id = 11;
+  // What the payment did to the caller's plan; unset until it is paid, and for payments applied
+  // before wau-billing recorded it.
+  PlanGrant grant = 12;
+}
+
+// PlanGrant is what applying a payment did to the account's plan.
+message PlanGrant {
+  // "upgrade": tier started when the payment was applied, in place of the plan before;
+  // "renew": the account's tier got the period after its end; "extend": the payment, for a tier
+  // below the one the account had by then, bought time on that tier at its monthly price.
+  string kind = 1;
+  // The tier the payment went to: the one bought, except for "extend".
+  string tier_id = 2;
+  string tier_name = 3;
+  // The time the payment bought on tier, from starts_at to ends_at; both unset when it bought
+  // none, on a tier that never ends.
+  google.protobuf.Timestamp starts_at = 4;
+  google.protobuf.Timestamp ends_at = 5;
 }
 
 message ListTransactionsRequest {}

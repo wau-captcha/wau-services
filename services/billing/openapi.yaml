@@ -139,6 +139,30 @@ components:
                     type: string
                     description: Price of one year in VND; 0 when the tier is not sold by the year.
             description: Plan is a tier as it is sold.
+        billing.v1.PlanGrant:
+            type: object
+            properties:
+                kind:
+                    type: string
+                    description: |-
+                        "upgrade": tier started when the payment was applied, in place of the plan before;
+                         "renew": the account's tier got the period after its end; "extend": the payment, for a tier
+                         below the one the account had by then, bought time on that tier at its monthly price.
+                tier_id:
+                    type: string
+                    description: 'The tier the payment went to: the one bought, except for "extend".'
+                tier_name:
+                    type: string
+                starts_at:
+                    type: string
+                    description: |-
+                        The time the payment bought on tier, from starts_at to ends_at; both unset when it bought
+                         none, on a tier that never ends.
+                    format: date-time
+                ends_at:
+                    type: string
+                    format: date-time
+            description: PlanGrant is what applying a payment did to the account's plan.
         billing.v1.PlanSet:
             type: object
             properties:
@@ -187,6 +211,15 @@ components:
                 period:
                     type: string
                     description: '"month" or "year": how long the payment extends the tier.'
+                sepay_transaction_id:
+                    type: string
+                    description: SePay's id of the payment; empty until paid.
+                grant:
+                    allOf:
+                        - $ref: '#/components/schemas/billing.v1.PlanGrant'
+                    description: |-
+                        What the payment did to the caller's plan; unset until it is paid, and for payments applied
+                         before wau-billing recorded it.
             description: Transaction is one month or one year of a tier, bought or being bought.
         billing.v1.TransactionSet:
             type: object

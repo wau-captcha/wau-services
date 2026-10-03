@@ -83,12 +83,19 @@ func (r *transactionRepo) LockByCode(ctx context.Context, paymentCode string) (*
 	}, nil
 }
 
-func (r *transactionRepo) MarkPaid(ctx context.Context, id uuid.UUID, gatewayTransactionID string, paidAt time.Time) error {
-	err := r.data.query(ctx).MarkTransactionPaid(ctx, db.MarkTransactionPaidParams{
+func (r *transactionRepo) MarkPaid(ctx context.Context, id uuid.UUID, gatewayTransactionID string, paidAt time.Time, grant biz.Grant) error {
+	params := db.MarkTransactionPaidParams{
 		BillingTransactionID: id,
 		SepayTransactionID:   gatewayTransactionID,
 		PaidAt:               timestamp(paidAt),
-	})
+		GrantKind:            grant.Kind,
+		GrantedTierID:        grant.TierID,
+	}
+	// A payment that added no time keeps both ends NULL.
+	if !grant.StartsAt.IsZero() {
+		params.PlanStartsAt, params.PlanEndsAt = timestamp(grant.StartsAt), timestamp(grant.ExpiresAt)
+	}
+	err := r.data.query(ctx).MarkTransactionPaid(ctx, params)
 	if isUniqueViolation(err, sepayTransactionKey) {
 		return biz.ErrPaymentConflict
 	}
@@ -101,17 +108,25 @@ func (r *transactionRepo) ExpirePending(ctx context.Context) (int64, error) {
 
 func toTransaction(userID uuid.UUID, row db.ListTransactionsRow) *biz.Transaction {
 	return &biz.Transaction{
-		ID:          row.BillingTransactionID,
-		UserID:      userID,
-		TierID:      row.TierID,
-		TierName:    row.TierName,
-		TierPrice:   int64(row.MonthlyPrice),
-		Amount:      int64(row.Amount),
-		Period:      biz.Period(row.Period),
-		Status:      row.Status,
-		PaymentCode: row.PaymentCode,
-		CreateDate:  row.CreateDate.Time,
-		ExpiresAt:   row.ExpiresAt.Time,
-		PaidAt:      timeOf(row.PaidAt),
+		ID:                   row.BillingTransactionID,
+		UserID:               userID,
+		TierID:               row.TierID,
+		TierName:             row.TierName,
+		TierPrice:            int64(row.MonthlyPrice),
+		Amount:               int64(row.Amount),
+		Period:               biz.Period(row.Period),
+		Status:               row.Status,
+		PaymentCode:          row.PaymentCode,
+		CreateDate:           row.CreateDate.Time,
+		ExpiresAt:            row.ExpiresAt.Time,
+		PaidAt:               timeOf(row.PaidAt),
+		GatewayTransactionID: row.SepayTransactionID.String,
+		Grant: biz.Grant{
+			TierID:    row.GrantedTierID.String,
+			ExpiresAt: timeOf(row.PlanEndsAt),
+			Kind:      row.GrantKind.String,
+			StartsAt:  timeOf(row.PlanStartsAt),
+		},
+		GrantTierName: row.GrantedTierName.String,
 	}
 }

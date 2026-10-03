@@ -72,9 +72,16 @@ SELECT b.billing_transaction_id,
        (CASE WHEN b.status = 'pending' AND b.expires_at <= now() THEN 'expired' ELSE b.status END)::text AS status,
        b.paid_at,
        b.create_date,
-       b.expires_at
+       b.expires_at,
+       b.sepay_transaction_id,
+       b.grant_kind,
+       b.granted_tier_id,
+       g.tier_name AS granted_tier_name,
+       b.plan_starts_at,
+       b.plan_ends_at
 FROM billing_transactions b
 JOIN tiers t ON t.tier_id = b.tier_id
+LEFT JOIN tiers g ON g.tier_id = b.granted_tier_id
 WHERE b.billing_transaction_id = $1
   AND b.user_id = $2
 `
@@ -96,6 +103,12 @@ type GetTransactionRow struct {
 	PaidAt               pgtype.Timestamptz
 	CreateDate           pgtype.Timestamptz
 	ExpiresAt            pgtype.Timestamptz
+	SepayTransactionID   pgtype.Text
+	GrantKind            pgtype.Text
+	GrantedTierID        pgtype.Text
+	GrantedTierName      pgtype.Text
+	PlanStartsAt         pgtype.Timestamptz
+	PlanEndsAt           pgtype.Timestamptz
 }
 
 func (q *Queries) GetTransaction(ctx context.Context, arg GetTransactionParams) (GetTransactionRow, error) {
@@ -113,6 +126,12 @@ func (q *Queries) GetTransaction(ctx context.Context, arg GetTransactionParams) 
 		&i.PaidAt,
 		&i.CreateDate,
 		&i.ExpiresAt,
+		&i.SepayTransactionID,
+		&i.GrantKind,
+		&i.GrantedTierID,
+		&i.GrantedTierName,
+		&i.PlanStartsAt,
+		&i.PlanEndsAt,
 	)
 	return i, err
 }
@@ -128,9 +147,16 @@ SELECT b.billing_transaction_id,
        (CASE WHEN b.status = 'pending' AND b.expires_at <= now() THEN 'expired' ELSE b.status END)::text AS status,
        b.paid_at,
        b.create_date,
-       b.expires_at
+       b.expires_at,
+       b.sepay_transaction_id,
+       b.grant_kind,
+       b.granted_tier_id,
+       g.tier_name AS granted_tier_name,
+       b.plan_starts_at,
+       b.plan_ends_at
 FROM billing_transactions b
 JOIN tiers t ON t.tier_id = b.tier_id
+LEFT JOIN tiers g ON g.tier_id = b.granted_tier_id
 WHERE b.user_id = $1
 ORDER BY b.create_date DESC, b.billing_transaction_id DESC
 LIMIT $2
@@ -153,6 +179,12 @@ type ListTransactionsRow struct {
 	PaidAt               pgtype.Timestamptz
 	CreateDate           pgtype.Timestamptz
 	ExpiresAt            pgtype.Timestamptz
+	SepayTransactionID   pgtype.Text
+	GrantKind            pgtype.Text
+	GrantedTierID        pgtype.Text
+	GrantedTierName      pgtype.Text
+	PlanStartsAt         pgtype.Timestamptz
+	PlanEndsAt           pgtype.Timestamptz
 }
 
 // A pending transaction past expires_at reads as expired before the sweep marks it.
@@ -177,6 +209,12 @@ func (q *Queries) ListTransactions(ctx context.Context, arg ListTransactionsPara
 			&i.PaidAt,
 			&i.CreateDate,
 			&i.ExpiresAt,
+			&i.SepayTransactionID,
+			&i.GrantKind,
+			&i.GrantedTierID,
+			&i.GrantedTierName,
+			&i.PlanStartsAt,
+			&i.PlanEndsAt,
 		); err != nil {
 			return nil, err
 		}
@@ -236,17 +274,33 @@ const markTransactionPaid = `-- name: MarkTransactionPaid :exec
 UPDATE billing_transactions
 SET status = 'succeeded',
     sepay_transaction_id = $1::text,
-    paid_at = $2
-WHERE billing_transaction_id = $3
+    paid_at = $2,
+    grant_kind = $3::text,
+    granted_tier_id = $4::text,
+    plan_starts_at = $5,
+    plan_ends_at = $6
+WHERE billing_transaction_id = $7
 `
 
 type MarkTransactionPaidParams struct {
 	SepayTransactionID   string
 	PaidAt               pgtype.Timestamptz
+	GrantKind            string
+	GrantedTierID        string
+	PlanStartsAt         pgtype.Timestamptz
+	PlanEndsAt           pgtype.Timestamptz
 	BillingTransactionID uuid.UUID
 }
 
 func (q *Queries) MarkTransactionPaid(ctx context.Context, arg MarkTransactionPaidParams) error {
-	_, err := q.db.Exec(ctx, markTransactionPaid, arg.SepayTransactionID, arg.PaidAt, arg.BillingTransactionID)
+	_, err := q.db.Exec(ctx, markTransactionPaid,
+		arg.SepayTransactionID,
+		arg.PaidAt,
+		arg.GrantKind,
+		arg.GrantedTierID,
+		arg.PlanStartsAt,
+		arg.PlanEndsAt,
+		arg.BillingTransactionID,
+	)
 	return err
 }

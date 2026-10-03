@@ -39,6 +39,11 @@ type Transaction struct {
 	ExpiresAt            time.Time
 	// Zero until paid.
 	PaidAt time.Time
+	// What applying the payment did to the account; zero Kind until then, and for payments
+	// applied before wau-billing recorded it.
+	Grant Grant
+	// Name of Grant.TierID.
+	GrantTierName string
 }
 
 // TransactionRepo stores transactions. Get and List only return the user's own.
@@ -50,7 +55,8 @@ type TransactionRepo interface {
 	// LockByCode reads the transaction with this payment code and locks it until the database
 	// transaction of ctx ends; ErrUnknownPayment when there is none.
 	LockByCode(ctx context.Context, paymentCode string) (*Transaction, error)
-	MarkPaid(ctx context.Context, id uuid.UUID, gatewayTransactionID string, paidAt time.Time) error
+	// MarkPaid records the payment and what applying it did to the account.
+	MarkPaid(ctx context.Context, id uuid.UUID, gatewayTransactionID string, paidAt time.Time, grant Grant) error
 	// ExpirePending marks pending transactions past their expiry and returns how many.
 	ExpirePending(ctx context.Context) (int64, error)
 }
