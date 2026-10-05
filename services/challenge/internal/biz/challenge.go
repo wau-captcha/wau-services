@@ -3,7 +3,6 @@ package biz
 import (
 	"context"
 	"fmt"
-	"math"
 	"net/http"
 	"net/netip"
 	"slices"
@@ -184,27 +183,4 @@ func addressAllowed(allowed []netip.Prefix, client netip.Addr) bool {
 		}
 	}
 	return false
-}
-
-// Check takes the challenge, so each one is answered once, and reports whether answer solves it.
-// A malformed answer is a wrong one, not an error.
-func (uc *ChallengeUsecase) Check(ctx context.Context, id, answer string) (*Challenge, bool, error) {
-	challenge, err := uc.challenges.Take(ctx, id)
-	if err != nil {
-		return nil, false, err
-	}
-	kind, ok := challengeKinds[challenge.Type]
-	if !ok {
-		return challenge, false, nil
-	}
-	return challenge, kind.check(answer, challenge.Answer, uc.sinceIssue(challenge)), nil
-}
-
-// sinceIssue is how long ago the challenge was issued. One stored without its issue time, by the
-// version before during a rollout, counts as issued long ago.
-func (uc *ChallengeUsecase) sinceIssue(challenge *Challenge) time.Duration {
-	if challenge.IssuedAt.IsZero() {
-		return math.MaxInt64
-	}
-	return uc.now().Sub(challenge.IssuedAt)
 }

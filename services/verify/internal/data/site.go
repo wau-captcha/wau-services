@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type siteRepo struct {
@@ -39,10 +40,15 @@ func (r *siteRepo) RecordAnswer(ctx context.Context, challengeID string, solutio
 	if err != nil {
 		return err
 	}
-	return r.data.queries.RecordAnsweredUsageLog(ctx, db.RecordAnsweredUsageLogParams{
+	params := db.RecordAnsweredUsageLogParams{
 		ChallengeID:     parsedChallengeID,
 		APIKeyID:        apiKeyID,
 		ChallengeTypeID: solution.ChallengeType,
 		Success:         solution.Success,
-	})
+		BehaviorVerdict: solution.Behavior.Verdict,
+	}
+	if score := solution.Behavior.Score; score != nil {
+		params.BehaviorScore = pgtype.Float4{Float32: float32(*score), Valid: true}
+	}
+	return r.data.queries.RecordAnsweredUsageLog(ctx, params)
 }

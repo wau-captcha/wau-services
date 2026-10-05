@@ -18,6 +18,10 @@ type grantPO struct {
 	APIKeyID      string    `json:"api_key_id"`
 	ChallengeType string    `json:"challenge_type"`
 	SolvedAt      time.Time `json:"solved_at"`
+	// Absent from tokens issued before behaviour was checked: read as not measured.
+	BehaviorVerdict string   `json:"behavior_verdict,omitempty"`
+	BehaviorScore   *float64 `json:"behavior_score,omitempty"`
+	BehaviorReasons []string `json:"behavior_reasons,omitempty"`
 }
 
 type grantRepo struct {
@@ -30,7 +34,14 @@ func NewGrantRepo(data *Data) biz.GrantRepo {
 }
 
 func (r *grantRepo) Save(ctx context.Context, id string, grant *biz.Grant, ttl time.Duration) error {
-	payload, err := json.Marshal(grantPO(*grant))
+	payload, err := json.Marshal(grantPO{
+		APIKeyID:        grant.APIKeyID,
+		ChallengeType:   grant.ChallengeType,
+		SolvedAt:        grant.SolvedAt,
+		BehaviorVerdict: grant.Behavior.Verdict,
+		BehaviorScore:   grant.Behavior.Score,
+		BehaviorReasons: grant.Behavior.Reasons,
+	})
 	if err != nil {
 		return err
 	}
@@ -49,6 +60,9 @@ func (r *grantRepo) Take(ctx context.Context, id string) (*biz.Grant, error) {
 	if err := json.Unmarshal(payload, &record); err != nil {
 		return nil, err
 	}
-	grant := biz.Grant(record)
-	return &grant, nil
+	behavior := biz.BehaviorResult{Verdict: record.BehaviorVerdict, Score: record.BehaviorScore, Reasons: record.BehaviorReasons}
+	if behavior.Verdict == "" {
+		behavior = biz.BehaviorResult{Verdict: biz.VerdictNotMeasured}
+	}
+	return &biz.Grant{APIKeyID: record.APIKeyID, ChallengeType: record.ChallengeType, SolvedAt: record.SolvedAt, Behavior: behavior}, nil
 }

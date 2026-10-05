@@ -29,7 +29,10 @@ type VerifyChallengeRequest struct {
 	// Text read from the challenge image. For slide_puzzle, the JSON the SDK writes from the drag:
 	// {"x": <final left edge of the piece>, "t": [[ms, x, y], ...]}; see the challenge's
 	// CheckAnswerRequest.answer.
-	Answer        string `protobuf:"bytes,2,opt,name=answer,proto3" json:"answer,omitempty"`
+	Answer string `protobuf:"bytes,2,opt,name=answer,proto3" json:"answer,omitempty"`
+	// How the person behaved while the challenge was on screen, as the SDK records it. Optional:
+	// without it only the answer is checked, as before.
+	Behavior      *Behavior `protobuf:"bytes,3,opt,name=behavior,proto3" json:"behavior,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -76,6 +79,13 @@ func (x *VerifyChallengeRequest) GetAnswer() string {
 		return x.Answer
 	}
 	return ""
+}
+
+func (x *VerifyChallengeRequest) GetBehavior() *Behavior {
+	if x != nil {
+		return x.Behavior
+	}
+	return nil
 }
 
 type VerifyChallengeReply struct {
@@ -189,7 +199,10 @@ type SiteVerifyReply struct {
 	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
 	ChallengeType string                 `protobuf:"bytes,2,opt,name=challenge_type,json=challengeType,proto3" json:"challenge_type,omitempty"`
 	// Time the challenge was solved.
-	ChallengeTs   *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=challenge_ts,json=challengeTs,proto3" json:"challenge_ts,omitempty"`
+	ChallengeTs *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=challenge_ts,json=challengeTs,proto3" json:"challenge_ts,omitempty"`
+	// What the behaviour check concluded about the answer behind the token, set when success is
+	// true. Answers judged "automated" never get a token.
+	Behavior      *BehaviorResult `protobuf:"bytes,4,opt,name=behavior,proto3" json:"behavior,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -245,25 +258,312 @@ func (x *SiteVerifyReply) GetChallengeTs() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *SiteVerifyReply) GetBehavior() *BehaviorResult {
+	if x != nil {
+		return x.Behavior
+	}
+	return nil
+}
+
+// Behavior is what the SDK records from the moment a challenge is shown (its image has loaded) to
+// the moment its answer is sent. Times are milliseconds since it was shown; x and y are CSS pixels
+// from the top-left corner of the widget. Key values, page content and anything outside that time
+// are never recorded. The same fields as challenge.v1.Behavior, which verify passes it on as.
+type Behavior struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Layout of this message; the check only reads the version it knows.
+	Version int32 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+	// How long the challenge was on screen before the answer was sent.
+	ElapsedMs int32 `protobuf:"varint,2,opt,name=elapsed_ms,json=elapsedMs,proto3" json:"elapsed_ms,omitempty"`
+	// Where the pointer moved and went down, at most one move every 16 ms and 200 samples in all.
+	Pointer []*PointerSample `protobuf:"bytes,3,rep,name=pointer,proto3" json:"pointer,omitempty"`
+	// "mouse", "touch", "pen", or empty when no pointer was used.
+	PointerType string `protobuf:"bytes,4,opt,name=pointer_type,json=pointerType,proto3" json:"pointer_type,omitempty"`
+	// Milliseconds between key presses in the answer box, at most 64; never the keys.
+	KeyIntervalsMs []int32 `protobuf:"varint,5,rep,packed,name=key_intervals_ms,json=keyIntervalsMs,proto3" json:"key_intervals_ms,omitempty"`
+	// Trusted input events in the answer box, from typing, dictation or autocorrect.
+	InputEvents int32 `protobuf:"varint,6,opt,name=input_events,json=inputEvents,proto3" json:"input_events,omitempty"`
+	PasteEvents int32 `protobuf:"varint,7,opt,name=paste_events,json=pasteEvents,proto3" json:"paste_events,omitempty"`
+	// Events on the widget that a script dispatched (isTrusted false), the one that sent the answer
+	// included.
+	UntrustedEvents int32 `protobuf:"varint,8,opt,name=untrusted_events,json=untrustedEvents,proto3" json:"untrusted_events,omitempty"`
+	// navigator.webdriver: the browser says it is under automation.
+	Webdriver bool `protobuf:"varint,9,opt,name=webdriver,proto3" json:"webdriver,omitempty"`
+	// Time the page was hidden while the challenge was on screen.
+	HiddenMs      int32 `protobuf:"varint,10,opt,name=hidden_ms,json=hiddenMs,proto3" json:"hidden_ms,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Behavior) Reset() {
+	*x = Behavior{}
+	mi := &file_verify_v1_verify_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Behavior) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Behavior) ProtoMessage() {}
+
+func (x *Behavior) ProtoReflect() protoreflect.Message {
+	mi := &file_verify_v1_verify_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Behavior.ProtoReflect.Descriptor instead.
+func (*Behavior) Descriptor() ([]byte, []int) {
+	return file_verify_v1_verify_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *Behavior) GetVersion() int32 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+func (x *Behavior) GetElapsedMs() int32 {
+	if x != nil {
+		return x.ElapsedMs
+	}
+	return 0
+}
+
+func (x *Behavior) GetPointer() []*PointerSample {
+	if x != nil {
+		return x.Pointer
+	}
+	return nil
+}
+
+func (x *Behavior) GetPointerType() string {
+	if x != nil {
+		return x.PointerType
+	}
+	return ""
+}
+
+func (x *Behavior) GetKeyIntervalsMs() []int32 {
+	if x != nil {
+		return x.KeyIntervalsMs
+	}
+	return nil
+}
+
+func (x *Behavior) GetInputEvents() int32 {
+	if x != nil {
+		return x.InputEvents
+	}
+	return 0
+}
+
+func (x *Behavior) GetPasteEvents() int32 {
+	if x != nil {
+		return x.PasteEvents
+	}
+	return 0
+}
+
+func (x *Behavior) GetUntrustedEvents() int32 {
+	if x != nil {
+		return x.UntrustedEvents
+	}
+	return 0
+}
+
+func (x *Behavior) GetWebdriver() bool {
+	if x != nil {
+		return x.Webdriver
+	}
+	return false
+}
+
+func (x *Behavior) GetHiddenMs() int32 {
+	if x != nil {
+		return x.HiddenMs
+	}
+	return 0
+}
+
+type PointerSample struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Milliseconds since the challenge was shown.
+	T             int32   `protobuf:"varint,1,opt,name=t,proto3" json:"t,omitempty"`
+	X             float32 `protobuf:"fixed32,2,opt,name=x,proto3" json:"x,omitempty"`
+	Y             float32 `protobuf:"fixed32,3,opt,name=y,proto3" json:"y,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PointerSample) Reset() {
+	*x = PointerSample{}
+	mi := &file_verify_v1_verify_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PointerSample) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PointerSample) ProtoMessage() {}
+
+func (x *PointerSample) ProtoReflect() protoreflect.Message {
+	mi := &file_verify_v1_verify_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PointerSample.ProtoReflect.Descriptor instead.
+func (*PointerSample) Descriptor() ([]byte, []int) {
+	return file_verify_v1_verify_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *PointerSample) GetT() int32 {
+	if x != nil {
+		return x.T
+	}
+	return 0
+}
+
+func (x *PointerSample) GetX() float32 {
+	if x != nil {
+		return x.X
+	}
+	return 0
+}
+
+func (x *PointerSample) GetY() float32 {
+	if x != nil {
+		return x.Y
+	}
+	return 0
+}
+
+// BehaviorResult is what the behaviour check concluded about the answer behind a token.
+type BehaviorResult struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// "human"; "suspicious" (the answer counted, decide for yourself, e.g. refuse it for sensitive
+	// actions); "not_measured" (the client sent no behaviour, so only the answer was checked).
+	Verdict string `protobuf:"bytes,1,opt,name=verdict,proto3" json:"verdict,omitempty"`
+	// From 0 (scripted) to 1 (human-like); unset when not measured.
+	Score *float64 `protobuf:"fixed64,2,opt,name=score,proto3,oneof" json:"score,omitempty"`
+	// Short codes of what lowered the score, e.g. "webdriver" or "even_typing".
+	Reasons       []string `protobuf:"bytes,3,rep,name=reasons,proto3" json:"reasons,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BehaviorResult) Reset() {
+	*x = BehaviorResult{}
+	mi := &file_verify_v1_verify_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BehaviorResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BehaviorResult) ProtoMessage() {}
+
+func (x *BehaviorResult) ProtoReflect() protoreflect.Message {
+	mi := &file_verify_v1_verify_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BehaviorResult.ProtoReflect.Descriptor instead.
+func (*BehaviorResult) Descriptor() ([]byte, []int) {
+	return file_verify_v1_verify_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *BehaviorResult) GetVerdict() string {
+	if x != nil {
+		return x.Verdict
+	}
+	return ""
+}
+
+func (x *BehaviorResult) GetScore() float64 {
+	if x != nil && x.Score != nil {
+		return *x.Score
+	}
+	return 0
+}
+
+func (x *BehaviorResult) GetReasons() []string {
+	if x != nil {
+		return x.Reasons
+	}
+	return nil
+}
+
 var File_verify_v1_verify_proto protoreflect.FileDescriptor
 
 const file_verify_v1_verify_proto_rawDesc = "" +
 	"\n" +
-	"\x16verify/v1/verify.proto\x12\tverify.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"]\n" +
+	"\x16verify/v1/verify.proto\x12\tverify.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x8e\x01\n" +
 	"\x16VerifyChallengeRequest\x12&\n" +
 	"\fchallenge_id\x18\x01 \x01(\tB\x03\xe0A\x02R\vchallengeId\x12\x1b\n" +
-	"\x06answer\x18\x02 \x01(\tB\x03\xe0A\x02R\x06answer\"e\n" +
+	"\x06answer\x18\x02 \x01(\tB\x03\xe0A\x02R\x06answer\x12/\n" +
+	"\bbehavior\x18\x03 \x01(\v2\x13.verify.v1.BehaviorR\bbehavior\"e\n" +
 	"\x14VerifyChallengeReply\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x14\n" +
 	"\x05token\x18\x02 \x01(\tR\x05token\x12\x1d\n" +
 	"\n" +
 	"expires_in\x18\x03 \x01(\x05R\texpiresIn\".\n" +
 	"\x11SiteVerifyRequest\x12\x19\n" +
-	"\x05token\x18\x01 \x01(\tB\x03\xe0A\x02R\x05token\"\x91\x01\n" +
+	"\x05token\x18\x01 \x01(\tB\x03\xe0A\x02R\x05token\"\xc8\x01\n" +
 	"\x0fSiteVerifyReply\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12%\n" +
 	"\x0echallenge_type\x18\x02 \x01(\tR\rchallengeType\x12=\n" +
-	"\fchallenge_ts\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\vchallengeTs2\xe1\x01\n" +
+	"\fchallenge_ts\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\vchallengeTs\x125\n" +
+	"\bbehavior\x18\x04 \x01(\v2\x19.verify.v1.BehaviorResultR\bbehavior\"\xf0\x02\n" +
+	"\bBehavior\x12\x18\n" +
+	"\aversion\x18\x01 \x01(\x05R\aversion\x12\x1d\n" +
+	"\n" +
+	"elapsed_ms\x18\x02 \x01(\x05R\telapsedMs\x122\n" +
+	"\apointer\x18\x03 \x03(\v2\x18.verify.v1.PointerSampleR\apointer\x12!\n" +
+	"\fpointer_type\x18\x04 \x01(\tR\vpointerType\x12(\n" +
+	"\x10key_intervals_ms\x18\x05 \x03(\x05R\x0ekeyIntervalsMs\x12!\n" +
+	"\finput_events\x18\x06 \x01(\x05R\vinputEvents\x12!\n" +
+	"\fpaste_events\x18\a \x01(\x05R\vpasteEvents\x12)\n" +
+	"\x10untrusted_events\x18\b \x01(\x05R\x0funtrustedEvents\x12\x1c\n" +
+	"\twebdriver\x18\t \x01(\bR\twebdriver\x12\x1b\n" +
+	"\thidden_ms\x18\n" +
+	" \x01(\x05R\bhiddenMs\"9\n" +
+	"\rPointerSample\x12\f\n" +
+	"\x01t\x18\x01 \x01(\x05R\x01t\x12\f\n" +
+	"\x01x\x18\x02 \x01(\x02R\x01x\x12\f\n" +
+	"\x01y\x18\x03 \x01(\x02R\x01y\"i\n" +
+	"\x0eBehaviorResult\x12\x18\n" +
+	"\averdict\x18\x01 \x01(\tR\averdict\x12\x19\n" +
+	"\x05score\x18\x02 \x01(\x01H\x00R\x05score\x88\x01\x01\x12\x18\n" +
+	"\areasons\x18\x03 \x03(\tR\areasonsB\b\n" +
+	"\x06_score2\xe1\x01\n" +
 	"\rVerifyService\x12s\n" +
 	"\x0fVerifyChallenge\x12!.verify.v1.VerifyChallengeRequest\x1a\x1f.verify.v1.VerifyChallengeReply\"\x1c\x82\xd3\xe4\x93\x02\x16:\x01*\"\x11/challenge/verify\x12[\n" +
 	"\n" +
@@ -281,25 +581,31 @@ func file_verify_v1_verify_proto_rawDescGZIP() []byte {
 	return file_verify_v1_verify_proto_rawDescData
 }
 
-var file_verify_v1_verify_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_verify_v1_verify_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_verify_v1_verify_proto_goTypes = []any{
 	(*VerifyChallengeRequest)(nil), // 0: verify.v1.VerifyChallengeRequest
 	(*VerifyChallengeReply)(nil),   // 1: verify.v1.VerifyChallengeReply
 	(*SiteVerifyRequest)(nil),      // 2: verify.v1.SiteVerifyRequest
 	(*SiteVerifyReply)(nil),        // 3: verify.v1.SiteVerifyReply
-	(*timestamppb.Timestamp)(nil),  // 4: google.protobuf.Timestamp
+	(*Behavior)(nil),               // 4: verify.v1.Behavior
+	(*PointerSample)(nil),          // 5: verify.v1.PointerSample
+	(*BehaviorResult)(nil),         // 6: verify.v1.BehaviorResult
+	(*timestamppb.Timestamp)(nil),  // 7: google.protobuf.Timestamp
 }
 var file_verify_v1_verify_proto_depIdxs = []int32{
-	4, // 0: verify.v1.SiteVerifyReply.challenge_ts:type_name -> google.protobuf.Timestamp
-	0, // 1: verify.v1.VerifyService.VerifyChallenge:input_type -> verify.v1.VerifyChallengeRequest
-	2, // 2: verify.v1.VerifyService.SiteVerify:input_type -> verify.v1.SiteVerifyRequest
-	1, // 3: verify.v1.VerifyService.VerifyChallenge:output_type -> verify.v1.VerifyChallengeReply
-	3, // 4: verify.v1.VerifyService.SiteVerify:output_type -> verify.v1.SiteVerifyReply
-	3, // [3:5] is the sub-list for method output_type
-	1, // [1:3] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	4, // 0: verify.v1.VerifyChallengeRequest.behavior:type_name -> verify.v1.Behavior
+	7, // 1: verify.v1.SiteVerifyReply.challenge_ts:type_name -> google.protobuf.Timestamp
+	6, // 2: verify.v1.SiteVerifyReply.behavior:type_name -> verify.v1.BehaviorResult
+	5, // 3: verify.v1.Behavior.pointer:type_name -> verify.v1.PointerSample
+	0, // 4: verify.v1.VerifyService.VerifyChallenge:input_type -> verify.v1.VerifyChallengeRequest
+	2, // 5: verify.v1.VerifyService.SiteVerify:input_type -> verify.v1.SiteVerifyRequest
+	1, // 6: verify.v1.VerifyService.VerifyChallenge:output_type -> verify.v1.VerifyChallengeReply
+	3, // 7: verify.v1.VerifyService.SiteVerify:output_type -> verify.v1.SiteVerifyReply
+	6, // [6:8] is the sub-list for method output_type
+	4, // [4:6] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_verify_v1_verify_proto_init() }
@@ -307,13 +613,14 @@ func file_verify_v1_verify_proto_init() {
 	if File_verify_v1_verify_proto != nil {
 		return
 	}
+	file_verify_v1_verify_proto_msgTypes[6].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_verify_v1_verify_proto_rawDesc), len(file_verify_v1_verify_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

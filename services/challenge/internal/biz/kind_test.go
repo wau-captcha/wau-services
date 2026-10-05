@@ -86,12 +86,13 @@ func TestCheck(t *testing.T) {
 			stored.ID = "c1"
 			_ = challenges.Save(context.Background(), &stored)
 
-			_, right, err := usecase.Check(context.Background(), "c1", test.answer)
-			if err != nil || right != test.right {
-				t.Fatalf("got right=%v err=%v, want right=%v", right, err, test.right)
+			// Without behaviour, as old clients answer, only the answer decides.
+			_, right, result, err := usecase.Check(context.Background(), "c1", test.answer, nil)
+			if err != nil || right != test.right || result.Verdict != VerdictNotMeasured {
+				t.Fatalf("got right=%v verdict=%s err=%v, want right=%v not_measured", right, result.Verdict, err, test.right)
 			}
 			// Each challenge is answered once, right or wrong.
-			if _, _, err := usecase.Check(context.Background(), "c1", test.answer); err != ErrChallengeNotFound {
+			if _, _, _, err := usecase.Check(context.Background(), "c1", test.answer, nil); err != ErrChallengeNotFound {
 				t.Fatalf("second check: got %v, want ErrChallengeNotFound", err)
 			}
 		})
