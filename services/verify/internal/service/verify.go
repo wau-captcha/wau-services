@@ -25,7 +25,7 @@ func NewVerifyService(verifier *biz.VerifyUsecase) *VerifyService {
 
 // VerifyChallenge checks an answer and issues a one-time token on success.
 func (s *VerifyService) VerifyChallenge(ctx context.Context, req *v1.VerifyChallengeRequest) (*v1.VerifyChallengeReply, error) {
-	token, err := s.verifier.VerifyChallenge(ctx, req.GetChallengeId(), req.GetAnswer())
+	token, err := s.verifier.VerifyChallenge(ctx, req.GetChallengeId(), req.GetAnswer(), toBehavior(req.GetBehavior()))
 	if err != nil {
 		return nil, err
 	}
@@ -48,6 +48,7 @@ func (s *VerifyService) SiteVerify(ctx context.Context, req *v1.SiteVerifyReques
 		Success:       true,
 		ChallengeType: g.ChallengeType,
 		ChallengeTs:   timestamppb.New(g.SolvedAt),
+		Behavior:      toBehaviorResult(g.Behavior),
 	}, nil
 }
 

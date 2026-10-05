@@ -30,6 +30,9 @@ message VerifyChallengeRequest {
   // {"x": <final left edge of the piece>, "t": [[ms, x, y], ...]}; see the challenge's
   // CheckAnswerRequest.answer.
   string answer = 2 [(google.api.field_behavior) = REQUIRED];
+  // How the person behaved while the challenge was on screen, as the SDK records it. Optional:
+  // without it only the answer is checked, as before.
+  Behavior behavior = 3;
 }
 
 message VerifyChallengeReply {
@@ -49,4 +52,52 @@ message SiteVerifyReply {
   string challenge_type = 2;
   // Time the challenge was solved.
   google.protobuf.Timestamp challenge_ts = 3;
+  // What the behaviour check concluded about the answer behind the token, set when success is
+  // true. Answers judged "automated" never get a token.
+  BehaviorResult behavior = 4;
+}
+
+// Behavior is what the SDK records from the moment a challenge is shown (its image has loaded) to
+// the moment its answer is sent. Times are milliseconds since it was shown; x and y are CSS pixels
+// from the top-left corner of the widget. Key values, page content and anything outside that time
+// are never recorded. The same fields as challenge.v1.Behavior, which verify passes it on as.
+message Behavior {
+  // Layout of this message; the check only reads the version it knows.
+  int32 version = 1;
+  // How long the challenge was on screen before the answer was sent.
+  int32 elapsed_ms = 2;
+  // Where the pointer moved and went down, at most one move every 16 ms and 200 samples in all.
+  repeated PointerSample pointer = 3;
+  // "mouse", "touch", "pen", or empty when no pointer was used.
+  string pointer_type = 4;
+  // Milliseconds between key presses in the answer box, at most 64; never the keys.
+  repeated int32 key_intervals_ms = 5;
+  // Trusted input events in the answer box, from typing, dictation or autocorrect.
+  int32 input_events = 6;
+  int32 paste_events = 7;
+  // Events on the widget that a script dispatched (isTrusted false), the one that sent the answer
+  // included.
+  int32 untrusted_events = 8;
+  // navigator.webdriver: the browser says it is under automation.
+  bool webdriver = 9;
+  // Time the page was hidden while the challenge was on screen.
+  int32 hidden_ms = 10;
+}
+
+message PointerSample {
+  // Milliseconds since the challenge was shown.
+  int32 t = 1;
+  float x = 2;
+  float y = 3;
+}
+
+// BehaviorResult is what the behaviour check concluded about the answer behind a token.
+message BehaviorResult {
+  // "human"; "suspicious" (the answer counted, decide for yourself, e.g. refuse it for sensitive
+  // actions); "not_measured" (the client sent no behaviour, so only the answer was checked).
+  string verdict = 1;
+  // From 0 (scripted) to 1 (human-like); unset when not measured.
+  optional double score = 2;
+  // Short codes of what lowered the score, e.g. "webdriver" or "even_typing".
+  repeated string reasons = 3;
 }

@@ -9,9 +9,13 @@ WHERE (k.secret_key = @secret_key::text
   AND k.is_active
   AND NOT k.is_deleted;
 
--- The answer to a challenge fills success on the row /challenge/new wrote, or writes that row
--- when the answer arrives before it.
+-- The answer to a challenge fills success and the behaviour verdict on the row /challenge/new
+-- wrote, or writes that row when the answer arrives before it. The score is NULL when nothing
+-- was measured.
 -- name: RecordAnsweredUsageLog :exec
-INSERT INTO usage_logs (challenge_id, api_key_id, challenge_type_id, success)
-VALUES (@challenge_id::uuid, @api_key_id, @challenge_type_id, @success::boolean)
-ON CONFLICT (challenge_id) DO UPDATE SET success = EXCLUDED.success;
+INSERT INTO usage_logs (challenge_id, api_key_id, challenge_type_id, success, behavior_verdict, behavior_score)
+VALUES (@challenge_id::uuid, @api_key_id, @challenge_type_id, @success::boolean, @behavior_verdict::text,
+        sqlc.narg(behavior_score)::real)
+ON CONFLICT (challenge_id) DO UPDATE SET success = EXCLUDED.success,
+                                         behavior_verdict = EXCLUDED.behavior_verdict,
+                                         behavior_score = EXCLUDED.behavior_score;

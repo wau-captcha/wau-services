@@ -72,11 +72,18 @@ func (s *ChallengeService) clientAddr(ctx context.Context) netip.Addr {
 	return clientip.From(request.Request(), s.trusted)
 }
 
-// CheckAnswer consumes a challenge and reports whether the answer is correct.
+// CheckAnswer consumes a challenge and reports whether the answer is correct, and what the
+// behaviour check made of the behaviour sent with it.
 func (s *ChallengeService) CheckAnswer(ctx context.Context, req *v1.CheckAnswerRequest) (*v1.CheckAnswerReply, error) {
-	challenge, ok, err := s.challenges.Check(ctx, req.GetChallengeId(), req.GetAnswer())
+	challenge, ok, behavior, err := s.challenges.Check(ctx, req.GetChallengeId(), req.GetAnswer(), toBehavior(req.GetBehavior()))
 	if err != nil {
 		return nil, err
 	}
-	return &v1.CheckAnswerReply{Success: ok, ApiKeyId: challenge.APIKeyID, ChallengeType: challenge.Type, UserId: challenge.UserID}, nil
+	return &v1.CheckAnswerReply{
+		Success:       ok,
+		ApiKeyId:      challenge.APIKeyID,
+		ChallengeType: challenge.Type,
+		UserId:        challenge.UserID,
+		Behavior:      toBehaviorResult(behavior),
+	}, nil
 }

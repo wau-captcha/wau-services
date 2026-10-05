@@ -46,6 +46,87 @@ paths:
                                 $ref: '#/components/schemas/verify.v1.SiteVerifyReply'
 components:
     schemas:
+        verify.v1.Behavior:
+            type: object
+            properties:
+                version:
+                    type: integer
+                    description: Layout of this message; the check only reads the version it knows.
+                    format: int32
+                elapsed_ms:
+                    type: integer
+                    description: How long the challenge was on screen before the answer was sent.
+                    format: int32
+                pointer:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/verify.v1.PointerSample'
+                    description: Where the pointer moved and went down, at most one move every 16 ms and 200 samples in all.
+                pointer_type:
+                    type: string
+                    description: '"mouse", "touch", "pen", or empty when no pointer was used.'
+                key_intervals_ms:
+                    type: array
+                    items:
+                        type: integer
+                        format: int32
+                    description: Milliseconds between key presses in the answer box, at most 64; never the keys.
+                input_events:
+                    type: integer
+                    description: Trusted input events in the answer box, from typing, dictation or autocorrect.
+                    format: int32
+                paste_events:
+                    type: integer
+                    format: int32
+                untrusted_events:
+                    type: integer
+                    description: |-
+                        Events on the widget that a script dispatched (isTrusted false), the one that sent the answer
+                         included.
+                    format: int32
+                webdriver:
+                    type: boolean
+                    description: 'navigator.webdriver: the browser says it is under automation.'
+                hidden_ms:
+                    type: integer
+                    description: Time the page was hidden while the challenge was on screen.
+                    format: int32
+            description: |-
+                Behavior is what the SDK records from the moment a challenge is shown (its image has loaded) to
+                 the moment its answer is sent. Times are milliseconds since it was shown; x and y are CSS pixels
+                 from the top-left corner of the widget. Key values, page content and anything outside that time
+                 are never recorded. The same fields as challenge.v1.Behavior, which verify passes it on as.
+        verify.v1.BehaviorResult:
+            type: object
+            properties:
+                verdict:
+                    type: string
+                    description: |-
+                        "human"; "suspicious" (the answer counted, decide for yourself, e.g. refuse it for sensitive
+                         actions); "not_measured" (the client sent no behaviour, so only the answer was checked).
+                score:
+                    type: number
+                    description: From 0 (scripted) to 1 (human-like); unset when not measured.
+                    format: double
+                reasons:
+                    type: array
+                    items:
+                        type: string
+                    description: Short codes of what lowered the score, e.g. "webdriver" or "even_typing".
+            description: BehaviorResult is what the behaviour check concluded about the answer behind a token.
+        verify.v1.PointerSample:
+            type: object
+            properties:
+                t:
+                    type: integer
+                    description: Milliseconds since the challenge was shown.
+                    format: int32
+                x:
+                    type: number
+                    format: float
+                y:
+                    type: number
+                    format: float
         verify.v1.SiteVerifyReply:
             type: object
             properties:
@@ -57,6 +138,12 @@ components:
                     type: string
                     description: Time the challenge was solved.
                     format: date-time
+                behavior:
+                    allOf:
+                        - $ref: '#/components/schemas/verify.v1.BehaviorResult'
+                    description: |-
+                        What the behaviour check concluded about the answer behind the token, set when success is
+                         true. Answers judged "automated" never get a token.
         verify.v1.VerifyChallengeReply:
             type: object
             properties:
@@ -83,5 +170,11 @@ components:
                         Text read from the challenge image. For slide_puzzle, the JSON the SDK writes from the drag:
                          {"x": <final left edge of the piece>, "t": [[ms, x, y], ...]}; see the challenge's
                          CheckAnswerRequest.answer.
+                behavior:
+                    allOf:
+                        - $ref: '#/components/schemas/verify.v1.Behavior'
+                    description: |-
+                        How the person behaved while the challenge was on screen, as the SDK records it. Optional:
+                         without it only the answer is checked, as before.
 tags:
     - name: VerifyService

@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const getSiteBySecretKey = `-- name: GetSiteBySecretKey :one
@@ -37,9 +38,12 @@ func (q *Queries) GetSiteBySecretKey(ctx context.Context, secretKey string) (Get
 }
 
 const recordAnsweredUsageLog = `-- name: RecordAnsweredUsageLog :exec
-INSERT INTO usage_logs (challenge_id, api_key_id, challenge_type_id, success)
-VALUES ($1::uuid, $2, $3, $4::boolean)
-ON CONFLICT (challenge_id) DO UPDATE SET success = EXCLUDED.success
+INSERT INTO usage_logs (challenge_id, api_key_id, challenge_type_id, success, behavior_verdict, behavior_score)
+VALUES ($1::uuid, $2, $3, $4::boolean, $5::text,
+        $6::real)
+ON CONFLICT (challenge_id) DO UPDATE SET success = EXCLUDED.success,
+                                         behavior_verdict = EXCLUDED.behavior_verdict,
+                                         behavior_score = EXCLUDED.behavior_score
 `
 
 type RecordAnsweredUsageLogParams struct {
@@ -47,16 +51,21 @@ type RecordAnsweredUsageLogParams struct {
 	APIKeyID        uuid.UUID
 	ChallengeTypeID string
 	Success         bool
+	BehaviorVerdict string
+	BehaviorScore   pgtype.Float4
 }
 
-// The answer to a challenge fills success on the row /challenge/new wrote, or writes that row
-// when the answer arrives before it.
+// The answer to a challenge fills success and the behaviour verdict on the row /challenge/new
+// wrote, or writes that row when the answer arrives before it. The score is NULL when nothing
+// was measured.
 func (q *Queries) RecordAnsweredUsageLog(ctx context.Context, arg RecordAnsweredUsageLogParams) error {
 	_, err := q.db.Exec(ctx, recordAnsweredUsageLog,
 		arg.ChallengeID,
 		arg.APIKeyID,
 		arg.ChallengeTypeID,
 		arg.Success,
+		arg.BehaviorVerdict,
+		arg.BehaviorScore,
 	)
 	return err
 }

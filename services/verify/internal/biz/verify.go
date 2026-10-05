@@ -24,7 +24,8 @@ type Solution struct {
 	APIKeyID      string
 	ChallengeType string
 	// Owner of the API key; empty for challenges issued before owners were recorded.
-	UserID string
+	UserID   string
+	Behavior BehaviorResult
 }
 
 // Site is the active API key behind a secret key.
@@ -34,11 +35,13 @@ type Site struct {
 	OwnerBanned bool
 }
 
-// Grant is what a token proves: a challenge solved for a site.
+// Grant is what a token proves: a challenge solved for a site, and how human the person who
+// solved it behaved.
 type Grant struct {
 	APIKeyID      string
 	ChallengeType string
 	SolvedAt      time.Time
+	Behavior      BehaviorResult
 }
 
 // Token is a signed one-time token.
@@ -49,7 +52,7 @@ type Token struct {
 
 // ChallengeClient checks answers with the challenge service.
 type ChallengeClient interface {
-	CheckAnswer(ctx context.Context, challengeID, answer string) (*Solution, error)
+	CheckAnswer(ctx context.Context, challengeID, answer string, behavior *Behavior) (*Solution, error)
 }
 
 // GrantRepo stores the grants behind issued tokens.
@@ -103,9 +106,10 @@ func NewVerifyUsecase(challenges ChallengeClient, grants GrantRepo, sites SiteRe
 	}, nil
 }
 
-// VerifyChallenge checks an answer and returns a token, or nil when the answer is wrong.
-func (uc *VerifyUsecase) VerifyChallenge(ctx context.Context, challengeID, answer string) (*Token, error) {
-	solution, err := uc.challenges.CheckAnswer(ctx, challengeID, answer)
+// VerifyChallenge checks an answer, with the behaviour recorded while it was given (nil when the
+// client sent none), and returns a token, or nil when the answer is wrong or was refused.
+func (uc *VerifyUsecase) VerifyChallenge(ctx context.Context, challengeID, answer string, behavior *Behavior) (*Token, error) {
+	solution, err := uc.challenges.CheckAnswer(ctx, challengeID, answer, behavior)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +120,7 @@ func (uc *VerifyUsecase) VerifyChallenge(ctx context.Context, challengeID, answe
 	}
 	now := uc.now()
 	id, token := newToken(uc.secret, now.Add(uc.ttl))
-	grant := &Grant{APIKeyID: solution.APIKeyID, ChallengeType: solution.ChallengeType, SolvedAt: now}
+	grant := &Grant{APIKeyID: solution.APIKeyID, ChallengeType: solution.ChallengeType, SolvedAt: now, Behavior: solution.Behavior}
 	if err := uc.grants.Save(ctx, id, grant, uc.ttl); err != nil {
 		return nil, err
 	}
