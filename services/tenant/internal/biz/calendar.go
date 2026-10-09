@@ -33,6 +33,11 @@ func (c *Calendar) Zone() string { return c.zone }
 // Today is the local date, YYYY-MM-DD.
 func (c *Calendar) Today() string { return quota.Day(c.now(), c.location) }
 
+// IsToday reports whether t falls on the local today; false for the zero time.
+func (c *Calendar) IsToday(t time.Time) bool {
+	return !t.IsZero() && quota.Day(t, c.location) == c.Today()
+}
+
 // NextReset is the next local midnight, when the daily counters start over.
 func (c *Calendar) NextReset() time.Time { return quota.NextReset(c.now(), c.location) }
 

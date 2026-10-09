@@ -6,6 +6,7 @@ import "google/api/annotations.proto";
 import "google/api/field_behavior.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/field_mask.proto";
+import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 
 option go_package = "tenant/api/tenant/v1;v1";
@@ -30,7 +31,8 @@ service ApiKeyService {
     option (google.api.http) = {get: "/v1/api-keys/{id}"};
   }
 
-  // UpdateApiKey applies a partial update; update_mask accepts "name" and "is_active".
+  // UpdateApiKey applies a partial update; update_mask accepts "name", "is_active" and
+  // "require_behavior".
   rpc UpdateApiKey(UpdateApiKeyRequest) returns (ApiKey) {
     option (google.api.http) = {
       patch: "/v1/api-keys/{api_key.id}"
@@ -62,6 +64,29 @@ service ApiKeyService {
     };
   }
 
+  // SetAllowedDomains replaces the websites allowed to use the site key with the list given; an
+  // empty list lets any website use it again. Entries that stay keep their create_date.
+  rpc SetAllowedDomains(SetAllowedDomainsRequest) returns (ApiKey) {
+    option (google.api.http) = {
+      put: "/v1/api-keys/{id}/allowed-domains"
+      body: "*"
+    };
+  }
+
+  // CreateAppeal asks an administrator to review a suspended or flagged key. A key has at most one
+  // pending appeal.
+  rpc CreateAppeal(CreateAppealRequest) returns (ApiKeyAppeal) {
+    option (google.api.http) = {
+      post: "/v1/api-keys/{id}/appeals"
+      body: "*"
+    };
+  }
+
+  // ListApiKeyEvents returns the latest 100 events of the activity log of the key, newest first.
+  rpc ListApiKeyEvents(ListApiKeyEventsRequest) returns (ApiKeyEventSet) {
+    option (google.api.http) = {get: "/v1/api-keys/{id}/events"};
+  }
+
   // DeleteApiKey soft-deletes the key and deactivates it.
   rpc DeleteApiKey(DeleteApiKeyRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {delete: "/v1/api-keys/{id}"};
@@ -90,6 +115,89 @@ message ApiKey {
   // there is none, i.e. it expired or was revoked.
   string previous_secret_key = 10;
   google.protobuf.Timestamp previous_secret_key_expires_at = 11;
+  // Websites allowed to use the site key. Empty means any website may, as for keys created before
+  // domains existed. Only GetApiKey, CreateApiKey and SetAllowedDomains fill this in.
+  repeated AllowedDomain allowed_domains = 12;
+  // Answers without behaviour data (SDKs before 1.2.0, hand-written integrations) are refused
+  // with BEHAVIOR_REQUIRED. New keys start with it on; keys created before it existed keep it off
+  // until their owner turns it on.
+  bool require_behavior = 13;
+  // The scraping check flagged the key today: it is throttled to a lower rate until the day ends.
+  bool scraping_flagged = 14;
+  // When the key was last flagged; empty when it never was.
+  google.protobuf.Timestamp scraping_flagged_at = 15;
+  // Counters of the scraping check for today. Only GetApiKey fills this in.
+  KeyCounters today = 16;
+  // The latest review asked for the key, if any. Only GetApiKey fills this in.
+  ApiKeyAppeal latest_appeal = 17;
+}
+
+// AllowedDomain is one website allowed to use a site key: a lowercase host name, in punycode for
+// international names, such as "shop.example.com"; "*.example.com" for its subdomains (not the
+// domain itself); "localhost" or "localhost:3000" and "127.0.0.1" for development.
+message AllowedDomain {
+  string domain = 1 [(google.api.field_behavior) = REQUIRED];
+  google.protobuf.Timestamp create_date = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+message SetAllowedDomainsRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+  // The whole list, at most 50; domains left out are dropped. Empty allows any website.
+  repeated AllowedDomain allowed_domains = 2;
+}
+
+// KeyCounters is what the scraping check of a key counted on one day.
+message KeyCounters {
+  // Challenges issued: /challenge/new calls.
+  int64 challenges = 1;
+  // Answers checked: /challenge/verify calls that reached a challenge.
+  int64 answers = 2;
+  // Right answers.
+  int64 solved = 3;
+  // Answers the behaviour check judged automated.
+  int64 automated = 4;
+}
+
+// ApiKeyAppeal is a review an owner asked for, of a suspended or flagged key.
+message ApiKeyAppeal {
+  string id = 1;
+  // "pending", "approved" or "rejected".
+  string status = 2;
+  string message = 3;
+  // What the administrator answered; empty while pending.
+  string admin_note = 4;
+  google.protobuf.Timestamp create_date = 5;
+  // Empty while pending.
+  google.protobuf.Timestamp decided_at = 6;
+}
+
+message CreateAppealRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+  // Why the key should work again, 1-2000 characters.
+  string message = 2 [(google.api.field_behavior) = REQUIRED];
+}
+
+message ListApiKeyEventsRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message ApiKeyEventSet {
+  repeated ApiKeyEvent events = 1;
+}
+
+// ApiKeyEvent is one entry of the activity log of a key.
+message ApiKeyEvent {
+  int64 id = 1;
+  // "user" (the owner), "admin" or "system".
+  string actor = 2;
+  // What happened: "created", "renamed", "activated", "paused", "secret_rotated",
+  // "previous_secret_revoked", "allowed_ips_changed", "allowed_domains_changed",
+  // "require_behavior_changed", "flagged", "suspended", "unsuspended", "appeal_created",
+  // "appeal_approved", "appeal_rejected" or "deleted".
+  string action = 3;
+  // The details of the change, e.g. {"name": "Shop"}; never a secret key.
+  google.protobuf.Struct detail = 4;
+  google.protobuf.Timestamp create_date = 5;
 }
 
 // AllowedOrigin is one address, or network, allowed to use a site key.
@@ -118,6 +226,8 @@ message ApiKeySet {
 
 message CreateApiKeyRequest {
   string name = 1 [(google.api.field_behavior) = REQUIRED];
+  // The websites allowed to use the key from the start, optional; see AllowedDomain.
+  repeated string allowed_domains = 2;
 }
 
 message GetApiKeyRequest {

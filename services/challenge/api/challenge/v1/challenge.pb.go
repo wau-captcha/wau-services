@@ -100,7 +100,13 @@ type Challenge struct {
 	// slide_puzzle only: width of the piece, in CSS pixels of image.
 	PieceWidth *int32 `protobuf:"varint,10,opt,name=piece_width,json=pieceWidth,proto3,oneof" json:"piece_width,omitempty"`
 	// slide_puzzle only: height of the piece, in CSS pixels of image.
-	PieceHeight   *int32 `protobuf:"varint,11,opt,name=piece_height,json=pieceHeight,proto3,oneof" json:"piece_height,omitempty"`
+	PieceHeight *int32 `protobuf:"varint,11,opt,name=piece_height,json=pieceHeight,proto3,oneof" json:"piece_height,omitempty"`
+	// Proof of work: find a decimal nonce such that SHA-256(pow_salt ‖ challenge_id ‖ nonce), the
+	// salt as its 16 bytes and the other two as UTF-8, starts with pow_difficulty zero bits, and
+	// send it with the answer as pow_nonce. The SDKs from 1.3.0 do it while the person solves the
+	// challenge. A difficulty of 0 asks for none.
+	PowSalt       []byte `protobuf:"bytes,12,opt,name=pow_salt,json=powSalt,proto3" json:"pow_salt,omitempty"`
+	PowDifficulty int32  `protobuf:"varint,13,opt,name=pow_difficulty,json=powDifficulty,proto3" json:"pow_difficulty,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -212,6 +218,20 @@ func (x *Challenge) GetPieceHeight() int32 {
 	return 0
 }
 
+func (x *Challenge) GetPowSalt() []byte {
+	if x != nil {
+		return x.PowSalt
+	}
+	return nil
+}
+
+func (x *Challenge) GetPowDifficulty() int32 {
+	if x != nil {
+		return x.PowDifficulty
+	}
+	return 0
+}
+
 type CheckAnswerRequest struct {
 	state       protoimpl.MessageState `protogen:"open.v1"`
 	ChallengeId string                 `protobuf:"bytes,1,opt,name=challenge_id,json=challengeId,proto3" json:"challenge_id,omitempty"`
@@ -222,7 +242,19 @@ type CheckAnswerRequest struct {
 	Answer string `protobuf:"bytes,2,opt,name=answer,proto3" json:"answer,omitempty"`
 	// How the person behaved while the challenge was on screen, as the SDK records it. Clients that
 	// do not send it have their answers checked as before.
-	Behavior      *Behavior `protobuf:"bytes,3,opt,name=behavior,proto3" json:"behavior,omitempty"`
+	Behavior *Behavior `protobuf:"bytes,3,opt,name=behavior,proto3" json:"behavior,omitempty"`
+	// The site key the client answers for: the answer to a challenge of another key is wrong. Empty
+	// from SDKs before 1.3.0, which is accepted.
+	SiteKey string `protobuf:"bytes,4,opt,name=site_key,json=siteKey,proto3" json:"site_key,omitempty"`
+	// The /challenge/verify request as verify saw it, compared with the /challenge/new one: its
+	// origin (scheme://host[:port], from Origin, or else Referer), the client's address and headers.
+	Origin         string `protobuf:"bytes,5,opt,name=origin,proto3" json:"origin,omitempty"`
+	ClientIp       string `protobuf:"bytes,6,opt,name=client_ip,json=clientIp,proto3" json:"client_ip,omitempty"`
+	UserAgent      string `protobuf:"bytes,7,opt,name=user_agent,json=userAgent,proto3" json:"user_agent,omitempty"`
+	SecFetchSite   string `protobuf:"bytes,8,opt,name=sec_fetch_site,json=secFetchSite,proto3" json:"sec_fetch_site,omitempty"`
+	AcceptLanguage string `protobuf:"bytes,9,opt,name=accept_language,json=acceptLanguage,proto3" json:"accept_language,omitempty"`
+	// The proof of work found for pow_salt and pow_difficulty; empty from SDKs before 1.3.0.
+	PowNonce      string `protobuf:"bytes,10,opt,name=pow_nonce,json=powNonce,proto3" json:"pow_nonce,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -278,6 +310,55 @@ func (x *CheckAnswerRequest) GetBehavior() *Behavior {
 	return nil
 }
 
+func (x *CheckAnswerRequest) GetSiteKey() string {
+	if x != nil {
+		return x.SiteKey
+	}
+	return ""
+}
+
+func (x *CheckAnswerRequest) GetOrigin() string {
+	if x != nil {
+		return x.Origin
+	}
+	return ""
+}
+
+func (x *CheckAnswerRequest) GetClientIp() string {
+	if x != nil {
+		return x.ClientIp
+	}
+	return ""
+}
+
+func (x *CheckAnswerRequest) GetUserAgent() string {
+	if x != nil {
+		return x.UserAgent
+	}
+	return ""
+}
+
+func (x *CheckAnswerRequest) GetSecFetchSite() string {
+	if x != nil {
+		return x.SecFetchSite
+	}
+	return ""
+}
+
+func (x *CheckAnswerRequest) GetAcceptLanguage() string {
+	if x != nil {
+		return x.AcceptLanguage
+	}
+	return ""
+}
+
+func (x *CheckAnswerRequest) GetPowNonce() string {
+	if x != nil {
+		return x.PowNonce
+	}
+	return ""
+}
+
 type CheckAnswerReply struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	Success bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
@@ -287,9 +368,14 @@ type CheckAnswerReply struct {
 	// Owner of the API key, whose daily quota a correct answer counts against.
 	UserId string `protobuf:"bytes,4,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	// What the behaviour check concluded; success is false for a right answer judged "automated".
-	Behavior      *BehaviorResult `protobuf:"bytes,5,opt,name=behavior,proto3" json:"behavior,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Behavior *BehaviorResult `protobuf:"bytes,5,opt,name=behavior,proto3" json:"behavior,omitempty"`
+	// Host name of the website the challenge was asked for from; empty when it came with no origin.
+	Hostname string `protobuf:"bytes,6,opt,name=hostname,proto3" json:"hostname,omitempty"`
+	// The key requires behaviour data and the answer came without any: it was refused for that,
+	// right or wrong, and verify answers BEHAVIOR_REQUIRED.
+	BehaviorRequired bool `protobuf:"varint,7,opt,name=behavior_required,json=behaviorRequired,proto3" json:"behavior_required,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *CheckAnswerReply) Reset() {
@@ -357,6 +443,20 @@ func (x *CheckAnswerReply) GetBehavior() *BehaviorResult {
 	return nil
 }
 
+func (x *CheckAnswerReply) GetHostname() string {
+	if x != nil {
+		return x.Hostname
+	}
+	return ""
+}
+
+func (x *CheckAnswerReply) GetBehaviorRequired() bool {
+	if x != nil {
+		return x.BehaviorRequired
+	}
+	return false
+}
+
 // Behavior is what the SDK records from the moment a challenge is shown (its image has loaded) to
 // the moment its answer is sent. Times are milliseconds since it was shown; x and y are CSS pixels
 // from the top-left corner of the widget. Key values, page content and anything outside that time
@@ -382,9 +482,16 @@ type Behavior struct {
 	// navigator.webdriver: the browser says it is under automation.
 	Webdriver bool `protobuf:"varint,9,opt,name=webdriver,proto3" json:"webdriver,omitempty"`
 	// Time the page was hidden while the challenge was on screen.
-	HiddenMs      int32 `protobuf:"varint,10,opt,name=hidden_ms,json=hiddenMs,proto3" json:"hidden_ms,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	HiddenMs int32 `protobuf:"varint,10,opt,name=hidden_ms,json=hiddenMs,proto3" json:"hidden_ms,omitempty"`
+	// Hints the browser gives about itself. A script can fake them, so they only lower the score:
+	// navigator.userAgent names HeadlessChrome,
+	HeadlessUa bool `protobuf:"varint,11,opt,name=headless_ua,json=headlessUa,proto3" json:"headless_ua,omitempty"`
+	// navigator.languages is empty,
+	NoLanguages bool `protobuf:"varint,12,opt,name=no_languages,json=noLanguages,proto3" json:"no_languages,omitempty"`
+	// or the user agent says Chrome but window.chrome is missing.
+	ChromeWithoutWindowChrome bool `protobuf:"varint,13,opt,name=chrome_without_window_chrome,json=chromeWithoutWindowChrome,proto3" json:"chrome_without_window_chrome,omitempty"`
+	unknownFields             protoimpl.UnknownFields
+	sizeCache                 protoimpl.SizeCache
 }
 
 func (x *Behavior) Reset() {
@@ -485,6 +592,27 @@ func (x *Behavior) GetHiddenMs() int32 {
 		return x.HiddenMs
 	}
 	return 0
+}
+
+func (x *Behavior) GetHeadlessUa() bool {
+	if x != nil {
+		return x.HeadlessUa
+	}
+	return false
+}
+
+func (x *Behavior) GetNoLanguages() bool {
+	if x != nil {
+		return x.NoLanguages
+	}
+	return false
+}
+
+func (x *Behavior) GetChromeWithoutWindowChrome() bool {
+	if x != nil {
+		return x.ChromeWithoutWindowChrome
+	}
+	return false
 }
 
 type PointerSample struct {
@@ -620,7 +748,7 @@ const file_challenge_v1_challenge_proto_rawDesc = "" +
 	"\x1cchallenge/v1/challenge.proto\x12\fchallenge.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\"\\\n" +
 	"\x13NewChallengeRequest\x12\x1e\n" +
 	"\bsite_key\x18\x01 \x01(\tB\x03\xe0A\x02R\asiteKey\x12%\n" +
-	"\x0echallenge_type\x18\x02 \x01(\tR\rchallengeType\"\xa4\x03\n" +
+	"\x0echallenge_type\x18\x02 \x01(\tR\rchallengeType\"\xe6\x03\n" +
 	"\tChallenge\x12!\n" +
 	"\fchallenge_id\x18\x01 \x01(\tR\vchallengeId\x12%\n" +
 	"\x0echallenge_type\x18\x02 \x01(\tR\rchallengeType\x12\x14\n" +
@@ -636,23 +764,36 @@ const file_challenge_v1_challenge_proto_rawDesc = "" +
 	"\vpiece_width\x18\n" +
 	" \x01(\x05H\x02R\n" +
 	"pieceWidth\x88\x01\x01\x12&\n" +
-	"\fpiece_height\x18\v \x01(\x05H\x03R\vpieceHeight\x88\x01\x01B\x0e\n" +
+	"\fpiece_height\x18\v \x01(\x05H\x03R\vpieceHeight\x88\x01\x01\x12\x19\n" +
+	"\bpow_salt\x18\f \x01(\fR\apowSalt\x12%\n" +
+	"\x0epow_difficulty\x18\r \x01(\x05R\rpowDifficultyB\x0e\n" +
 	"\f_piece_imageB\n" +
 	"\n" +
 	"\b_piece_yB\x0e\n" +
 	"\f_piece_widthB\x0f\n" +
-	"\r_piece_height\"\x8d\x01\n" +
+	"\r_piece_height\"\xe8\x02\n" +
 	"\x12CheckAnswerRequest\x12&\n" +
 	"\fchallenge_id\x18\x01 \x01(\tB\x03\xe0A\x02R\vchallengeId\x12\x1b\n" +
 	"\x06answer\x18\x02 \x01(\tB\x03\xe0A\x02R\x06answer\x122\n" +
-	"\bbehavior\x18\x03 \x01(\v2\x16.challenge.v1.BehaviorR\bbehavior\"\xc4\x01\n" +
+	"\bbehavior\x18\x03 \x01(\v2\x16.challenge.v1.BehaviorR\bbehavior\x12\x19\n" +
+	"\bsite_key\x18\x04 \x01(\tR\asiteKey\x12\x16\n" +
+	"\x06origin\x18\x05 \x01(\tR\x06origin\x12\x1b\n" +
+	"\tclient_ip\x18\x06 \x01(\tR\bclientIp\x12\x1d\n" +
+	"\n" +
+	"user_agent\x18\a \x01(\tR\tuserAgent\x12$\n" +
+	"\x0esec_fetch_site\x18\b \x01(\tR\fsecFetchSite\x12'\n" +
+	"\x0faccept_language\x18\t \x01(\tR\x0eacceptLanguage\x12\x1b\n" +
+	"\tpow_nonce\x18\n" +
+	" \x01(\tR\bpowNonce\"\x8d\x02\n" +
 	"\x10CheckAnswerReply\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x1c\n" +
 	"\n" +
 	"api_key_id\x18\x02 \x01(\tR\bapiKeyId\x12%\n" +
 	"\x0echallenge_type\x18\x03 \x01(\tR\rchallengeType\x12\x17\n" +
 	"\auser_id\x18\x04 \x01(\tR\x06userId\x128\n" +
-	"\bbehavior\x18\x05 \x01(\v2\x1c.challenge.v1.BehaviorResultR\bbehavior\"\xf3\x02\n" +
+	"\bbehavior\x18\x05 \x01(\v2\x1c.challenge.v1.BehaviorResultR\bbehavior\x12\x1a\n" +
+	"\bhostname\x18\x06 \x01(\tR\bhostname\x12+\n" +
+	"\x11behavior_required\x18\a \x01(\bR\x10behaviorRequired\"\xf8\x03\n" +
 	"\bBehavior\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\x05R\aversion\x12\x1d\n" +
 	"\n" +
@@ -665,7 +806,11 @@ const file_challenge_v1_challenge_proto_rawDesc = "" +
 	"\x10untrusted_events\x18\b \x01(\x05R\x0funtrustedEvents\x12\x1c\n" +
 	"\twebdriver\x18\t \x01(\bR\twebdriver\x12\x1b\n" +
 	"\thidden_ms\x18\n" +
-	" \x01(\x05R\bhiddenMs\"9\n" +
+	" \x01(\x05R\bhiddenMs\x12\x1f\n" +
+	"\vheadless_ua\x18\v \x01(\bR\n" +
+	"headlessUa\x12!\n" +
+	"\fno_languages\x18\f \x01(\bR\vnoLanguages\x12?\n" +
+	"\x1cchrome_without_window_chrome\x18\r \x01(\bR\x19chromeWithoutWindowChrome\"9\n" +
 	"\rPointerSample\x12\f\n" +
 	"\x01t\x18\x01 \x01(\x05R\x01t\x12\f\n" +
 	"\x01x\x18\x02 \x01(\x02R\x01x\x12\f\n" +

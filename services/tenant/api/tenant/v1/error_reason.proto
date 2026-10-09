@@ -29,4 +29,10 @@ enum ErrorReason {
   // address Google does not own (only Gmail and Google Workspace addresses are accepted).
   PERMISSION_DENIED = 13;
   USER_NOT_FOUND = 14;
+  // A review is only for a key that is suspended or that the scraping check flagged today.
+  APPEAL_NOT_ALLOWED = 15;
+  // The key already has a review waiting for an administrator.
+  APPEAL_PENDING = 16;
+  // No such review, or it was decided already.
+  APPEAL_NOT_FOUND = 17;
 }

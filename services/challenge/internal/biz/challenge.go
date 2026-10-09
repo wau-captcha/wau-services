@@ -5,14 +5,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/netip"
-	"slices"
 	"time"
 
 	v1 "challenge/api/challenge/v1"
 	"challenge/internal/conf"
 
 	"github.com/go-kratos/kratos/v3/errors"
-	"github.com/google/uuid"
 )
 
 const (
@@ -30,6 +28,11 @@ var (
 	ErrAccountBanned            = errors.Forbidden(v1.ErrorReason_ACCOUNT_BANNED.String(), "the owner of this api key is banned")
 	ErrDailyQuotaExceeded       = errors.New(http.StatusTooManyRequests, v1.ErrorReason_DAILY_QUOTA_EXCEEDED.String(), "daily verification quota reached")
 	ErrOriginNotAllowed         = errors.Forbidden(v1.ErrorReason_ORIGIN_NOT_ALLOWED.String(), "this address may not use this site key")
+	ErrDomainNotAllowed         = errors.Forbidden(v1.ErrorReason_DOMAIN_NOT_ALLOWED.String(), "this website may not use this site key")
+	ErrChallengeIDInvalid       = errors.BadRequest(v1.ErrorReason_CHALLENGE_ID_INVALID.String(), "challenge_id is not a valid challenge id")
+	ErrRateLimited              = errors.New(http.StatusTooManyRequests, v1.ErrorReason_RATE_LIMITED.String(), "too many requests")
+	// ErrInternal stands in for any failure of Redis, Postgres or the code: their text stays in the log.
+	ErrInternal = errors.InternalServer(v1.ErrorReason_INTERNAL.String(), "internal error")
 )
 
 // Site is an active API key together with what its owner may do.
@@ -41,6 +44,12 @@ type Site struct {
 	OwnerBanned    bool
 	// Addresses and networks allowed to use the site key; empty allows every address.
 	AllowedOrigins []netip.Prefix
+	// Websites allowed to use the site key, as tenant stores them; empty allows any website.
+	AllowedDomains []string
+	// Answers without behaviour data are refused.
+	RequireBehavior bool
+	// When the scraping check last flagged the key; zero when it never did.
+	FlaggedAt time.Time
 	// Successful verifications the owner's tier allows per day.
 	DailyQuota int64
 }
@@ -65,6 +74,8 @@ type Challenge struct {
 	ID       string
 	Type     string
 	APIKeyID string
+	// The site key it was issued for, against which the site_key of the answer is checked.
+	SiteKey string
 	// Owner of the key; a correct answer counts against their daily quota.
 	UserID string
 	Answer string
@@ -72,13 +83,29 @@ type Challenge struct {
 	TTL    time.Duration
 	// IssuedAt is zero for a challenge stored by a version that did not record it.
 	IssuedAt time.Time
+	// The /challenge/new request, compared with the answer's: the website (scheme://host[:port]),
+	// the client's address and a SHA-256 of its User-Agent. Empty when unknown, or stored by a
+	// version that did not record them.
+	Origin        string
+	ClientIP      string
+	UserAgentHash string
+	// The key required behaviour data when the challenge was issued.
+	RequireBehavior bool
+	// The proof of work asked for; a difficulty of 0 asks for none.
+	PowSalt       []byte
+	PowDifficulty int
 }
 
 type SiteRepo interface {
 	FindBySiteKey(ctx context.Context, siteKey string) (*Site, error)
-	// SuspendForScraping suspends the key unless it already is.
-	SuspendForScraping(ctx context.Context, apiKeyID string) error
+	// SuspendForScraping suspends the key unless it already is, and reports whether it did.
+	SuspendForScraping(ctx context.Context, apiKeyID string) (bool, error)
+	// FlagForScraping flags the key unless it was flagged since dayStart, and reports whether it did.
+	FlagForScraping(ctx context.Context, apiKeyID string, dayStart time.Time) (bool, error)
+	// RecordEvent adds an entry by the system to the activity log of the key.
+	RecordEvent(ctx context.Context, apiKeyID, action string, detail map[string]any) error
 }
+
 type ChallengeRepo interface {
 	Save(ctx context.Context, c *Challenge) error
 	Take(ctx context.Context, id string) (*Challenge, error)
@@ -89,16 +116,26 @@ type ChallengeUsecase struct {
 	challenges ChallengeRepo
 	counters   CounterRepo
 	usage      UsageRepo
+	limiter    RateLimiter
+	history    IPHistory
+	limits     limits
+	scraping   scrapingRules
+	ipLimits   ipLimits
 	ttl        time.Duration
+	powBits    int
 	location   *time.Location
 	now        func() time.Time
 }
 
-func NewChallengeUsecase(sites SiteRepo, challenges ChallengeRepo, counters CounterRepo, usage UsageRepo,
-	challengeConf *conf.Challenge, quotaConf *conf.Quota) (*ChallengeUsecase, error) {
+func NewChallengeUsecase(sites SiteRepo, challenges ChallengeRepo, counters CounterRepo, usage UsageRepo, limiter RateLimiter,
+	history IPHistory, challengeConf *conf.Challenge, quotaConf *conf.Quota, rateConf *conf.RateLimit,
+	scrapingConf *conf.Scraping, historyConf *conf.IPHistory) (*ChallengeUsecase, error) {
 	ttl := challengeConf.GetTtl().AsDuration()
 	if ttl <= 0 {
 		return nil, fmt.Errorf("challenge ttl must be positive")
+	}
+	if bits := challengeConf.GetPowDifficulty(); bits < 0 || bits > maxPowDifficulty {
+		return nil, fmt.Errorf("challenge pow_difficulty must be between 0 and %d", maxPowDifficulty)
 	}
 	if quotaConf.GetTimeZone() == "" {
 		return nil, fmt.Errorf("quota time_zone is required")
@@ -112,75 +149,14 @@ func NewChallengeUsecase(sites SiteRepo, challenges ChallengeRepo, counters Coun
 		challenges: challenges,
 		counters:   counters,
 		usage:      usage,
+		limiter:    limiter,
+		history:    history,
+		limits:     newLimits(rateConf),
+		scraping:   newScrapingRules(scrapingConf),
+		ipLimits:   newIPLimits(historyConf),
 		ttl:        ttl,
+		powBits:    int(challengeConf.GetPowDifficulty()),
 		location:   location,
 		now:        time.Now,
 	}, nil
-}
-
-// New issues a challenge of challengeType, image_distort when empty. client is the address
-// the request comes from, which must be one the key allows.
-func (uc *ChallengeUsecase) New(ctx context.Context, siteKey, challengeType string, client netip.Addr) (*Challenge, error) {
-	if challengeType == "" {
-		challengeType = TypeImageDistort
-	}
-	kind, ok := challengeKinds[challengeType]
-	if !ok {
-		return nil, ErrChallengeTypeUnsupported
-	}
-	site, err := uc.sites.FindBySiteKey(ctx, siteKey)
-	if err != nil {
-		return nil, err
-	}
-	switch {
-	case site.OwnerBanned:
-		return nil, ErrAccountBanned
-	case site.Suspended:
-		return nil, ErrApiKeySuspended
-	case !addressAllowed(site.AllowedOrigins, client):
-		return nil, ErrOriginNotAllowed
-	case !slices.Contains(site.ChallengeTypes, challengeType):
-		return nil, ErrChallengeTypeNotAllowed
-	}
-	if err := uc.admitChallenge(ctx, site); err != nil {
-		return nil, err
-	}
-	answer, media, err := kind.generate()
-	if err != nil {
-		return nil, err
-	}
-	challenge := &Challenge{
-		ID:       uuid.NewString(),
-		Type:     challengeType,
-		APIKeyID: site.APIKeyID,
-		UserID:   site.UserID,
-		Answer:   answer,
-		Media:    media,
-		TTL:      uc.ttl,
-		IssuedAt: uc.now(),
-	}
-	if err := uc.challenges.Save(ctx, challenge); err != nil {
-		return nil, err
-	}
-	uc.recordIssued(ctx, challenge)
-	return challenge, nil
-}
-
-// addressAllowed reports whether a request may use the key. A key with no allowed origins
-// is open to every address; an unspecified entry ("0.0.0.0" or "::") also stands for every
-// address, and any other entry covers the addresses of its network. A request whose address
-// is unknown only gets through those two.
-func addressAllowed(allowed []netip.Prefix, client netip.Addr) bool {
-	if len(allowed) == 0 {
-		return true
-	}
-	for _, prefix := range allowed {
-		if prefix.Addr().IsUnspecified() {
-			return true
-		}
-		if client.IsValid() && prefix.Contains(client.Unmap()) {
-			return true
-		}
-	}
-	return false
 }

@@ -20,16 +20,20 @@ const _ = grpc.SupportPackageIsVersion9
 
 const (
 	CatalogService_ListChallengeTypes_FullMethodName = "/tenant.v1.CatalogService/ListChallengeTypes"
+	CatalogService_ListPublicPlans_FullMethodName    = "/tenant.v1.CatalogService/ListPublicPlans"
 )
 
 // CatalogServiceClient is the client API for CatalogService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// CatalogService lists what the tier of the signed-in user may use.
+// CatalogService lists what the tier of the signed-in user may use, and the plans on sale.
 type CatalogServiceClient interface {
 	// ListChallengeTypes requires "Authorization: Bearer <access_token>".
 	ListChallengeTypes(ctx context.Context, in *ListChallengeTypesRequest, opts ...grpc.CallOption) (*ChallengeTypeSet, error)
+	// ListPublicPlans returns the active plans, cheapest first, for the public pricing page. It takes
+	// no token. Like every /v1 path it is not on the Ingress: only the dashboard's server calls it.
+	ListPublicPlans(ctx context.Context, in *ListPublicPlansRequest, opts ...grpc.CallOption) (*PublicPlanSet, error)
 }
 
 type catalogServiceClient struct {
@@ -50,14 +54,27 @@ func (c *catalogServiceClient) ListChallengeTypes(ctx context.Context, in *ListC
 	return out, nil
 }
 
+func (c *catalogServiceClient) ListPublicPlans(ctx context.Context, in *ListPublicPlansRequest, opts ...grpc.CallOption) (*PublicPlanSet, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PublicPlanSet)
+	err := c.cc.Invoke(ctx, CatalogService_ListPublicPlans_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CatalogServiceServer is the server API for CatalogService service.
 // All implementations must embed UnimplementedCatalogServiceServer
 // for forward compatibility.
 //
-// CatalogService lists what the tier of the signed-in user may use.
+// CatalogService lists what the tier of the signed-in user may use, and the plans on sale.
 type CatalogServiceServer interface {
 	// ListChallengeTypes requires "Authorization: Bearer <access_token>".
 	ListChallengeTypes(context.Context, *ListChallengeTypesRequest) (*ChallengeTypeSet, error)
+	// ListPublicPlans returns the active plans, cheapest first, for the public pricing page. It takes
+	// no token. Like every /v1 path it is not on the Ingress: only the dashboard's server calls it.
+	ListPublicPlans(context.Context, *ListPublicPlansRequest) (*PublicPlanSet, error)
 	mustEmbedUnimplementedCatalogServiceServer()
 }
 
@@ -70,6 +87,9 @@ type UnimplementedCatalogServiceServer struct{}
 
 func (UnimplementedCatalogServiceServer) ListChallengeTypes(context.Context, *ListChallengeTypesRequest) (*ChallengeTypeSet, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListChallengeTypes not implemented")
+}
+func (UnimplementedCatalogServiceServer) ListPublicPlans(context.Context, *ListPublicPlansRequest) (*PublicPlanSet, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListPublicPlans not implemented")
 }
 func (UnimplementedCatalogServiceServer) mustEmbedUnimplementedCatalogServiceServer() {}
 func (UnimplementedCatalogServiceServer) testEmbeddedByValue()                        {}
@@ -110,6 +130,24 @@ func _CatalogService_ListChallengeTypes_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CatalogService_ListPublicPlans_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListPublicPlansRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CatalogServiceServer).ListPublicPlans(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CatalogService_ListPublicPlans_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CatalogServiceServer).ListPublicPlans(ctx, req.(*ListPublicPlansRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CatalogService_ServiceDesc is the grpc.ServiceDesc for CatalogService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -120,6 +158,10 @@ var CatalogService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListChallengeTypes",
 			Handler:    _CatalogService_ListChallengeTypes_Handler,
+		},
+		{
+			MethodName: "ListPublicPlans",
+			Handler:    _CatalogService_ListPublicPlans_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

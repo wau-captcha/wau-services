@@ -14,13 +14,25 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// maxBodyBytes caps request bodies: /challenge/new takes none.
+const maxBodyBytes = 4 << 10
+
 // NewHTTPServer new an HTTP server.
 func NewHTTPServer(serverConf *conf.Server, challenge *service.ChallengeService) *http.Server {
 	var opts = []http.ServerOption{
-		// The usage history is written once the response is out.
-		http.Filter(filter.CORS, afterresponse.Filter),
+		http.Filter(
+			filter.NoStore,
+			// Access-Control-Allow-Origin is "*" here; for a key bound to its domains NewChallenge
+			// names the calling origin instead.
+			filter.CORS(map[string]filter.Route{"/challenge/new": {Methods: "GET, OPTIONS"}}),
+			filter.LimitBody(nil, maxBodyBytes),
+			// The usage history is written once the response is out.
+			afterresponse.Filter,
+		),
+		http.ErrorEncoder(encodeError),
 		http.Middleware(
 			recovery.Recovery(),
+			sanitizeErrors(),
 			validate.Validator(func(req any) error {
 				if message, ok := req.(proto.Message); ok {
 					return fieldbehavior.ValidateRequiredFields(message)

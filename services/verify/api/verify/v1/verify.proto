@@ -18,9 +18,15 @@ service VerifyService {
     };
   }
 
-  // SiteVerify consumes the token given as ?token=. Requires "Authorization: Bearer <secret_key>".
+  // SiteVerify consumes the token sent in the body, as JSON {"token": "..."} or as the form
+  // token=..., so it never lands in access logs. Requires "Authorization: Bearer <secret_key>".
+  // Deprecated, for SDKs before 1.3.0: the token as ?token= with an empty body; a token in the
+  // body wins over one in the query.
   rpc SiteVerify(SiteVerifyRequest) returns (SiteVerifyReply) {
-    option (google.api.http) = {post: "/siteverify"};
+    option (google.api.http) = {
+      post: "/siteverify"
+      body: "*"
+    };
   }
 }
 
@@ -31,8 +37,14 @@ message VerifyChallengeRequest {
   // CheckAnswerRequest.answer.
   string answer = 2 [(google.api.field_behavior) = REQUIRED];
   // How the person behaved while the challenge was on screen, as the SDK records it. Optional:
-  // without it only the answer is checked, as before.
+  // without it only the answer is checked, as before, unless the key requires it.
   Behavior behavior = 3;
+  // The site key of the widget: an answer to a challenge of another key is wrong. Optional, for
+  // SDKs before 1.3.0.
+  string site_key = 4;
+  // The proof of work for the pow_salt and pow_difficulty of the challenge (see /challenge/new).
+  // Optional, for SDKs before 1.3.0: without it the verdict is at most "suspicious".
+  string pow_nonce = 5;
 }
 
 message VerifyChallengeReply {
@@ -55,6 +67,10 @@ message SiteVerifyReply {
   // What the behaviour check concluded about the answer behind the token, set when success is
   // true. Answers judged "automated" never get a token.
   BehaviorResult behavior = 4;
+  // Host name of the website the challenge was solved on, from the Origin of the browser's
+  // requests: compare it with your own. A script outside a browser can forge it. Empty when the
+  // challenge was asked for without an origin.
+  string hostname = 5;
 }
 
 // Behavior is what the SDK records from the moment a challenge is shown (its image has loaded) to
@@ -82,6 +98,13 @@ message Behavior {
   bool webdriver = 9;
   // Time the page was hidden while the challenge was on screen.
   int32 hidden_ms = 10;
+  // Hints the browser gives about itself. A script can fake them, so they only lower the score:
+  // navigator.userAgent names HeadlessChrome,
+  bool headless_ua = 11;
+  // navigator.languages is empty,
+  bool no_languages = 12;
+  // or the user agent says Chrome but window.chrome is missing.
+  bool chrome_without_window_chrome = 13;
 }
 
 message PointerSample {
@@ -93,8 +116,9 @@ message PointerSample {
 
 // BehaviorResult is what the behaviour check concluded about the answer behind a token.
 message BehaviorResult {
-  // "human"; "suspicious" (the answer counted, decide for yourself, e.g. refuse it for sensitive
-  // actions); "not_measured" (the client sent no behaviour, so only the answer was checked).
+  // "human"; "suspicious" (the answer counted, decide for yourself, e.g. refuse it for sign-ups and
+  // logins); "not_measured" (the client sent no behaviour, an SDK before 1.2.0 or a hand-written
+  // integration: treat it as untrusted).
   string verdict = 1;
   // From 0 (scripted) to 1 (human-like); unset when not measured.
   optional double score = 2;

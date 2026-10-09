@@ -10,6 +10,7 @@ resources:
   - tenant.yaml
   - billing.yaml
   - dashboard.yaml
+  - edge-middlewares.yaml
   - ingress.yaml
   - login-ratelimit.yaml
   - migrate.yaml

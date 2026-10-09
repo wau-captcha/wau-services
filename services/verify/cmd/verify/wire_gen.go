@@ -18,13 +18,14 @@ import (
 
 import (
 	_ "go.uber.org/automaxprocs"
+	_ "time/tzdata"
 	_ "verify/internal/pkg/codec"
 )
 
 // Injectors from wire.go:
 
 // wireApp init kratos application.
-func wireApp(confServer *conf.Server, confData *conf.Data, client *conf.Client, token *conf.Token, quota *conf.Quota, logger *slog.Logger) (*kratos.App, func(), error) {
+func wireApp(confServer *conf.Server, confData *conf.Data, client *conf.Client, token *conf.Token, quota *conf.Quota, rateLimit *conf.RateLimit, logger *slog.Logger) (*kratos.App, func(), error) {
 	challengeServiceClient, cleanup, err := data.NewChallengeServiceClient(client)
 	if err != nil {
 		return nil, nil, err
@@ -38,13 +39,19 @@ func wireApp(confServer *conf.Server, confData *conf.Data, client *conf.Client, 
 	grantRepo := data.NewGrantRepo(dataData)
 	siteRepo := data.NewSiteRepo(dataData)
 	counterRepo := data.NewCounterRepo(dataData)
-	verifyUsecase, err := biz.NewVerifyUsecase(challengeClient, grantRepo, siteRepo, counterRepo, token, quota)
+	rateLimiter := data.NewRateLimiter(dataData)
+	verifyUsecase, err := biz.NewVerifyUsecase(challengeClient, grantRepo, siteRepo, counterRepo, rateLimiter, token, quota, rateLimit)
 	if err != nil {
 		cleanup2()
 		cleanup()
 		return nil, nil, err
 	}
-	verifyService := service.NewVerifyService(verifyUsecase)
+	verifyService, err := service.NewVerifyService(verifyUsecase, confServer)
+	if err != nil {
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
 	grpcServer := server.NewGRPCServer(confServer, verifyService)
 	httpServer := server.NewHTTPServer(confServer, verifyService)
 	app := newApp(logger, grpcServer, httpServer)

@@ -11,8 +11,10 @@ import (
 
 // CounterRepo keeps the daily counters shared with the challenge service (see internal/pkg/quota).
 type CounterRepo interface {
-	// CountVerification records an answer checked for a challenge of the API key.
-	CountVerification(ctx context.Context, apiKeyID, day string) error
+	// CountAnswer records an answer checked for a challenge of the API key, for the scraping check
+	// of the challenge service: every answer, and among them the right ones and the ones judged
+	// automated.
+	CountAnswer(ctx context.Context, apiKeyID, day string, solved, automated bool) error
 	// CountSuccess records a correct answer against the daily quota of the user.
 	CountSuccess(ctx context.Context, userID, day string) error
 }
@@ -32,8 +34,9 @@ func (uc *VerifyUsecase) recordAnswer(ctx context.Context, challengeID string, s
 // than denying the user the token.
 func (uc *VerifyUsecase) recordCounters(ctx context.Context, solution *Solution) {
 	day := quota.Day(uc.now(), uc.location)
-	if err := uc.counters.CountVerification(ctx, solution.APIKeyID, day); err != nil {
-		log.ErrorContext(ctx, "failed counting verification", "err", err)
+	automated := solution.Behavior.Verdict == VerdictAutomated
+	if err := uc.counters.CountAnswer(ctx, solution.APIKeyID, day, solution.Success, automated); err != nil {
+		log.ErrorContext(ctx, "failed counting answer", "err", err)
 	}
 	if !solution.Success {
 		return

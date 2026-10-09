@@ -82,6 +82,17 @@ func (r *adminRepo) ListApiKeys(ctx context.Context, userID uuid.UUID) ([]*biz.A
 	return keys, nil
 }
 
+func (r *adminRepo) GetApiKey(ctx context.Context, id uuid.UUID) (*biz.AdminApiKey, error) {
+	row, err := r.data.queries.GetAdminAPIKey(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, biz.ErrApiKeyNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return toAdminApiKey(db.SetAPIKeySuspendedRow(row)), nil
+}
+
 func (r *adminRepo) SetApiKeySuspended(ctx context.Context, id uuid.UUID, suspended bool) (*biz.AdminApiKey, error) {
 	row, err := r.data.queries.SetAPIKeySuspended(ctx, db.SetAPIKeySuspendedParams{Suspended: suspended, APIKeyID: id})
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -120,5 +131,7 @@ func toAdminApiKey(row db.SetAPIKeySuspendedRow) *biz.AdminApiKey {
 		IsSuspended:   row.IsSuspended,
 		SuspendReason: row.SuspendReason.String,
 		CreateDate:    row.CreateDate.Time,
+		// NULL scans as the zero time: never flagged.
+		ScrapingFlaggedAt: row.ScrapingFlaggedAt.Time,
 	}
 }

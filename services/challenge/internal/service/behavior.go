@@ -31,6 +31,10 @@ func toBehavior(behavior *v1.Behavior) *biz.Behavior {
 		UntrustedEvents: int(behavior.GetUntrustedEvents()),
 		Webdriver:       behavior.GetWebdriver(),
 		HiddenMs:        int(behavior.GetHiddenMs()),
+
+		HeadlessUA:                behavior.GetHeadlessUa(),
+		NoLanguages:               behavior.GetNoLanguages(),
+		ChromeWithoutWindowChrome: behavior.GetChromeWithoutWindowChrome(),
 	}
 }
 

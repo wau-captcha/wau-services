@@ -5,6 +5,7 @@ server:
   grpc:
     addr: ${KRATOS_GRPC_ADDR}
     timeout: 1s
+  trusted_proxies: ${KRATOS_TRUSTED_PROXIES}
 data:
   database:
     source: ${KRATOS_DATABASE_SOURCE}
@@ -23,3 +24,7 @@ token:
   ttl: 120s
 quota:
   time_zone: Asia/Ho_Chi_Minh
+# Per minute; KRATOS_RATE_LIMIT_<KEY> replaces a value, e.g. KRATOS_RATE_LIMIT_VERIFY_PER_IP.
+rate_limit:
+  verify_per_ip: 60
+  siteverify_per_secret_key: 1200

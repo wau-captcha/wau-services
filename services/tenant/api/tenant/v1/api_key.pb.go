@@ -12,6 +12,7 @@ import (
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	fieldmaskpb "google.golang.org/protobuf/types/known/fieldmaskpb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
@@ -48,8 +49,23 @@ type ApiKey struct {
 	// there is none, i.e. it expired or was revoked.
 	PreviousSecretKey          string                 `protobuf:"bytes,10,opt,name=previous_secret_key,json=previousSecretKey,proto3" json:"previous_secret_key,omitempty"`
 	PreviousSecretKeyExpiresAt *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=previous_secret_key_expires_at,json=previousSecretKeyExpiresAt,proto3" json:"previous_secret_key_expires_at,omitempty"`
-	unknownFields              protoimpl.UnknownFields
-	sizeCache                  protoimpl.SizeCache
+	// Websites allowed to use the site key. Empty means any website may, as for keys created before
+	// domains existed. Only GetApiKey, CreateApiKey and SetAllowedDomains fill this in.
+	AllowedDomains []*AllowedDomain `protobuf:"bytes,12,rep,name=allowed_domains,json=allowedDomains,proto3" json:"allowed_domains,omitempty"`
+	// Answers without behaviour data (SDKs before 1.2.0, hand-written integrations) are refused
+	// with BEHAVIOR_REQUIRED. New keys start with it on; keys created before it existed keep it off
+	// until their owner turns it on.
+	RequireBehavior bool `protobuf:"varint,13,opt,name=require_behavior,json=requireBehavior,proto3" json:"require_behavior,omitempty"`
+	// The scraping check flagged the key today: it is throttled to a lower rate until the day ends.
+	ScrapingFlagged bool `protobuf:"varint,14,opt,name=scraping_flagged,json=scrapingFlagged,proto3" json:"scraping_flagged,omitempty"`
+	// When the key was last flagged; empty when it never was.
+	ScrapingFlaggedAt *timestamppb.Timestamp `protobuf:"bytes,15,opt,name=scraping_flagged_at,json=scrapingFlaggedAt,proto3" json:"scraping_flagged_at,omitempty"`
+	// Counters of the scraping check for today. Only GetApiKey fills this in.
+	Today *KeyCounters `protobuf:"bytes,16,opt,name=today,proto3" json:"today,omitempty"`
+	// The latest review asked for the key, if any. Only GetApiKey fills this in.
+	LatestAppeal  *ApiKeyAppeal `protobuf:"bytes,17,opt,name=latest_appeal,json=latestAppeal,proto3" json:"latest_appeal,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ApiKey) Reset() {
@@ -159,6 +175,541 @@ func (x *ApiKey) GetPreviousSecretKeyExpiresAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *ApiKey) GetAllowedDomains() []*AllowedDomain {
+	if x != nil {
+		return x.AllowedDomains
+	}
+	return nil
+}
+
+func (x *ApiKey) GetRequireBehavior() bool {
+	if x != nil {
+		return x.RequireBehavior
+	}
+	return false
+}
+
+func (x *ApiKey) GetScrapingFlagged() bool {
+	if x != nil {
+		return x.ScrapingFlagged
+	}
+	return false
+}
+
+func (x *ApiKey) GetScrapingFlaggedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ScrapingFlaggedAt
+	}
+	return nil
+}
+
+func (x *ApiKey) GetToday() *KeyCounters {
+	if x != nil {
+		return x.Today
+	}
+	return nil
+}
+
+func (x *ApiKey) GetLatestAppeal() *ApiKeyAppeal {
+	if x != nil {
+		return x.LatestAppeal
+	}
+	return nil
+}
+
+// AllowedDomain is one website allowed to use a site key: a lowercase host name, in punycode for
+// international names, such as "shop.example.com"; "*.example.com" for its subdomains (not the
+// domain itself); "localhost" or "localhost:3000" and "127.0.0.1" for development.
+type AllowedDomain struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Domain        string                 `protobuf:"bytes,1,opt,name=domain,proto3" json:"domain,omitempty"`
+	CreateDate    *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=create_date,json=createDate,proto3" json:"create_date,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AllowedDomain) Reset() {
+	*x = AllowedDomain{}
+	mi := &file_tenant_v1_api_key_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AllowedDomain) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AllowedDomain) ProtoMessage() {}
+
+func (x *AllowedDomain) ProtoReflect() protoreflect.Message {
+	mi := &file_tenant_v1_api_key_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AllowedDomain.ProtoReflect.Descriptor instead.
+func (*AllowedDomain) Descriptor() ([]byte, []int) {
+	return file_tenant_v1_api_key_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *AllowedDomain) GetDomain() string {
+	if x != nil {
+		return x.Domain
+	}
+	return ""
+}
+
+func (x *AllowedDomain) GetCreateDate() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreateDate
+	}
+	return nil
+}
+
+type SetAllowedDomainsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// The whole list, at most 50; domains left out are dropped. Empty allows any website.
+	AllowedDomains []*AllowedDomain `protobuf:"bytes,2,rep,name=allowed_domains,json=allowedDomains,proto3" json:"allowed_domains,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *SetAllowedDomainsRequest) Reset() {
+	*x = SetAllowedDomainsRequest{}
+	mi := &file_tenant_v1_api_key_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetAllowedDomainsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetAllowedDomainsRequest) ProtoMessage() {}
+
+func (x *SetAllowedDomainsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_tenant_v1_api_key_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetAllowedDomainsRequest.ProtoReflect.Descriptor instead.
+func (*SetAllowedDomainsRequest) Descriptor() ([]byte, []int) {
+	return file_tenant_v1_api_key_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *SetAllowedDomainsRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *SetAllowedDomainsRequest) GetAllowedDomains() []*AllowedDomain {
+	if x != nil {
+		return x.AllowedDomains
+	}
+	return nil
+}
+
+// KeyCounters is what the scraping check of a key counted on one day.
+type KeyCounters struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Challenges issued: /challenge/new calls.
+	Challenges int64 `protobuf:"varint,1,opt,name=challenges,proto3" json:"challenges,omitempty"`
+	// Answers checked: /challenge/verify calls that reached a challenge.
+	Answers int64 `protobuf:"varint,2,opt,name=answers,proto3" json:"answers,omitempty"`
+	// Right answers.
+	Solved int64 `protobuf:"varint,3,opt,name=solved,proto3" json:"solved,omitempty"`
+	// Answers the behaviour check judged automated.
+	Automated     int64 `protobuf:"varint,4,opt,name=automated,proto3" json:"automated,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *KeyCounters) Reset() {
+	*x = KeyCounters{}
+	mi := &file_tenant_v1_api_key_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *KeyCounters) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*KeyCounters) ProtoMessage() {}
+
+func (x *KeyCounters) ProtoReflect() protoreflect.Message {
+	mi := &file_tenant_v1_api_key_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use KeyCounters.ProtoReflect.Descriptor instead.
+func (*KeyCounters) Descriptor() ([]byte, []int) {
+	return file_tenant_v1_api_key_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *KeyCounters) GetChallenges() int64 {
+	if x != nil {
+		return x.Challenges
+	}
+	return 0
+}
+
+func (x *KeyCounters) GetAnswers() int64 {
+	if x != nil {
+		return x.Answers
+	}
+	return 0
+}
+
+func (x *KeyCounters) GetSolved() int64 {
+	if x != nil {
+		return x.Solved
+	}
+	return 0
+}
+
+func (x *KeyCounters) GetAutomated() int64 {
+	if x != nil {
+		return x.Automated
+	}
+	return 0
+}
+
+// ApiKeyAppeal is a review an owner asked for, of a suspended or flagged key.
+type ApiKeyAppeal struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// "pending", "approved" or "rejected".
+	Status  string `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
+	Message string `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
+	// What the administrator answered; empty while pending.
+	AdminNote  string                 `protobuf:"bytes,4,opt,name=admin_note,json=adminNote,proto3" json:"admin_note,omitempty"`
+	CreateDate *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=create_date,json=createDate,proto3" json:"create_date,omitempty"`
+	// Empty while pending.
+	DecidedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=decided_at,json=decidedAt,proto3" json:"decided_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ApiKeyAppeal) Reset() {
+	*x = ApiKeyAppeal{}
+	mi := &file_tenant_v1_api_key_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ApiKeyAppeal) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ApiKeyAppeal) ProtoMessage() {}
+
+func (x *ApiKeyAppeal) ProtoReflect() protoreflect.Message {
+	mi := &file_tenant_v1_api_key_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ApiKeyAppeal.ProtoReflect.Descriptor instead.
+func (*ApiKeyAppeal) Descriptor() ([]byte, []int) {
+	return file_tenant_v1_api_key_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *ApiKeyAppeal) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *ApiKeyAppeal) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *ApiKeyAppeal) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *ApiKeyAppeal) GetAdminNote() string {
+	if x != nil {
+		return x.AdminNote
+	}
+	return ""
+}
+
+func (x *ApiKeyAppeal) GetCreateDate() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreateDate
+	}
+	return nil
+}
+
+func (x *ApiKeyAppeal) GetDecidedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.DecidedAt
+	}
+	return nil
+}
+
+type CreateAppealRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Why the key should work again, 1-2000 characters.
+	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateAppealRequest) Reset() {
+	*x = CreateAppealRequest{}
+	mi := &file_tenant_v1_api_key_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateAppealRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateAppealRequest) ProtoMessage() {}
+
+func (x *CreateAppealRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_tenant_v1_api_key_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateAppealRequest.ProtoReflect.Descriptor instead.
+func (*CreateAppealRequest) Descriptor() ([]byte, []int) {
+	return file_tenant_v1_api_key_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *CreateAppealRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *CreateAppealRequest) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+type ListApiKeyEventsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListApiKeyEventsRequest) Reset() {
+	*x = ListApiKeyEventsRequest{}
+	mi := &file_tenant_v1_api_key_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListApiKeyEventsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListApiKeyEventsRequest) ProtoMessage() {}
+
+func (x *ListApiKeyEventsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_tenant_v1_api_key_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListApiKeyEventsRequest.ProtoReflect.Descriptor instead.
+func (*ListApiKeyEventsRequest) Descriptor() ([]byte, []int) {
+	return file_tenant_v1_api_key_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *ListApiKeyEventsRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type ApiKeyEventSet struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Events        []*ApiKeyEvent         `protobuf:"bytes,1,rep,name=events,proto3" json:"events,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ApiKeyEventSet) Reset() {
+	*x = ApiKeyEventSet{}
+	mi := &file_tenant_v1_api_key_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ApiKeyEventSet) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ApiKeyEventSet) ProtoMessage() {}
+
+func (x *ApiKeyEventSet) ProtoReflect() protoreflect.Message {
+	mi := &file_tenant_v1_api_key_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ApiKeyEventSet.ProtoReflect.Descriptor instead.
+func (*ApiKeyEventSet) Descriptor() ([]byte, []int) {
+	return file_tenant_v1_api_key_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *ApiKeyEventSet) GetEvents() []*ApiKeyEvent {
+	if x != nil {
+		return x.Events
+	}
+	return nil
+}
+
+// ApiKeyEvent is one entry of the activity log of a key.
+type ApiKeyEvent struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	// "user" (the owner), "admin" or "system".
+	Actor string `protobuf:"bytes,2,opt,name=actor,proto3" json:"actor,omitempty"`
+	// What happened: "created", "renamed", "activated", "paused", "secret_rotated",
+	// "previous_secret_revoked", "allowed_ips_changed", "allowed_domains_changed",
+	// "require_behavior_changed", "flagged", "suspended", "unsuspended", "appeal_created",
+	// "appeal_approved", "appeal_rejected" or "deleted".
+	Action string `protobuf:"bytes,3,opt,name=action,proto3" json:"action,omitempty"`
+	// The details of the change, e.g. {"name": "Shop"}; never a secret key.
+	Detail        *structpb.Struct       `protobuf:"bytes,4,opt,name=detail,proto3" json:"detail,omitempty"`
+	CreateDate    *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=create_date,json=createDate,proto3" json:"create_date,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ApiKeyEvent) Reset() {
+	*x = ApiKeyEvent{}
+	mi := &file_tenant_v1_api_key_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ApiKeyEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ApiKeyEvent) ProtoMessage() {}
+
+func (x *ApiKeyEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_tenant_v1_api_key_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ApiKeyEvent.ProtoReflect.Descriptor instead.
+func (*ApiKeyEvent) Descriptor() ([]byte, []int) {
+	return file_tenant_v1_api_key_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ApiKeyEvent) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *ApiKeyEvent) GetActor() string {
+	if x != nil {
+		return x.Actor
+	}
+	return ""
+}
+
+func (x *ApiKeyEvent) GetAction() string {
+	if x != nil {
+		return x.Action
+	}
+	return ""
+}
+
+func (x *ApiKeyEvent) GetDetail() *structpb.Struct {
+	if x != nil {
+		return x.Detail
+	}
+	return nil
+}
+
+func (x *ApiKeyEvent) GetCreateDate() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreateDate
+	}
+	return nil
+}
+
 // AllowedOrigin is one address, or network, allowed to use a site key.
 type AllowedOrigin struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -174,7 +725,7 @@ type AllowedOrigin struct {
 
 func (x *AllowedOrigin) Reset() {
 	*x = AllowedOrigin{}
-	mi := &file_tenant_v1_api_key_proto_msgTypes[1]
+	mi := &file_tenant_v1_api_key_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -186,7 +737,7 @@ func (x *AllowedOrigin) String() string {
 func (*AllowedOrigin) ProtoMessage() {}
 
 func (x *AllowedOrigin) ProtoReflect() protoreflect.Message {
-	mi := &file_tenant_v1_api_key_proto_msgTypes[1]
+	mi := &file_tenant_v1_api_key_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -199,7 +750,7 @@ func (x *AllowedOrigin) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AllowedOrigin.ProtoReflect.Descriptor instead.
 func (*AllowedOrigin) Descriptor() ([]byte, []int) {
-	return file_tenant_v1_api_key_proto_rawDescGZIP(), []int{1}
+	return file_tenant_v1_api_key_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *AllowedOrigin) GetIpAddress() string {
@@ -234,7 +785,7 @@ type SetAllowedOriginsRequest struct {
 
 func (x *SetAllowedOriginsRequest) Reset() {
 	*x = SetAllowedOriginsRequest{}
-	mi := &file_tenant_v1_api_key_proto_msgTypes[2]
+	mi := &file_tenant_v1_api_key_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -246,7 +797,7 @@ func (x *SetAllowedOriginsRequest) String() string {
 func (*SetAllowedOriginsRequest) ProtoMessage() {}
 
 func (x *SetAllowedOriginsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tenant_v1_api_key_proto_msgTypes[2]
+	mi := &file_tenant_v1_api_key_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -259,7 +810,7 @@ func (x *SetAllowedOriginsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetAllowedOriginsRequest.ProtoReflect.Descriptor instead.
 func (*SetAllowedOriginsRequest) Descriptor() ([]byte, []int) {
-	return file_tenant_v1_api_key_proto_rawDescGZIP(), []int{2}
+	return file_tenant_v1_api_key_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *SetAllowedOriginsRequest) GetId() string {
@@ -284,7 +835,7 @@ type ListApiKeysRequest struct {
 
 func (x *ListApiKeysRequest) Reset() {
 	*x = ListApiKeysRequest{}
-	mi := &file_tenant_v1_api_key_proto_msgTypes[3]
+	mi := &file_tenant_v1_api_key_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -296,7 +847,7 @@ func (x *ListApiKeysRequest) String() string {
 func (*ListApiKeysRequest) ProtoMessage() {}
 
 func (x *ListApiKeysRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tenant_v1_api_key_proto_msgTypes[3]
+	mi := &file_tenant_v1_api_key_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -309,7 +860,7 @@ func (x *ListApiKeysRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListApiKeysRequest.ProtoReflect.Descriptor instead.
 func (*ListApiKeysRequest) Descriptor() ([]byte, []int) {
-	return file_tenant_v1_api_key_proto_rawDescGZIP(), []int{3}
+	return file_tenant_v1_api_key_proto_rawDescGZIP(), []int{11}
 }
 
 type ApiKeySet struct {
@@ -323,7 +874,7 @@ type ApiKeySet struct {
 
 func (x *ApiKeySet) Reset() {
 	*x = ApiKeySet{}
-	mi := &file_tenant_v1_api_key_proto_msgTypes[4]
+	mi := &file_tenant_v1_api_key_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -335,7 +886,7 @@ func (x *ApiKeySet) String() string {
 func (*ApiKeySet) ProtoMessage() {}
 
 func (x *ApiKeySet) ProtoReflect() protoreflect.Message {
-	mi := &file_tenant_v1_api_key_proto_msgTypes[4]
+	mi := &file_tenant_v1_api_key_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -348,7 +899,7 @@ func (x *ApiKeySet) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApiKeySet.ProtoReflect.Descriptor instead.
 func (*ApiKeySet) Descriptor() ([]byte, []int) {
-	return file_tenant_v1_api_key_proto_rawDescGZIP(), []int{4}
+	return file_tenant_v1_api_key_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ApiKeySet) GetApiKeys() []*ApiKey {
@@ -366,15 +917,17 @@ func (x *ApiKeySet) GetMaxApiKeys() int32 {
 }
 
 type CreateApiKeyRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Name  string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// The websites allowed to use the key from the start, optional; see AllowedDomain.
+	AllowedDomains []string `protobuf:"bytes,2,rep,name=allowed_domains,json=allowedDomains,proto3" json:"allowed_domains,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *CreateApiKeyRequest) Reset() {
 	*x = CreateApiKeyRequest{}
-	mi := &file_tenant_v1_api_key_proto_msgTypes[5]
+	mi := &file_tenant_v1_api_key_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -386,7 +939,7 @@ func (x *CreateApiKeyRequest) String() string {
 func (*CreateApiKeyRequest) ProtoMessage() {}
 
 func (x *CreateApiKeyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tenant_v1_api_key_proto_msgTypes[5]
+	mi := &file_tenant_v1_api_key_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -399,7 +952,7 @@ func (x *CreateApiKeyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateApiKeyRequest.ProtoReflect.Descriptor instead.
 func (*CreateApiKeyRequest) Descriptor() ([]byte, []int) {
-	return file_tenant_v1_api_key_proto_rawDescGZIP(), []int{5}
+	return file_tenant_v1_api_key_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *CreateApiKeyRequest) GetName() string {
@@ -407,6 +960,13 @@ func (x *CreateApiKeyRequest) GetName() string {
 		return x.Name
 	}
 	return ""
+}
+
+func (x *CreateApiKeyRequest) GetAllowedDomains() []string {
+	if x != nil {
+		return x.AllowedDomains
+	}
+	return nil
 }
 
 type GetApiKeyRequest struct {
@@ -418,7 +978,7 @@ type GetApiKeyRequest struct {
 
 func (x *GetApiKeyRequest) Reset() {
 	*x = GetApiKeyRequest{}
-	mi := &file_tenant_v1_api_key_proto_msgTypes[6]
+	mi := &file_tenant_v1_api_key_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -430,7 +990,7 @@ func (x *GetApiKeyRequest) String() string {
 func (*GetApiKeyRequest) ProtoMessage() {}
 
 func (x *GetApiKeyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tenant_v1_api_key_proto_msgTypes[6]
+	mi := &file_tenant_v1_api_key_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -443,7 +1003,7 @@ func (x *GetApiKeyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetApiKeyRequest.ProtoReflect.Descriptor instead.
 func (*GetApiKeyRequest) Descriptor() ([]byte, []int) {
-	return file_tenant_v1_api_key_proto_rawDescGZIP(), []int{6}
+	return file_tenant_v1_api_key_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *GetApiKeyRequest) GetId() string {
@@ -463,7 +1023,7 @@ type UpdateApiKeyRequest struct {
 
 func (x *UpdateApiKeyRequest) Reset() {
 	*x = UpdateApiKeyRequest{}
-	mi := &file_tenant_v1_api_key_proto_msgTypes[7]
+	mi := &file_tenant_v1_api_key_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -475,7 +1035,7 @@ func (x *UpdateApiKeyRequest) String() string {
 func (*UpdateApiKeyRequest) ProtoMessage() {}
 
 func (x *UpdateApiKeyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tenant_v1_api_key_proto_msgTypes[7]
+	mi := &file_tenant_v1_api_key_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -488,7 +1048,7 @@ func (x *UpdateApiKeyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateApiKeyRequest.ProtoReflect.Descriptor instead.
 func (*UpdateApiKeyRequest) Descriptor() ([]byte, []int) {
-	return file_tenant_v1_api_key_proto_rawDescGZIP(), []int{7}
+	return file_tenant_v1_api_key_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *UpdateApiKeyRequest) GetApiKey() *ApiKey {
@@ -514,7 +1074,7 @@ type RotateSecretKeyRequest struct {
 
 func (x *RotateSecretKeyRequest) Reset() {
 	*x = RotateSecretKeyRequest{}
-	mi := &file_tenant_v1_api_key_proto_msgTypes[8]
+	mi := &file_tenant_v1_api_key_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -526,7 +1086,7 @@ func (x *RotateSecretKeyRequest) String() string {
 func (*RotateSecretKeyRequest) ProtoMessage() {}
 
 func (x *RotateSecretKeyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tenant_v1_api_key_proto_msgTypes[8]
+	mi := &file_tenant_v1_api_key_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -539,7 +1099,7 @@ func (x *RotateSecretKeyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RotateSecretKeyRequest.ProtoReflect.Descriptor instead.
 func (*RotateSecretKeyRequest) Descriptor() ([]byte, []int) {
-	return file_tenant_v1_api_key_proto_rawDescGZIP(), []int{8}
+	return file_tenant_v1_api_key_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *RotateSecretKeyRequest) GetId() string {
@@ -558,7 +1118,7 @@ type RevokePreviousSecretRequest struct {
 
 func (x *RevokePreviousSecretRequest) Reset() {
 	*x = RevokePreviousSecretRequest{}
-	mi := &file_tenant_v1_api_key_proto_msgTypes[9]
+	mi := &file_tenant_v1_api_key_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -570,7 +1130,7 @@ func (x *RevokePreviousSecretRequest) String() string {
 func (*RevokePreviousSecretRequest) ProtoMessage() {}
 
 func (x *RevokePreviousSecretRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tenant_v1_api_key_proto_msgTypes[9]
+	mi := &file_tenant_v1_api_key_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -583,7 +1143,7 @@ func (x *RevokePreviousSecretRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokePreviousSecretRequest.ProtoReflect.Descriptor instead.
 func (*RevokePreviousSecretRequest) Descriptor() ([]byte, []int) {
-	return file_tenant_v1_api_key_proto_rawDescGZIP(), []int{9}
+	return file_tenant_v1_api_key_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *RevokePreviousSecretRequest) GetId() string {
@@ -602,7 +1162,7 @@ type DeleteApiKeyRequest struct {
 
 func (x *DeleteApiKeyRequest) Reset() {
 	*x = DeleteApiKeyRequest{}
-	mi := &file_tenant_v1_api_key_proto_msgTypes[10]
+	mi := &file_tenant_v1_api_key_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -614,7 +1174,7 @@ func (x *DeleteApiKeyRequest) String() string {
 func (*DeleteApiKeyRequest) ProtoMessage() {}
 
 func (x *DeleteApiKeyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tenant_v1_api_key_proto_msgTypes[10]
+	mi := &file_tenant_v1_api_key_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -627,7 +1187,7 @@ func (x *DeleteApiKeyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteApiKeyRequest.ProtoReflect.Descriptor instead.
 func (*DeleteApiKeyRequest) Descriptor() ([]byte, []int) {
-	return file_tenant_v1_api_key_proto_rawDescGZIP(), []int{10}
+	return file_tenant_v1_api_key_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *DeleteApiKeyRequest) GetId() string {
@@ -641,7 +1201,7 @@ var File_tenant_v1_api_key_proto protoreflect.FileDescriptor
 
 const file_tenant_v1_api_key_proto_rawDesc = "" +
 	"\n" +
-	"\x17tenant/v1/api_key.proto\x12\ttenant.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xdd\x03\n" +
+	"\x17tenant/v1/api_key.proto\x12\ttenant.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a google/protobuf/field_mask.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xae\x06\n" +
 	"\x06ApiKey\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x19\n" +
@@ -656,7 +1216,51 @@ const file_tenant_v1_api_key_proto_rawDesc = "" +
 	"\x0fallowed_origins\x18\t \x03(\v2\x18.tenant.v1.AllowedOriginR\x0eallowedOrigins\x12.\n" +
 	"\x13previous_secret_key\x18\n" +
 	" \x01(\tR\x11previousSecretKey\x12^\n" +
-	"\x1eprevious_secret_key_expires_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\x1apreviousSecretKeyExpiresAt\"\x97\x01\n" +
+	"\x1eprevious_secret_key_expires_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\x1apreviousSecretKeyExpiresAt\x12A\n" +
+	"\x0fallowed_domains\x18\f \x03(\v2\x18.tenant.v1.AllowedDomainR\x0eallowedDomains\x12)\n" +
+	"\x10require_behavior\x18\r \x01(\bR\x0frequireBehavior\x12)\n" +
+	"\x10scraping_flagged\x18\x0e \x01(\bR\x0fscrapingFlagged\x12J\n" +
+	"\x13scraping_flagged_at\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampR\x11scrapingFlaggedAt\x12,\n" +
+	"\x05today\x18\x10 \x01(\v2\x16.tenant.v1.KeyCountersR\x05today\x12<\n" +
+	"\rlatest_appeal\x18\x11 \x01(\v2\x17.tenant.v1.ApiKeyAppealR\flatestAppeal\"n\n" +
+	"\rAllowedDomain\x12\x1b\n" +
+	"\x06domain\x18\x01 \x01(\tB\x03\xe0A\x02R\x06domain\x12@\n" +
+	"\vcreate_date\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampB\x03\xe0A\x03R\n" +
+	"createDate\"r\n" +
+	"\x18SetAllowedDomainsRequest\x12\x13\n" +
+	"\x02id\x18\x01 \x01(\tB\x03\xe0A\x02R\x02id\x12A\n" +
+	"\x0fallowed_domains\x18\x02 \x03(\v2\x18.tenant.v1.AllowedDomainR\x0eallowedDomains\"}\n" +
+	"\vKeyCounters\x12\x1e\n" +
+	"\n" +
+	"challenges\x18\x01 \x01(\x03R\n" +
+	"challenges\x12\x18\n" +
+	"\aanswers\x18\x02 \x01(\x03R\aanswers\x12\x16\n" +
+	"\x06solved\x18\x03 \x01(\x03R\x06solved\x12\x1c\n" +
+	"\tautomated\x18\x04 \x01(\x03R\tautomated\"\xe7\x01\n" +
+	"\fApiKeyAppeal\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\tR\x06status\x12\x18\n" +
+	"\amessage\x18\x03 \x01(\tR\amessage\x12\x1d\n" +
+	"\n" +
+	"admin_note\x18\x04 \x01(\tR\tadminNote\x12;\n" +
+	"\vcreate_date\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"createDate\x129\n" +
+	"\n" +
+	"decided_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tdecidedAt\"I\n" +
+	"\x13CreateAppealRequest\x12\x13\n" +
+	"\x02id\x18\x01 \x01(\tB\x03\xe0A\x02R\x02id\x12\x1d\n" +
+	"\amessage\x18\x02 \x01(\tB\x03\xe0A\x02R\amessage\".\n" +
+	"\x17ListApiKeyEventsRequest\x12\x13\n" +
+	"\x02id\x18\x01 \x01(\tB\x03\xe0A\x02R\x02id\"@\n" +
+	"\x0eApiKeyEventSet\x12.\n" +
+	"\x06events\x18\x01 \x03(\v2\x16.tenant.v1.ApiKeyEventR\x06events\"\xb9\x01\n" +
+	"\vApiKeyEvent\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x14\n" +
+	"\x05actor\x18\x02 \x01(\tR\x05actor\x12\x16\n" +
+	"\x06action\x18\x03 \x01(\tR\x06action\x12/\n" +
+	"\x06detail\x18\x04 \x01(\v2\x17.google.protobuf.StructR\x06detail\x12;\n" +
+	"\vcreate_date\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"createDate\"\x97\x01\n" +
 	"\rAllowedOrigin\x12\"\n" +
 	"\n" +
 	"ip_address\x18\x01 \x01(\tB\x03\xe0A\x02R\tipAddress\x12 \n" +
@@ -670,9 +1274,10 @@ const file_tenant_v1_api_key_proto_rawDesc = "" +
 	"\tApiKeySet\x12,\n" +
 	"\bapi_keys\x18\x01 \x03(\v2\x11.tenant.v1.ApiKeyR\aapiKeys\x12 \n" +
 	"\fmax_api_keys\x18\x02 \x01(\x05R\n" +
-	"maxApiKeys\".\n" +
+	"maxApiKeys\"W\n" +
 	"\x13CreateApiKeyRequest\x12\x17\n" +
-	"\x04name\x18\x01 \x01(\tB\x03\xe0A\x02R\x04name\"'\n" +
+	"\x04name\x18\x01 \x01(\tB\x03\xe0A\x02R\x04name\x12'\n" +
+	"\x0fallowed_domains\x18\x02 \x03(\tR\x0eallowedDomains\"'\n" +
 	"\x10GetApiKeyRequest\x12\x13\n" +
 	"\x02id\x18\x01 \x01(\tB\x03\xe0A\x02R\x02id\"\x88\x01\n" +
 	"\x13UpdateApiKeyRequest\x12/\n" +
@@ -684,7 +1289,7 @@ const file_tenant_v1_api_key_proto_rawDesc = "" +
 	"\x1bRevokePreviousSecretRequest\x12\x13\n" +
 	"\x02id\x18\x01 \x01(\tB\x03\xe0A\x02R\x02id\"*\n" +
 	"\x13DeleteApiKeyRequest\x12\x13\n" +
-	"\x02id\x18\x01 \x01(\tB\x03\xe0A\x02R\x02id2\xdc\x06\n" +
+	"\x02id\x18\x01 \x01(\tB\x03\xe0A\x02R\x02id2\xbb\t\n" +
 	"\rApiKeyService\x12X\n" +
 	"\vListApiKeys\x12\x1d.tenant.v1.ListApiKeysRequest\x1a\x14.tenant.v1.ApiKeySet\"\x14\x82\xd3\xe4\x93\x02\x0e\x12\f/v1/api-keys\x12Z\n" +
 	"\fCreateApiKey\x12\x1e.tenant.v1.CreateApiKeyRequest\x1a\x11.tenant.v1.ApiKey\"\x17\x82\xd3\xe4\x93\x02\x11:\x01*\"\f/v1/api-keys\x12V\n" +
@@ -692,7 +1297,10 @@ const file_tenant_v1_api_key_proto_rawDesc = "" +
 	"\fUpdateApiKey\x12\x1e.tenant.v1.UpdateApiKeyRequest\x1a\x11.tenant.v1.ApiKey\"$\x82\xd3\xe4\x93\x02\x1e:\x01*2\x19/v1/api-keys/{api_key.id}\x12p\n" +
 	"\x0fRotateSecretKey\x12!.tenant.v1.RotateSecretKeyRequest\x1a\x11.tenant.v1.ApiKey\"'\x82\xd3\xe4\x93\x02!\"\x1f/v1/api-keys/{id}/rotate-secret\x12\x83\x01\n" +
 	"\x14RevokePreviousSecret\x12&.tenant.v1.RevokePreviousSecretRequest\x1a\x11.tenant.v1.ApiKey\"0\x82\xd3\xe4\x93\x02*\"(/v1/api-keys/{id}/revoke-previous-secret\x12y\n" +
-	"\x11SetAllowedOrigins\x12#.tenant.v1.SetAllowedOriginsRequest\x1a\x11.tenant.v1.ApiKey\",\x82\xd3\xe4\x93\x02&:\x01*\x1a!/v1/api-keys/{id}/allowed-origins\x12a\n" +
+	"\x11SetAllowedOrigins\x12#.tenant.v1.SetAllowedOriginsRequest\x1a\x11.tenant.v1.ApiKey\",\x82\xd3\xe4\x93\x02&:\x01*\x1a!/v1/api-keys/{id}/allowed-origins\x12y\n" +
+	"\x11SetAllowedDomains\x12#.tenant.v1.SetAllowedDomainsRequest\x1a\x11.tenant.v1.ApiKey\",\x82\xd3\xe4\x93\x02&:\x01*\x1a!/v1/api-keys/{id}/allowed-domains\x12m\n" +
+	"\fCreateAppeal\x12\x1e.tenant.v1.CreateAppealRequest\x1a\x17.tenant.v1.ApiKeyAppeal\"$\x82\xd3\xe4\x93\x02\x1e:\x01*\"\x19/v1/api-keys/{id}/appeals\x12s\n" +
+	"\x10ListApiKeyEvents\x12\".tenant.v1.ListApiKeyEventsRequest\x1a\x19.tenant.v1.ApiKeyEventSet\" \x82\xd3\xe4\x93\x02\x1a\x12\x18/v1/api-keys/{id}/events\x12a\n" +
 	"\fDeleteApiKey\x12\x1e.tenant.v1.DeleteApiKeyRequest\x1a\x16.google.protobuf.Empty\"\x19\x82\xd3\xe4\x93\x02\x13*\x11/v1/api-keys/{id}B\x19Z\x17tenant/api/tenant/v1;v1b\x06proto3"
 
 var (
@@ -707,53 +1315,79 @@ func file_tenant_v1_api_key_proto_rawDescGZIP() []byte {
 	return file_tenant_v1_api_key_proto_rawDescData
 }
 
-var file_tenant_v1_api_key_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_tenant_v1_api_key_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
 var file_tenant_v1_api_key_proto_goTypes = []any{
 	(*ApiKey)(nil),                      // 0: tenant.v1.ApiKey
-	(*AllowedOrigin)(nil),               // 1: tenant.v1.AllowedOrigin
-	(*SetAllowedOriginsRequest)(nil),    // 2: tenant.v1.SetAllowedOriginsRequest
-	(*ListApiKeysRequest)(nil),          // 3: tenant.v1.ListApiKeysRequest
-	(*ApiKeySet)(nil),                   // 4: tenant.v1.ApiKeySet
-	(*CreateApiKeyRequest)(nil),         // 5: tenant.v1.CreateApiKeyRequest
-	(*GetApiKeyRequest)(nil),            // 6: tenant.v1.GetApiKeyRequest
-	(*UpdateApiKeyRequest)(nil),         // 7: tenant.v1.UpdateApiKeyRequest
-	(*RotateSecretKeyRequest)(nil),      // 8: tenant.v1.RotateSecretKeyRequest
-	(*RevokePreviousSecretRequest)(nil), // 9: tenant.v1.RevokePreviousSecretRequest
-	(*DeleteApiKeyRequest)(nil),         // 10: tenant.v1.DeleteApiKeyRequest
-	(*timestamppb.Timestamp)(nil),       // 11: google.protobuf.Timestamp
-	(*fieldmaskpb.FieldMask)(nil),       // 12: google.protobuf.FieldMask
-	(*emptypb.Empty)(nil),               // 13: google.protobuf.Empty
+	(*AllowedDomain)(nil),               // 1: tenant.v1.AllowedDomain
+	(*SetAllowedDomainsRequest)(nil),    // 2: tenant.v1.SetAllowedDomainsRequest
+	(*KeyCounters)(nil),                 // 3: tenant.v1.KeyCounters
+	(*ApiKeyAppeal)(nil),                // 4: tenant.v1.ApiKeyAppeal
+	(*CreateAppealRequest)(nil),         // 5: tenant.v1.CreateAppealRequest
+	(*ListApiKeyEventsRequest)(nil),     // 6: tenant.v1.ListApiKeyEventsRequest
+	(*ApiKeyEventSet)(nil),              // 7: tenant.v1.ApiKeyEventSet
+	(*ApiKeyEvent)(nil),                 // 8: tenant.v1.ApiKeyEvent
+	(*AllowedOrigin)(nil),               // 9: tenant.v1.AllowedOrigin
+	(*SetAllowedOriginsRequest)(nil),    // 10: tenant.v1.SetAllowedOriginsRequest
+	(*ListApiKeysRequest)(nil),          // 11: tenant.v1.ListApiKeysRequest
+	(*ApiKeySet)(nil),                   // 12: tenant.v1.ApiKeySet
+	(*CreateApiKeyRequest)(nil),         // 13: tenant.v1.CreateApiKeyRequest
+	(*GetApiKeyRequest)(nil),            // 14: tenant.v1.GetApiKeyRequest
+	(*UpdateApiKeyRequest)(nil),         // 15: tenant.v1.UpdateApiKeyRequest
+	(*RotateSecretKeyRequest)(nil),      // 16: tenant.v1.RotateSecretKeyRequest
+	(*RevokePreviousSecretRequest)(nil), // 17: tenant.v1.RevokePreviousSecretRequest
+	(*DeleteApiKeyRequest)(nil),         // 18: tenant.v1.DeleteApiKeyRequest
+	(*timestamppb.Timestamp)(nil),       // 19: google.protobuf.Timestamp
+	(*structpb.Struct)(nil),             // 20: google.protobuf.Struct
+	(*fieldmaskpb.FieldMask)(nil),       // 21: google.protobuf.FieldMask
+	(*emptypb.Empty)(nil),               // 22: google.protobuf.Empty
 }
 var file_tenant_v1_api_key_proto_depIdxs = []int32{
-	11, // 0: tenant.v1.ApiKey.create_date:type_name -> google.protobuf.Timestamp
-	1,  // 1: tenant.v1.ApiKey.allowed_origins:type_name -> tenant.v1.AllowedOrigin
-	11, // 2: tenant.v1.ApiKey.previous_secret_key_expires_at:type_name -> google.protobuf.Timestamp
-	11, // 3: tenant.v1.AllowedOrigin.create_date:type_name -> google.protobuf.Timestamp
-	1,  // 4: tenant.v1.SetAllowedOriginsRequest.allowed_origins:type_name -> tenant.v1.AllowedOrigin
-	0,  // 5: tenant.v1.ApiKeySet.api_keys:type_name -> tenant.v1.ApiKey
-	0,  // 6: tenant.v1.UpdateApiKeyRequest.api_key:type_name -> tenant.v1.ApiKey
-	12, // 7: tenant.v1.UpdateApiKeyRequest.update_mask:type_name -> google.protobuf.FieldMask
-	3,  // 8: tenant.v1.ApiKeyService.ListApiKeys:input_type -> tenant.v1.ListApiKeysRequest
-	5,  // 9: tenant.v1.ApiKeyService.CreateApiKey:input_type -> tenant.v1.CreateApiKeyRequest
-	6,  // 10: tenant.v1.ApiKeyService.GetApiKey:input_type -> tenant.v1.GetApiKeyRequest
-	7,  // 11: tenant.v1.ApiKeyService.UpdateApiKey:input_type -> tenant.v1.UpdateApiKeyRequest
-	8,  // 12: tenant.v1.ApiKeyService.RotateSecretKey:input_type -> tenant.v1.RotateSecretKeyRequest
-	9,  // 13: tenant.v1.ApiKeyService.RevokePreviousSecret:input_type -> tenant.v1.RevokePreviousSecretRequest
-	2,  // 14: tenant.v1.ApiKeyService.SetAllowedOrigins:input_type -> tenant.v1.SetAllowedOriginsRequest
-	10, // 15: tenant.v1.ApiKeyService.DeleteApiKey:input_type -> tenant.v1.DeleteApiKeyRequest
-	4,  // 16: tenant.v1.ApiKeyService.ListApiKeys:output_type -> tenant.v1.ApiKeySet
-	0,  // 17: tenant.v1.ApiKeyService.CreateApiKey:output_type -> tenant.v1.ApiKey
-	0,  // 18: tenant.v1.ApiKeyService.GetApiKey:output_type -> tenant.v1.ApiKey
-	0,  // 19: tenant.v1.ApiKeyService.UpdateApiKey:output_type -> tenant.v1.ApiKey
-	0,  // 20: tenant.v1.ApiKeyService.RotateSecretKey:output_type -> tenant.v1.ApiKey
-	0,  // 21: tenant.v1.ApiKeyService.RevokePreviousSecret:output_type -> tenant.v1.ApiKey
-	0,  // 22: tenant.v1.ApiKeyService.SetAllowedOrigins:output_type -> tenant.v1.ApiKey
-	13, // 23: tenant.v1.ApiKeyService.DeleteApiKey:output_type -> google.protobuf.Empty
-	16, // [16:24] is the sub-list for method output_type
-	8,  // [8:16] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	19, // 0: tenant.v1.ApiKey.create_date:type_name -> google.protobuf.Timestamp
+	9,  // 1: tenant.v1.ApiKey.allowed_origins:type_name -> tenant.v1.AllowedOrigin
+	19, // 2: tenant.v1.ApiKey.previous_secret_key_expires_at:type_name -> google.protobuf.Timestamp
+	1,  // 3: tenant.v1.ApiKey.allowed_domains:type_name -> tenant.v1.AllowedDomain
+	19, // 4: tenant.v1.ApiKey.scraping_flagged_at:type_name -> google.protobuf.Timestamp
+	3,  // 5: tenant.v1.ApiKey.today:type_name -> tenant.v1.KeyCounters
+	4,  // 6: tenant.v1.ApiKey.latest_appeal:type_name -> tenant.v1.ApiKeyAppeal
+	19, // 7: tenant.v1.AllowedDomain.create_date:type_name -> google.protobuf.Timestamp
+	1,  // 8: tenant.v1.SetAllowedDomainsRequest.allowed_domains:type_name -> tenant.v1.AllowedDomain
+	19, // 9: tenant.v1.ApiKeyAppeal.create_date:type_name -> google.protobuf.Timestamp
+	19, // 10: tenant.v1.ApiKeyAppeal.decided_at:type_name -> google.protobuf.Timestamp
+	8,  // 11: tenant.v1.ApiKeyEventSet.events:type_name -> tenant.v1.ApiKeyEvent
+	20, // 12: tenant.v1.ApiKeyEvent.detail:type_name -> google.protobuf.Struct
+	19, // 13: tenant.v1.ApiKeyEvent.create_date:type_name -> google.protobuf.Timestamp
+	19, // 14: tenant.v1.AllowedOrigin.create_date:type_name -> google.protobuf.Timestamp
+	9,  // 15: tenant.v1.SetAllowedOriginsRequest.allowed_origins:type_name -> tenant.v1.AllowedOrigin
+	0,  // 16: tenant.v1.ApiKeySet.api_keys:type_name -> tenant.v1.ApiKey
+	0,  // 17: tenant.v1.UpdateApiKeyRequest.api_key:type_name -> tenant.v1.ApiKey
+	21, // 18: tenant.v1.UpdateApiKeyRequest.update_mask:type_name -> google.protobuf.FieldMask
+	11, // 19: tenant.v1.ApiKeyService.ListApiKeys:input_type -> tenant.v1.ListApiKeysRequest
+	13, // 20: tenant.v1.ApiKeyService.CreateApiKey:input_type -> tenant.v1.CreateApiKeyRequest
+	14, // 21: tenant.v1.ApiKeyService.GetApiKey:input_type -> tenant.v1.GetApiKeyRequest
+	15, // 22: tenant.v1.ApiKeyService.UpdateApiKey:input_type -> tenant.v1.UpdateApiKeyRequest
+	16, // 23: tenant.v1.ApiKeyService.RotateSecretKey:input_type -> tenant.v1.RotateSecretKeyRequest
+	17, // 24: tenant.v1.ApiKeyService.RevokePreviousSecret:input_type -> tenant.v1.RevokePreviousSecretRequest
+	10, // 25: tenant.v1.ApiKeyService.SetAllowedOrigins:input_type -> tenant.v1.SetAllowedOriginsRequest
+	2,  // 26: tenant.v1.ApiKeyService.SetAllowedDomains:input_type -> tenant.v1.SetAllowedDomainsRequest
+	5,  // 27: tenant.v1.ApiKeyService.CreateAppeal:input_type -> tenant.v1.CreateAppealRequest
+	6,  // 28: tenant.v1.ApiKeyService.ListApiKeyEvents:input_type -> tenant.v1.ListApiKeyEventsRequest
+	18, // 29: tenant.v1.ApiKeyService.DeleteApiKey:input_type -> tenant.v1.DeleteApiKeyRequest
+	12, // 30: tenant.v1.ApiKeyService.ListApiKeys:output_type -> tenant.v1.ApiKeySet
+	0,  // 31: tenant.v1.ApiKeyService.CreateApiKey:output_type -> tenant.v1.ApiKey
+	0,  // 32: tenant.v1.ApiKeyService.GetApiKey:output_type -> tenant.v1.ApiKey
+	0,  // 33: tenant.v1.ApiKeyService.UpdateApiKey:output_type -> tenant.v1.ApiKey
+	0,  // 34: tenant.v1.ApiKeyService.RotateSecretKey:output_type -> tenant.v1.ApiKey
+	0,  // 35: tenant.v1.ApiKeyService.RevokePreviousSecret:output_type -> tenant.v1.ApiKey
+	0,  // 36: tenant.v1.ApiKeyService.SetAllowedOrigins:output_type -> tenant.v1.ApiKey
+	0,  // 37: tenant.v1.ApiKeyService.SetAllowedDomains:output_type -> tenant.v1.ApiKey
+	4,  // 38: tenant.v1.ApiKeyService.CreateAppeal:output_type -> tenant.v1.ApiKeyAppeal
+	7,  // 39: tenant.v1.ApiKeyService.ListApiKeyEvents:output_type -> tenant.v1.ApiKeyEventSet
+	22, // 40: tenant.v1.ApiKeyService.DeleteApiKey:output_type -> google.protobuf.Empty
+	30, // [30:41] is the sub-list for method output_type
+	19, // [19:30] is the sub-list for method input_type
+	19, // [19:19] is the sub-list for extension type_name
+	19, // [19:19] is the sub-list for extension extendee
+	0,  // [0:19] is the sub-list for field type_name
 }
 
 func init() { file_tenant_v1_api_key_proto_init() }
@@ -767,7 +1401,7 @@ func file_tenant_v1_api_key_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_tenant_v1_api_key_proto_rawDesc), len(file_tenant_v1_api_key_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   11,
+			NumMessages:   19,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

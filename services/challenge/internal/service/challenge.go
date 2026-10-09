@@ -9,6 +9,7 @@ import (
 	"challenge/internal/conf"
 	"challenge/internal/pkg/clientip"
 	"challenge/internal/pkg/envconf"
+	"challenge/internal/pkg/requestinfo"
 
 	"github.com/go-kratos/kratos/v3/transport"
 	khttp "github.com/go-kratos/kratos/v3/transport/http"
@@ -33,9 +34,25 @@ func NewChallengeService(challenges *biz.ChallengeUsecase, serverConf *conf.Serv
 	return &ChallengeService{challenges: challenges, trusted: trusted}, nil
 }
 
-// NewChallenge issues a challenge for a site key, for an address the key allows.
+// NewChallenge issues a challenge for a site key, to an address and a website the key allows.
 func (s *ChallengeService) NewChallenge(ctx context.Context, req *v1.NewChallengeRequest) (*v1.Challenge, error) {
-	challenge, err := s.challenges.New(ctx, req.GetSiteKey(), req.GetChallengeType(), s.clientAddr(ctx))
+	request := biz.NewRequest{SiteKey: req.GetSiteKey(), ChallengeType: req.GetChallengeType()}
+	tr, httpRequest := httpTransport(ctx)
+	if httpRequest != nil {
+		request.Client = clientip.From(httpRequest, s.trusted)
+		request.Origin = requestinfo.Origin(httpRequest)
+		request.UserAgent = httpRequest.Header.Get("User-Agent")
+	}
+	challenge, bound, err := s.challenges.New(ctx, request)
+	// A key bound to its domains answers its caller by name, refusals included, so the page can
+	// read them; the CORS filter answers "*" for any other key. The header is echoed as sent:
+	// browsers compare it byte for byte.
+	if bound && httpRequest != nil {
+		if origin := httpRequest.Header.Get("Origin"); origin != "" {
+			tr.ReplyHeader().Set("Access-Control-Allow-Origin", origin)
+			tr.ReplyHeader().Add("Vary", "Origin")
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -47,6 +64,8 @@ func (s *ChallengeService) NewChallenge(ctx context.Context, req *v1.NewChalleng
 		Width:         int32(challenge.Media.Width),
 		Height:        int32(challenge.Media.Height),
 		ExpiresIn:     int32(challenge.TTL.Seconds()),
+		PowSalt:       challenge.PowSalt,
+		PowDifficulty: int32(challenge.PowDifficulty),
 	}
 	// Left unset for the other types, so their replies carry none of the piece fields.
 	if piece := challenge.Media.Piece; piece != nil {
@@ -58,32 +77,46 @@ func (s *ChallengeService) NewChallenge(ctx context.Context, req *v1.NewChalleng
 	return reply, nil
 }
 
-// clientAddr is the address the request comes from, read through the proxies we trust.
-// The zero value means it could not be read, e.g. on a gRPC call.
-func (s *ChallengeService) clientAddr(ctx context.Context) netip.Addr {
+// httpTransport is the HTTP transport and request behind ctx; nil, e.g., on a gRPC call.
+func httpTransport(ctx context.Context) (*khttp.Transport, *khttp.Request) {
 	serverTransport, ok := transport.FromServerContext(ctx)
 	if !ok {
-		return netip.Addr{}
+		return nil, nil
 	}
-	request, ok := serverTransport.(*khttp.Transport)
+	httpTransport, ok := serverTransport.(*khttp.Transport)
 	if !ok {
-		return netip.Addr{}
+		return nil, nil
 	}
-	return clientip.From(request.Request(), s.trusted)
+	return httpTransport, httpTransport.Request()
 }
 
-// CheckAnswer consumes a challenge and reports whether the answer is correct, and what the
-// behaviour check made of the behaviour sent with it.
+// CheckAnswer consumes a challenge and reports whether the answer solves it, what the behaviour
+// check made of the behaviour sent with it, and the website it was asked for from.
 func (s *ChallengeService) CheckAnswer(ctx context.Context, req *v1.CheckAnswerRequest) (*v1.CheckAnswerReply, error) {
-	challenge, ok, behavior, err := s.challenges.Check(ctx, req.GetChallengeId(), req.GetAnswer(), toBehavior(req.GetBehavior()))
+	client, _ := netip.ParseAddr(req.GetClientIp())
+	outcome, err := s.challenges.Check(ctx, biz.Answer{
+		ChallengeID:    req.GetChallengeId(),
+		Text:           req.GetAnswer(),
+		Behavior:       toBehavior(req.GetBehavior()),
+		SiteKey:        req.GetSiteKey(),
+		Origin:         req.GetOrigin(),
+		Client:         client,
+		UserAgent:      req.GetUserAgent(),
+		SecFetchSite:   req.GetSecFetchSite(),
+		AcceptLanguage: req.GetAcceptLanguage(),
+		PowNonce:       req.GetPowNonce(),
+	})
 	if err != nil {
 		return nil, err
 	}
+	challenge := outcome.Challenge
 	return &v1.CheckAnswerReply{
-		Success:       ok,
-		ApiKeyId:      challenge.APIKeyID,
-		ChallengeType: challenge.Type,
-		UserId:        challenge.UserID,
-		Behavior:      toBehaviorResult(behavior),
+		Success:          outcome.Right,
+		ApiKeyId:         challenge.APIKeyID,
+		ChallengeType:    challenge.Type,
+		UserId:           challenge.UserID,
+		Behavior:         toBehaviorResult(outcome.Behavior),
+		Hostname:         requestinfo.Host(challenge.Origin),
+		BehaviorRequired: outcome.BehaviorRequired,
 	}, nil
 }

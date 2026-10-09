@@ -11,13 +11,15 @@ import (
 
 // Resolver is Resolve as the Kratos config.Resolver of a config message such as conf.Bootstrap.
 // A placeholder always fills in a string, and Scan, which decodes with protojson, takes a bool
-// field only from a JSON boolean: the strings that land in bool fields are parsed as well.
-func Resolver(message proto.Message) func(map[string]any) error {
+// field only from a JSON boolean: the strings that land in bool fields are parsed as well. The
+// values of the overridable sections may be replaced from the environment; see Override.
+func Resolver(message proto.Message, overridable ...string) func(map[string]any) error {
 	descriptor := message.ProtoReflect().Descriptor()
 	return func(values map[string]any) error {
 		if err := Resolve(values); err != nil {
 			return err
 		}
+		Override(values, overridable...)
 		return parseBools(values, descriptor, "")
 	}
 }

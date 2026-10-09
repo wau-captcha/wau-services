@@ -34,3 +34,14 @@ func IssuedChallengesKey(apiKeyID, day string) string {
 func CheckedAnswersKey(apiKeyID, day string) string {
 	return "abuse:verify:" + apiKeyID + ":" + day
 }
+
+// SolvedAnswersKey counts the right answers to challenges of an API key on a day.
+func SolvedAnswersKey(apiKeyID, day string) string {
+	return "abuse:solved:" + apiKeyID + ":" + day
+}
+
+// AutomatedAnswersKey counts the answers to challenges of an API key that the behaviour check
+// judged automated on a day.
+func AutomatedAnswersKey(apiKeyID, day string) string {
+	return "abuse:automated:" + apiKeyID + ":" + day
+}

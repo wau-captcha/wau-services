@@ -16,10 +16,13 @@ type Quota struct {
 	ResetsAt time.Time
 }
 
-// ScrapingCount is what the scraping check of a key has seen today.
+// ScrapingCount is what the scraping check of a key has seen today: challenges issued, answers
+// checked, right answers and answers judged automated.
 type ScrapingCount struct {
 	Challenges    int64
 	Verifications int64
+	Solved        int64
+	Automated     int64
 }
 
 // CounterRepo reads the daily counters the challenge and verify services keep in Redis

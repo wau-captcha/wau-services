@@ -1,0 +1,57 @@
+# Traefik middlewares at the edge. The Ingresses in ingress.yaml and the sign-in route in
+# login-ratelimit.yaml name them as wau-<name>@kubernetescrd (namespace wau, set by kustomize).
+# Nothing cert-manager creates carries them: its HTTP-01 solver Ingress keeps answering Let's
+# Encrypt on port 80.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: https-redirect
+spec:
+  # On the web entrypoint (port 80) every request is answered with a permanent redirect to https
+  # and never reaches a service, so a base URL without the "s" cannot send a secret key in clear
+  # text. On websecure the request is already https and passes through.
+  redirectScheme:
+    scheme: https
+    permanent: true
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: security-headers
+spec:
+  headers:
+    # HSTS for two years, subdomains included, fit for the preload list; Traefik sends it on https
+    # responses only.
+    stsSeconds: 63072000
+    stsIncludeSubdomains: true
+    stsPreload: true
+    contentTypeNosniff: true
+    referrerPolicy: strict-origin-when-cross-origin
+    # An empty value removes the header: what the server runs on is nobody's business.
+    customResponseHeaders:
+      X-Powered-By: ""
+      Server: ""
+---
+# api.waucaptcha.com only: 120 requests a minute per client address, bursts of 60. Traefik sees the
+# real address (externalTrafficPolicy: Local on its Service); challenge and verify count finer
+# limits per address and per key in Redis behind it. SePay's IPN shares the budget of its
+# address, far above the rate SePay sends at.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: api-ratelimit
+spec:
+  rateLimit:
+    average: 120
+    period: 1m
+    burst: 60
+---
+# api.waucaptcha.com only: Traefik answers bodies over 64 KiB with 413 itself. The services cap each
+# path lower (64 KiB /challenge/verify, 4 KiB /siteverify, 16 KiB the IPN).
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: api-body-limit
+spec:
+  buffering:
+    maxRequestBodyBytes: 65536

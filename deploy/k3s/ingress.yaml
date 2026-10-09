@@ -1,22 +1,20 @@
-# waucaptcha.com is the dashboard. api.waucaptcha.com opens only the four paths sites and SePay
-# call; everything else there, /v1/* included, gets Traefik's 404. The paths are Exact because
-# Traefik turns Prefix into a plain string prefix (/challenge/new would also match
-# /challenge/newer). cert-manager issues both certificates (ClusterIssuer letsencrypt).
+# waucaptcha.com is the dashboard. Traefik serves an Ingress on both entrypoints: on web (port 80)
+# https-redirect answers every request with a redirect to https, on websecure the request passes
+# and gets the security headers. cert-manager issues the certificate (ClusterIssuer letsencrypt);
+# its HTTP-01 solver Ingress has no middlewares, so it stays reachable over plain HTTP.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: wau
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt
+    traefik.ingress.kubernetes.io/router.middlewares: wau-https-redirect@kubernetescrd,wau-security-headers@kubernetescrd
 spec:
   ingressClassName: traefik
   tls:
     - hosts:
         - waucaptcha.com
       secretName: dashboard-tls
-    - hosts:
-        - api.waucaptcha.com
-      secretName: api-tls
   rules:
     - host: waucaptcha.com
       http:
@@ -28,6 +26,25 @@ spec:
                 name: dashboard
                 port:
                   number: 3000
+---
+# api.waucaptcha.com opens only the four paths sites and SePay call; everything else there, /v1/*
+# included, gets Traefik's 404. The paths are Exact because Traefik turns Prefix into a plain
+# string prefix (/challenge/new would also match /challenge/newer). An Ingress of its own, so the
+# per-address rate limit and the body limit apply to the API only, after the redirect to https.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: wau-api
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+    traefik.ingress.kubernetes.io/router.middlewares: wau-https-redirect@kubernetescrd,wau-security-headers@kubernetescrd,wau-api-ratelimit@kubernetescrd,wau-api-body-limit@kubernetescrd
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - api.waucaptcha.com
+      secretName: api-tls
+  rules:
     - host: api.waucaptcha.com
       http:
         paths:

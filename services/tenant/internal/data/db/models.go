@@ -22,6 +22,19 @@ type APIKey struct {
 	SuspendReason              pgtype.Text
 	PreviousSecretKey          pgtype.Text
 	PreviousSecretKeyExpiresAt pgtype.Timestamptz
+	ScrapingFlaggedAt          pgtype.Timestamptz
+	RequireBehavior            bool
+}
+
+type APIKeyAppeal struct {
+	APIKeyAppealID uuid.UUID
+	APIKeyID       uuid.UUID
+	UserID         uuid.UUID
+	Message        string
+	Status         string
+	AdminNote      pgtype.Text
+	CreateDate     pgtype.Timestamptz
+	DecidedAt      pgtype.Timestamptz
 }
 
 type Admin struct {

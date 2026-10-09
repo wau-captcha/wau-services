@@ -15,6 +15,7 @@ const (
 	behaviorMaxPointer      = 200
 	behaviorMaxKeyIntervals = 64
 	behaviorMaxCoordinate   = 20000 // CSS px from the widget; no screen is that large
+	behaviorMaxEvents       = 10000 // input, paste or untrusted events while one challenge is shown
 	// The SDK starts timing once the challenge it fetched is on screen, so its elapsed time cannot
 	// pass the time since issue; the slack covers the resolution of the two clocks.
 	behaviorClockSlack = time.Second
@@ -63,9 +64,14 @@ var minSolveTime = map[string]time.Duration{
 var pointerTypes = []string{"", "mouse", "touch", "pen"}
 
 // checkBehavior judges how the person behaved while a challenge of challengeType was on screen,
-// sinceIssue after it was issued. No behaviour (nil, or a version this check does not know) is not
-// measured. A broken hard rule makes it automated; otherwise the score decides.
-func checkBehavior(behavior *Behavior, challengeType string, sinceIssue time.Duration) BehaviorResult {
+// sinceIssue after it was issued, together with the signals the service observed itself. A rule
+// broken by the signals makes the answer automated even without behaviour; otherwise no behaviour
+// (nil, or a version this check does not know) is not measured. A broken hard rule of the
+// behaviour makes it automated; otherwise the score decides.
+func checkBehavior(behavior *Behavior, challengeType string, sinceIssue time.Duration, signals Signals) BehaviorResult {
+	if reason := signals.brokenRule(); reason != "" {
+		return BehaviorResult{Verdict: VerdictAutomated, Reasons: []string{reason}}
+	}
 	if behavior == nil || behavior.Version != behaviorVersion {
 		return BehaviorResult{Verdict: VerdictNotMeasured}
 	}
@@ -86,6 +92,14 @@ func checkBehavior(behavior *Behavior, challengeType string, sinceIssue time.Dur
 	penalize(judged && variation < minKeyIntervalVariation, penaltyEvenTyping, "even_typing")
 	penalize(judged && median < minMedianKeyIntervalMs, penaltyFastTyping, "fast_typing")
 	penalize(behavior.PasteEvents > 0, penaltyPasted, "pasted")
+	penalize(signals.NoPow, penaltyNoPow, "no_pow")
+	penalize(signals.IPChanged, penaltyIPChanged, "ip_changed")
+	penalize(signals.UAChanged, penaltyUAChanged, "ua_changed")
+	penalize(signals.MissingBrowserHeaders, penaltyMissingBrowserHeaders, "missing_browser_headers")
+	penalize(signals.BadHistory, penaltyBadHistory, "ip_bad_history")
+	penalize(behavior.HeadlessUA, penaltyHeadlessUA, "headless_ua")
+	penalize(behavior.NoLanguages, penaltyNoLanguages, "no_languages")
+	penalize(behavior.ChromeWithoutWindowChrome, penaltyChromeWithoutWindowChrome, "chrome_without_window_chrome")
 
 	score = math.Round(max(score, 0)*100) / 100
 	verdict := VerdictHuman
@@ -118,8 +132,8 @@ func brokenRule(behavior *Behavior, challengeType string, sinceIssue time.Durati
 var textKinds = map[string]bool{TypeImageDistort: true, TypeMotionNoise: true}
 
 func wellFormed(b *Behavior) bool {
-	if b.ElapsedMs < 0 || b.HiddenMs < 0 || b.HiddenMs > b.ElapsedMs || b.InputEvents < 0 || b.PasteEvents < 0 ||
-		b.UntrustedEvents < 0 || len(b.Pointer) > behaviorMaxPointer || len(b.KeyIntervalsMs) > behaviorMaxKeyIntervals ||
+	if b.ElapsedMs < 0 || b.HiddenMs < 0 || b.HiddenMs > b.ElapsedMs || !counted(b.InputEvents) || !counted(b.PasteEvents) ||
+		!counted(b.UntrustedEvents) || len(b.Pointer) > behaviorMaxPointer || len(b.KeyIntervalsMs) > behaviorMaxKeyIntervals ||
 		!slices.Contains(pointerTypes, b.PointerType) {
 		return false
 	}
@@ -136,6 +150,9 @@ func wellFormed(b *Behavior) bool {
 	}
 	return true
 }
+
+// counted reports whether an event count is one a person could produce.
+func counted(events int) bool { return events >= 0 && events <= behaviorMaxEvents }
 
 // evenPointer reports whether every stroke of a mouse or pen long enough to judge kept one speed.
 // Touch moves only while dragging, so it is not judged.

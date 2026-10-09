@@ -39,6 +39,8 @@ const (
 	ErrorReason_PLAN_NOT_RENEWABLE ErrorReason = 7
 	// Missing, or owned by another user.
 	ErrorReason_TRANSACTION_NOT_FOUND ErrorReason = 8
+	// The request body is larger than the endpoint accepts.
+	ErrorReason_PAYLOAD_TOO_LARGE ErrorReason = 9
 )
 
 // Enum value maps for ErrorReason.
@@ -53,6 +55,7 @@ var (
 		6: "PLAN_DOWNGRADE_NOT_ALLOWED",
 		7: "PLAN_NOT_RENEWABLE",
 		8: "TRANSACTION_NOT_FOUND",
+		9: "PAYLOAD_TOO_LARGE",
 	}
 	ErrorReason_value = map[string]int32{
 		"ERROR_REASON_UNSPECIFIED":   0,
@@ -64,6 +67,7 @@ var (
 		"PLAN_DOWNGRADE_NOT_ALLOWED": 6,
 		"PLAN_NOT_RENEWABLE":         7,
 		"TRANSACTION_NOT_FOUND":      8,
+		"PAYLOAD_TOO_LARGE":          9,
 	}
 )
 
@@ -99,7 +103,7 @@ var File_billing_v1_error_reason_proto protoreflect.FileDescriptor
 const file_billing_v1_error_reason_proto_rawDesc = "" +
 	"\n" +
 	"\x1dbilling/v1/error_reason.proto\x12\n" +
-	"billing.v1*\xdf\x01\n" +
+	"billing.v1*\xf6\x01\n" +
 	"\vErrorReason\x12\x1c\n" +
 	"\x18ERROR_REASON_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10INVALID_ARGUMENT\x10\x01\x12\x13\n" +
@@ -109,7 +113,8 @@ const file_billing_v1_error_reason_proto_rawDesc = "" +
 	"\x0ePLAN_NOT_FOUND\x10\x05\x12\x1e\n" +
 	"\x1aPLAN_DOWNGRADE_NOT_ALLOWED\x10\x06\x12\x16\n" +
 	"\x12PLAN_NOT_RENEWABLE\x10\a\x12\x19\n" +
-	"\x15TRANSACTION_NOT_FOUND\x10\bB\x1bZ\x19billing/api/billing/v1;v1b\x06proto3"
+	"\x15TRANSACTION_NOT_FOUND\x10\b\x12\x15\n" +
+	"\x11PAYLOAD_TOO_LARGE\x10\tB\x1bZ\x19billing/api/billing/v1;v1b\x06proto3"
 
 var (
 	file_billing_v1_error_reason_proto_rawDescOnce sync.Once

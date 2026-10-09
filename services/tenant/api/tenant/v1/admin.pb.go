@@ -614,8 +614,13 @@ type AdminApiKey struct {
 	// Today's scraping counters: challenges issued and answers checked.
 	ChallengesToday    int64 `protobuf:"varint,8,opt,name=challenges_today,json=challengesToday,proto3" json:"challenges_today,omitempty"`
 	VerificationsToday int64 `protobuf:"varint,9,opt,name=verifications_today,json=verificationsToday,proto3" json:"verifications_today,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// The scraping check flagged the key today and throttles it.
+	ScrapingFlagged bool `protobuf:"varint,10,opt,name=scraping_flagged,json=scrapingFlagged,proto3" json:"scraping_flagged,omitempty"`
+	// Right answers today, and answers judged automated.
+	SolvedToday    int64 `protobuf:"varint,11,opt,name=solved_today,json=solvedToday,proto3" json:"solved_today,omitempty"`
+	AutomatedToday int64 `protobuf:"varint,12,opt,name=automated_today,json=automatedToday,proto3" json:"automated_today,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *AdminApiKey) Reset() {
@@ -711,6 +716,295 @@ func (x *AdminApiKey) GetVerificationsToday() int64 {
 	return 0
 }
 
+func (x *AdminApiKey) GetScrapingFlagged() bool {
+	if x != nil {
+		return x.ScrapingFlagged
+	}
+	return false
+}
+
+func (x *AdminApiKey) GetSolvedToday() int64 {
+	if x != nil {
+		return x.SolvedToday
+	}
+	return 0
+}
+
+func (x *AdminApiKey) GetAutomatedToday() int64 {
+	if x != nil {
+		return x.AutomatedToday
+	}
+	return 0
+}
+
+type ListAppealsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// "pending" (the default when empty), "approved", "rejected" or "all".
+	Status        string `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListAppealsRequest) Reset() {
+	*x = ListAppealsRequest{}
+	mi := &file_tenant_v1_admin_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListAppealsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListAppealsRequest) ProtoMessage() {}
+
+func (x *ListAppealsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_tenant_v1_admin_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListAppealsRequest.ProtoReflect.Descriptor instead.
+func (*ListAppealsRequest) Descriptor() ([]byte, []int) {
+	return file_tenant_v1_admin_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *ListAppealsRequest) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+type AdminAppealSet struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Appeals       []*AdminAppeal         `protobuf:"bytes,1,rep,name=appeals,proto3" json:"appeals,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminAppealSet) Reset() {
+	*x = AdminAppealSet{}
+	mi := &file_tenant_v1_admin_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminAppealSet) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminAppealSet) ProtoMessage() {}
+
+func (x *AdminAppealSet) ProtoReflect() protoreflect.Message {
+	mi := &file_tenant_v1_admin_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminAppealSet.ProtoReflect.Descriptor instead.
+func (*AdminAppealSet) Descriptor() ([]byte, []int) {
+	return file_tenant_v1_admin_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *AdminAppealSet) GetAppeals() []*AdminAppeal {
+	if x != nil {
+		return x.Appeals
+	}
+	return nil
+}
+
+// AdminAppeal is a review an owner asked for, with the key and the owner.
+type AdminAppeal struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// "pending", "approved" or "rejected".
+	Status        string                 `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
+	Message       string                 `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
+	AdminNote     string                 `protobuf:"bytes,4,opt,name=admin_note,json=adminNote,proto3" json:"admin_note,omitempty"`
+	CreateDate    *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=create_date,json=createDate,proto3" json:"create_date,omitempty"`
+	DecidedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=decided_at,json=decidedAt,proto3" json:"decided_at,omitempty"`
+	ApiKey        *AdminApiKey           `protobuf:"bytes,7,opt,name=api_key,json=apiKey,proto3" json:"api_key,omitempty"`
+	UserId        string                 `protobuf:"bytes,8,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	UserEmail     string                 `protobuf:"bytes,9,opt,name=user_email,json=userEmail,proto3" json:"user_email,omitempty"`
+	UserName      string                 `protobuf:"bytes,10,opt,name=user_name,json=userName,proto3" json:"user_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminAppeal) Reset() {
+	*x = AdminAppeal{}
+	mi := &file_tenant_v1_admin_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminAppeal) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminAppeal) ProtoMessage() {}
+
+func (x *AdminAppeal) ProtoReflect() protoreflect.Message {
+	mi := &file_tenant_v1_admin_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminAppeal.ProtoReflect.Descriptor instead.
+func (*AdminAppeal) Descriptor() ([]byte, []int) {
+	return file_tenant_v1_admin_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *AdminAppeal) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *AdminAppeal) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *AdminAppeal) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *AdminAppeal) GetAdminNote() string {
+	if x != nil {
+		return x.AdminNote
+	}
+	return ""
+}
+
+func (x *AdminAppeal) GetCreateDate() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreateDate
+	}
+	return nil
+}
+
+func (x *AdminAppeal) GetDecidedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.DecidedAt
+	}
+	return nil
+}
+
+func (x *AdminAppeal) GetApiKey() *AdminApiKey {
+	if x != nil {
+		return x.ApiKey
+	}
+	return nil
+}
+
+func (x *AdminAppeal) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *AdminAppeal) GetUserEmail() string {
+	if x != nil {
+		return x.UserEmail
+	}
+	return ""
+}
+
+func (x *AdminAppeal) GetUserName() string {
+	if x != nil {
+		return x.UserName
+	}
+	return ""
+}
+
+type DecideAppealRequest struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	AppealId string                 `protobuf:"bytes,1,opt,name=appeal_id,json=appealId,proto3" json:"appeal_id,omitempty"`
+	Approve  bool                   `protobuf:"varint,2,opt,name=approve,proto3" json:"approve,omitempty"`
+	// Shown to the owner, at most 2000 characters.
+	Note          string `protobuf:"bytes,3,opt,name=note,proto3" json:"note,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DecideAppealRequest) Reset() {
+	*x = DecideAppealRequest{}
+	mi := &file_tenant_v1_admin_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DecideAppealRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DecideAppealRequest) ProtoMessage() {}
+
+func (x *DecideAppealRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_tenant_v1_admin_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DecideAppealRequest.ProtoReflect.Descriptor instead.
+func (*DecideAppealRequest) Descriptor() ([]byte, []int) {
+	return file_tenant_v1_admin_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *DecideAppealRequest) GetAppealId() string {
+	if x != nil {
+		return x.AppealId
+	}
+	return ""
+}
+
+func (x *DecideAppealRequest) GetApprove() bool {
+	if x != nil {
+		return x.Approve
+	}
+	return false
+}
+
+func (x *DecideAppealRequest) GetNote() string {
+	if x != nil {
+		return x.Note
+	}
+	return ""
+}
+
 type SetApiKeySuspendedRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ApiKeyId      string                 `protobuf:"bytes,1,opt,name=api_key_id,json=apiKeyId,proto3" json:"api_key_id,omitempty"`
@@ -721,7 +1015,7 @@ type SetApiKeySuspendedRequest struct {
 
 func (x *SetApiKeySuspendedRequest) Reset() {
 	*x = SetApiKeySuspendedRequest{}
-	mi := &file_tenant_v1_admin_proto_msgTypes[11]
+	mi := &file_tenant_v1_admin_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -733,7 +1027,7 @@ func (x *SetApiKeySuspendedRequest) String() string {
 func (*SetApiKeySuspendedRequest) ProtoMessage() {}
 
 func (x *SetApiKeySuspendedRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tenant_v1_admin_proto_msgTypes[11]
+	mi := &file_tenant_v1_admin_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -746,7 +1040,7 @@ func (x *SetApiKeySuspendedRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetApiKeySuspendedRequest.ProtoReflect.Descriptor instead.
 func (*SetApiKeySuspendedRequest) Descriptor() ([]byte, []int) {
-	return file_tenant_v1_admin_proto_rawDescGZIP(), []int{11}
+	return file_tenant_v1_admin_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *SetApiKeySuspendedRequest) GetApiKeyId() string {
@@ -779,7 +1073,7 @@ type AdminUsageRequest struct {
 
 func (x *AdminUsageRequest) Reset() {
 	*x = AdminUsageRequest{}
-	mi := &file_tenant_v1_admin_proto_msgTypes[12]
+	mi := &file_tenant_v1_admin_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -791,7 +1085,7 @@ func (x *AdminUsageRequest) String() string {
 func (*AdminUsageRequest) ProtoMessage() {}
 
 func (x *AdminUsageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tenant_v1_admin_proto_msgTypes[12]
+	mi := &file_tenant_v1_admin_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -804,7 +1098,7 @@ func (x *AdminUsageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminUsageRequest.ProtoReflect.Descriptor instead.
 func (*AdminUsageRequest) Descriptor() ([]byte, []int) {
-	return file_tenant_v1_admin_proto_rawDescGZIP(), []int{12}
+	return file_tenant_v1_admin_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *AdminUsageRequest) GetUserId() string {
@@ -881,7 +1175,7 @@ const file_tenant_v1_admin_proto_rawDesc = "" +
 	"\x16ListUserApiKeysRequest\x12\x1c\n" +
 	"\auser_id\x18\x01 \x01(\tB\x03\xe0A\x02R\x06userId\"C\n" +
 	"\x0eAdminApiKeySet\x121\n" +
-	"\bapi_keys\x18\x01 \x03(\v2\x16.tenant.v1.AdminApiKeyR\aapiKeys\"\xcc\x02\n" +
+	"\bapi_keys\x18\x01 \x03(\v2\x16.tenant.v1.AdminApiKeyR\aapiKeys\"\xc3\x03\n" +
 	"\vAdminApiKey\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x19\n" +
@@ -892,7 +1186,35 @@ const file_tenant_v1_admin_proto_rawDesc = "" +
 	"\vcreate_date\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\n" +
 	"createDate\x12)\n" +
 	"\x10challenges_today\x18\b \x01(\x03R\x0fchallengesToday\x12/\n" +
-	"\x13verifications_today\x18\t \x01(\x03R\x12verificationsToday\"\\\n" +
+	"\x13verifications_today\x18\t \x01(\x03R\x12verificationsToday\x12)\n" +
+	"\x10scraping_flagged\x18\n" +
+	" \x01(\bR\x0fscrapingFlagged\x12!\n" +
+	"\fsolved_today\x18\v \x01(\x03R\vsolvedToday\x12'\n" +
+	"\x0fautomated_today\x18\f \x01(\x03R\x0eautomatedToday\",\n" +
+	"\x12ListAppealsRequest\x12\x16\n" +
+	"\x06status\x18\x01 \x01(\tR\x06status\"B\n" +
+	"\x0eAdminAppealSet\x120\n" +
+	"\aappeals\x18\x01 \x03(\v2\x16.tenant.v1.AdminAppealR\aappeals\"\xec\x02\n" +
+	"\vAdminAppeal\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\tR\x06status\x12\x18\n" +
+	"\amessage\x18\x03 \x01(\tR\amessage\x12\x1d\n" +
+	"\n" +
+	"admin_note\x18\x04 \x01(\tR\tadminNote\x12;\n" +
+	"\vcreate_date\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"createDate\x129\n" +
+	"\n" +
+	"decided_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tdecidedAt\x12/\n" +
+	"\aapi_key\x18\a \x01(\v2\x16.tenant.v1.AdminApiKeyR\x06apiKey\x12\x17\n" +
+	"\auser_id\x18\b \x01(\tR\x06userId\x12\x1d\n" +
+	"\n" +
+	"user_email\x18\t \x01(\tR\tuserEmail\x12\x1b\n" +
+	"\tuser_name\x18\n" +
+	" \x01(\tR\buserName\"e\n" +
+	"\x13DecideAppealRequest\x12 \n" +
+	"\tappeal_id\x18\x01 \x01(\tB\x03\xe0A\x02R\bappealId\x12\x18\n" +
+	"\aapprove\x18\x02 \x01(\bR\aapprove\x12\x12\n" +
+	"\x04note\x18\x03 \x01(\tR\x04note\"\\\n" +
 	"\x19SetApiKeySuspendedRequest\x12!\n" +
 	"\n" +
 	"api_key_id\x18\x01 \x01(\tB\x03\xe0A\x02R\bapiKeyId\x12\x1c\n" +
@@ -902,7 +1224,7 @@ const file_tenant_v1_admin_proto_rawDesc = "" +
 	"\n" +
 	"api_key_id\x18\x02 \x01(\tR\bapiKeyId\x12\x12\n" +
 	"\x04days\x18\x03 \x01(\x05R\x04days\x12\x19\n" +
-	"\ball_time\x18\x04 \x01(\bR\aallTime2\xbf\x06\n" +
+	"\ball_time\x18\x04 \x01(\bR\aallTime2\x9e\b\n" +
 	"\fAdminService\x12N\n" +
 	"\bGetAdmin\x12\x1a.tenant.v1.GetAdminRequest\x1a\x10.tenant.v1.Admin\"\x14\x82\xd3\xe4\x93\x02\x0e\x12\f/v1/admin/me\x12V\n" +
 	"\bGetStats\x12\x1a.tenant.v1.GetStatsRequest\x1a\x15.tenant.v1.AdminStats\"\x17\x82\xd3\xe4\x93\x02\x11\x12\x0f/v1/admin/stats\x12V\n" +
@@ -910,7 +1232,9 @@ const file_tenant_v1_admin_proto_rawDesc = "" +
 	"\aGetUser\x12\x19.tenant.v1.GetUserRequest\x1a\x14.tenant.v1.AdminUser\"!\x82\xd3\xe4\x93\x02\x1b\x12\x19/v1/admin/users/{user_id}\x12s\n" +
 	"\rSetUserBanned\x12\x1f.tenant.v1.SetUserBannedRequest\x1a\x14.tenant.v1.AdminUser\"+\x82\xd3\xe4\x93\x02%:\x01*\" /v1/admin/users/{user_id}/banned\x12{\n" +
 	"\x0fListUserApiKeys\x12!.tenant.v1.ListUserApiKeysRequest\x1a\x19.tenant.v1.AdminApiKeySet\"*\x82\xd3\xe4\x93\x02$\x12\"/v1/admin/users/{user_id}/api-keys\x12\x88\x01\n" +
-	"\x12SetApiKeySuspended\x12$.tenant.v1.SetApiKeySuspendedRequest\x1a\x16.tenant.v1.AdminApiKey\"4\x82\xd3\xe4\x93\x02.:\x01*\")/v1/admin/api-keys/{api_key_id}/suspended\x12S\n" +
+	"\x12SetApiKeySuspended\x12$.tenant.v1.SetApiKeySuspendedRequest\x1a\x16.tenant.v1.AdminApiKey\"4\x82\xd3\xe4\x93\x02.:\x01*\")/v1/admin/api-keys/{api_key_id}/suspended\x12b\n" +
+	"\vListAppeals\x12\x1d.tenant.v1.ListAppealsRequest\x1a\x19.tenant.v1.AdminAppealSet\"\x19\x82\xd3\xe4\x93\x02\x13\x12\x11/v1/admin/appeals\x12y\n" +
+	"\fDecideAppeal\x12\x1e.tenant.v1.DecideAppealRequest\x1a\x16.tenant.v1.AdminAppeal\"1\x82\xd3\xe4\x93\x02+:\x01*\"&/v1/admin/appeals/{appeal_id}/decision\x12S\n" +
 	"\bGetUsage\x12\x1c.tenant.v1.AdminUsageRequest\x1a\x10.tenant.v1.Usage\"\x17\x82\xd3\xe4\x93\x02\x11\x12\x0f/v1/admin/usageB\x19Z\x17tenant/api/tenant/v1;v1b\x06proto3"
 
 var (
@@ -925,7 +1249,7 @@ func file_tenant_v1_admin_proto_rawDescGZIP() []byte {
 	return file_tenant_v1_admin_proto_rawDescData
 }
 
-var file_tenant_v1_admin_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_tenant_v1_admin_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_tenant_v1_admin_proto_goTypes = []any{
 	(*GetAdminRequest)(nil),           // 0: tenant.v1.GetAdminRequest
 	(*GetStatsRequest)(nil),           // 1: tenant.v1.GetStatsRequest
@@ -938,39 +1262,51 @@ var file_tenant_v1_admin_proto_goTypes = []any{
 	(*ListUserApiKeysRequest)(nil),    // 8: tenant.v1.ListUserApiKeysRequest
 	(*AdminApiKeySet)(nil),            // 9: tenant.v1.AdminApiKeySet
 	(*AdminApiKey)(nil),               // 10: tenant.v1.AdminApiKey
-	(*SetApiKeySuspendedRequest)(nil), // 11: tenant.v1.SetApiKeySuspendedRequest
-	(*AdminUsageRequest)(nil),         // 12: tenant.v1.AdminUsageRequest
-	(*timestamppb.Timestamp)(nil),     // 13: google.protobuf.Timestamp
-	(*Admin)(nil),                     // 14: tenant.v1.Admin
-	(*Usage)(nil),                     // 15: tenant.v1.Usage
+	(*ListAppealsRequest)(nil),        // 11: tenant.v1.ListAppealsRequest
+	(*AdminAppealSet)(nil),            // 12: tenant.v1.AdminAppealSet
+	(*AdminAppeal)(nil),               // 13: tenant.v1.AdminAppeal
+	(*DecideAppealRequest)(nil),       // 14: tenant.v1.DecideAppealRequest
+	(*SetApiKeySuspendedRequest)(nil), // 15: tenant.v1.SetApiKeySuspendedRequest
+	(*AdminUsageRequest)(nil),         // 16: tenant.v1.AdminUsageRequest
+	(*timestamppb.Timestamp)(nil),     // 17: google.protobuf.Timestamp
+	(*Admin)(nil),                     // 18: tenant.v1.Admin
+	(*Usage)(nil),                     // 19: tenant.v1.Usage
 }
 var file_tenant_v1_admin_proto_depIdxs = []int32{
 	5,  // 0: tenant.v1.UserPage.users:type_name -> tenant.v1.AdminUser
-	13, // 1: tenant.v1.AdminUser.create_date:type_name -> google.protobuf.Timestamp
-	13, // 2: tenant.v1.AdminUser.tier_expires_at:type_name -> google.protobuf.Timestamp
+	17, // 1: tenant.v1.AdminUser.create_date:type_name -> google.protobuf.Timestamp
+	17, // 2: tenant.v1.AdminUser.tier_expires_at:type_name -> google.protobuf.Timestamp
 	10, // 3: tenant.v1.AdminApiKeySet.api_keys:type_name -> tenant.v1.AdminApiKey
-	13, // 4: tenant.v1.AdminApiKey.create_date:type_name -> google.protobuf.Timestamp
-	0,  // 5: tenant.v1.AdminService.GetAdmin:input_type -> tenant.v1.GetAdminRequest
-	1,  // 6: tenant.v1.AdminService.GetStats:input_type -> tenant.v1.GetStatsRequest
-	3,  // 7: tenant.v1.AdminService.ListUsers:input_type -> tenant.v1.ListUsersRequest
-	6,  // 8: tenant.v1.AdminService.GetUser:input_type -> tenant.v1.GetUserRequest
-	7,  // 9: tenant.v1.AdminService.SetUserBanned:input_type -> tenant.v1.SetUserBannedRequest
-	8,  // 10: tenant.v1.AdminService.ListUserApiKeys:input_type -> tenant.v1.ListUserApiKeysRequest
-	11, // 11: tenant.v1.AdminService.SetApiKeySuspended:input_type -> tenant.v1.SetApiKeySuspendedRequest
-	12, // 12: tenant.v1.AdminService.GetUsage:input_type -> tenant.v1.AdminUsageRequest
-	14, // 13: tenant.v1.AdminService.GetAdmin:output_type -> tenant.v1.Admin
-	2,  // 14: tenant.v1.AdminService.GetStats:output_type -> tenant.v1.AdminStats
-	4,  // 15: tenant.v1.AdminService.ListUsers:output_type -> tenant.v1.UserPage
-	5,  // 16: tenant.v1.AdminService.GetUser:output_type -> tenant.v1.AdminUser
-	5,  // 17: tenant.v1.AdminService.SetUserBanned:output_type -> tenant.v1.AdminUser
-	9,  // 18: tenant.v1.AdminService.ListUserApiKeys:output_type -> tenant.v1.AdminApiKeySet
-	10, // 19: tenant.v1.AdminService.SetApiKeySuspended:output_type -> tenant.v1.AdminApiKey
-	15, // 20: tenant.v1.AdminService.GetUsage:output_type -> tenant.v1.Usage
-	13, // [13:21] is the sub-list for method output_type
-	5,  // [5:13] is the sub-list for method input_type
-	5,  // [5:5] is the sub-list for extension type_name
-	5,  // [5:5] is the sub-list for extension extendee
-	0,  // [0:5] is the sub-list for field type_name
+	17, // 4: tenant.v1.AdminApiKey.create_date:type_name -> google.protobuf.Timestamp
+	13, // 5: tenant.v1.AdminAppealSet.appeals:type_name -> tenant.v1.AdminAppeal
+	17, // 6: tenant.v1.AdminAppeal.create_date:type_name -> google.protobuf.Timestamp
+	17, // 7: tenant.v1.AdminAppeal.decided_at:type_name -> google.protobuf.Timestamp
+	10, // 8: tenant.v1.AdminAppeal.api_key:type_name -> tenant.v1.AdminApiKey
+	0,  // 9: tenant.v1.AdminService.GetAdmin:input_type -> tenant.v1.GetAdminRequest
+	1,  // 10: tenant.v1.AdminService.GetStats:input_type -> tenant.v1.GetStatsRequest
+	3,  // 11: tenant.v1.AdminService.ListUsers:input_type -> tenant.v1.ListUsersRequest
+	6,  // 12: tenant.v1.AdminService.GetUser:input_type -> tenant.v1.GetUserRequest
+	7,  // 13: tenant.v1.AdminService.SetUserBanned:input_type -> tenant.v1.SetUserBannedRequest
+	8,  // 14: tenant.v1.AdminService.ListUserApiKeys:input_type -> tenant.v1.ListUserApiKeysRequest
+	15, // 15: tenant.v1.AdminService.SetApiKeySuspended:input_type -> tenant.v1.SetApiKeySuspendedRequest
+	11, // 16: tenant.v1.AdminService.ListAppeals:input_type -> tenant.v1.ListAppealsRequest
+	14, // 17: tenant.v1.AdminService.DecideAppeal:input_type -> tenant.v1.DecideAppealRequest
+	16, // 18: tenant.v1.AdminService.GetUsage:input_type -> tenant.v1.AdminUsageRequest
+	18, // 19: tenant.v1.AdminService.GetAdmin:output_type -> tenant.v1.Admin
+	2,  // 20: tenant.v1.AdminService.GetStats:output_type -> tenant.v1.AdminStats
+	4,  // 21: tenant.v1.AdminService.ListUsers:output_type -> tenant.v1.UserPage
+	5,  // 22: tenant.v1.AdminService.GetUser:output_type -> tenant.v1.AdminUser
+	5,  // 23: tenant.v1.AdminService.SetUserBanned:output_type -> tenant.v1.AdminUser
+	9,  // 24: tenant.v1.AdminService.ListUserApiKeys:output_type -> tenant.v1.AdminApiKeySet
+	10, // 25: tenant.v1.AdminService.SetApiKeySuspended:output_type -> tenant.v1.AdminApiKey
+	12, // 26: tenant.v1.AdminService.ListAppeals:output_type -> tenant.v1.AdminAppealSet
+	13, // 27: tenant.v1.AdminService.DecideAppeal:output_type -> tenant.v1.AdminAppeal
+	19, // 28: tenant.v1.AdminService.GetUsage:output_type -> tenant.v1.Usage
+	19, // [19:29] is the sub-list for method output_type
+	9,  // [9:19] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_tenant_v1_admin_proto_init() }
@@ -986,7 +1322,7 @@ func file_tenant_v1_admin_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_tenant_v1_admin_proto_rawDesc), len(file_tenant_v1_admin_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   13,
+			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

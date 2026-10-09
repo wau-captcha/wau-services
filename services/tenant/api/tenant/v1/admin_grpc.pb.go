@@ -26,6 +26,8 @@ const (
 	AdminService_SetUserBanned_FullMethodName      = "/tenant.v1.AdminService/SetUserBanned"
 	AdminService_ListUserApiKeys_FullMethodName    = "/tenant.v1.AdminService/ListUserApiKeys"
 	AdminService_SetApiKeySuspended_FullMethodName = "/tenant.v1.AdminService/SetApiKeySuspended"
+	AdminService_ListAppeals_FullMethodName        = "/tenant.v1.AdminService/ListAppeals"
+	AdminService_DecideAppeal_FullMethodName       = "/tenant.v1.AdminService/DecideAppeal"
 	AdminService_GetUsage_FullMethodName           = "/tenant.v1.AdminService/GetUsage"
 )
 
@@ -52,6 +54,12 @@ type AdminServiceClient interface {
 	// SetApiKeySuspended suspends a key or lifts its suspension. Lifting it also resets
 	// today's scraping counters of the key, so it is not suspended again at once.
 	SetApiKeySuspended(ctx context.Context, in *SetApiKeySuspendedRequest, opts ...grpc.CallOption) (*AdminApiKey, error)
+	// ListAppeals returns the reviews owners asked for, newest first: the pending ones unless
+	// status says otherwise.
+	ListAppeals(ctx context.Context, in *ListAppealsRequest, opts ...grpc.CallOption) (*AdminAppealSet, error)
+	// DecideAppeal approves a pending appeal, which lifts the suspension of the key and clears its
+	// flag, or rejects it, with a note the owner sees.
+	DecideAppeal(ctx context.Context, in *DecideAppealRequest, opts ...grpc.CallOption) (*AdminAppeal, error)
 	// GetUsage reports challenges, answers and right answers of the whole system, of one account,
 	// or of one key.
 	// by_api_key is only filled in for one account or one key.
@@ -136,6 +144,26 @@ func (c *adminServiceClient) SetApiKeySuspended(ctx context.Context, in *SetApiK
 	return out, nil
 }
 
+func (c *adminServiceClient) ListAppeals(ctx context.Context, in *ListAppealsRequest, opts ...grpc.CallOption) (*AdminAppealSet, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminAppealSet)
+	err := c.cc.Invoke(ctx, AdminService_ListAppeals_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminServiceClient) DecideAppeal(ctx context.Context, in *DecideAppealRequest, opts ...grpc.CallOption) (*AdminAppeal, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminAppeal)
+	err := c.cc.Invoke(ctx, AdminService_DecideAppeal_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *adminServiceClient) GetUsage(ctx context.Context, in *AdminUsageRequest, opts ...grpc.CallOption) (*Usage, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Usage)
@@ -169,6 +197,12 @@ type AdminServiceServer interface {
 	// SetApiKeySuspended suspends a key or lifts its suspension. Lifting it also resets
 	// today's scraping counters of the key, so it is not suspended again at once.
 	SetApiKeySuspended(context.Context, *SetApiKeySuspendedRequest) (*AdminApiKey, error)
+	// ListAppeals returns the reviews owners asked for, newest first: the pending ones unless
+	// status says otherwise.
+	ListAppeals(context.Context, *ListAppealsRequest) (*AdminAppealSet, error)
+	// DecideAppeal approves a pending appeal, which lifts the suspension of the key and clears its
+	// flag, or rejects it, with a note the owner sees.
+	DecideAppeal(context.Context, *DecideAppealRequest) (*AdminAppeal, error)
 	// GetUsage reports challenges, answers and right answers of the whole system, of one account,
 	// or of one key.
 	// by_api_key is only filled in for one account or one key.
@@ -203,6 +237,12 @@ func (UnimplementedAdminServiceServer) ListUserApiKeys(context.Context, *ListUse
 }
 func (UnimplementedAdminServiceServer) SetApiKeySuspended(context.Context, *SetApiKeySuspendedRequest) (*AdminApiKey, error) {
 	return nil, status.Error(codes.Unimplemented, "method SetApiKeySuspended not implemented")
+}
+func (UnimplementedAdminServiceServer) ListAppeals(context.Context, *ListAppealsRequest) (*AdminAppealSet, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListAppeals not implemented")
+}
+func (UnimplementedAdminServiceServer) DecideAppeal(context.Context, *DecideAppealRequest) (*AdminAppeal, error) {
+	return nil, status.Error(codes.Unimplemented, "method DecideAppeal not implemented")
 }
 func (UnimplementedAdminServiceServer) GetUsage(context.Context, *AdminUsageRequest) (*Usage, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetUsage not implemented")
@@ -354,6 +394,42 @@ func _AdminService_SetApiKeySuspended_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AdminService_ListAppeals_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAppealsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).ListAppeals(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_ListAppeals_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).ListAppeals(ctx, req.(*ListAppealsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AdminService_DecideAppeal_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DecideAppealRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).DecideAppeal(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_DecideAppeal_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).DecideAppeal(ctx, req.(*DecideAppealRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _AdminService_GetUsage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(AdminUsageRequest)
 	if err := dec(in); err != nil {
@@ -406,6 +482,14 @@ var AdminService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SetApiKeySuspended",
 			Handler:    _AdminService_SetApiKeySuspended_Handler,
+		},
+		{
+			MethodName: "ListAppeals",
+			Handler:    _AdminService_ListAppeals_Handler,
+		},
+		{
+			MethodName: "DecideAppeal",
+			Handler:    _AdminService_DecideAppeal_Handler,
 		},
 		{
 			MethodName: "GetUsage",

@@ -56,6 +56,21 @@ service AdminService {
     };
   }
 
+  // ListAppeals returns the reviews owners asked for, newest first: the pending ones unless
+  // status says otherwise.
+  rpc ListAppeals(ListAppealsRequest) returns (AdminAppealSet) {
+    option (google.api.http) = {get: "/v1/admin/appeals"};
+  }
+
+  // DecideAppeal approves a pending appeal, which lifts the suspension of the key and clears its
+  // flag, or rejects it, with a note the owner sees.
+  rpc DecideAppeal(DecideAppealRequest) returns (AdminAppeal) {
+    option (google.api.http) = {
+      post: "/v1/admin/appeals/{appeal_id}/decision"
+      body: "*"
+    };
+  }
+
   // GetUsage reports challenges, answers and right answers of the whole system, of one account,
   // or of one key.
   // by_api_key is only filled in for one account or one key.
@@ -144,6 +159,42 @@ message AdminApiKey {
   // Today's scraping counters: challenges issued and answers checked.
   int64 challenges_today = 8;
   int64 verifications_today = 9;
+  // The scraping check flagged the key today and throttles it.
+  bool scraping_flagged = 10;
+  // Right answers today, and answers judged automated.
+  int64 solved_today = 11;
+  int64 automated_today = 12;
+}
+
+message ListAppealsRequest {
+  // "pending" (the default when empty), "approved", "rejected" or "all".
+  string status = 1;
+}
+
+message AdminAppealSet {
+  repeated AdminAppeal appeals = 1;
+}
+
+// AdminAppeal is a review an owner asked for, with the key and the owner.
+message AdminAppeal {
+  string id = 1;
+  // "pending", "approved" or "rejected".
+  string status = 2;
+  string message = 3;
+  string admin_note = 4;
+  google.protobuf.Timestamp create_date = 5;
+  google.protobuf.Timestamp decided_at = 6;
+  AdminApiKey api_key = 7;
+  string user_id = 8;
+  string user_email = 9;
+  string user_name = 10;
+}
+
+message DecideAppealRequest {
+  string appeal_id = 1 [(google.api.field_behavior) = REQUIRED];
+  bool approve = 2;
+  // Shown to the owner, at most 2000 characters.
+  string note = 3;
 }
 
 message SetApiKeySuspendedRequest {

@@ -15,8 +15,8 @@ import (
 // SepayIPNPath is the IPN URL path to enter in SePay (Cổng thanh toán → Cấu hình → IPN).
 const SepayIPNPath = "/v1/billing/sepay/ipn"
 
-// maxNotificationBytes bounds an IPN body; SePay's are about 2 KB.
-const maxNotificationBytes = 64 << 10
+// maxNotificationBytes bounds an IPN body, as the server's body filter does; SePay's are about 2 KB.
+const maxNotificationBytes = 16 << 10
 
 // SepayIPN receives SePay's payment notifications. It is a plain HTTP handler because SePay,
 // not a WAU client, decides the request shape and authenticates with X-Secret-Key.
@@ -47,6 +47,11 @@ func (h *SepayIPN) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var notification sepayNotification
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxNotificationBytes)).Decode(&notification); err != nil {
 		log.ErrorContext(ctx, "sepay ipn unreadable", "err", err)
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			reply(w, http.StatusRequestEntityTooLarge, false)
+			return
+		}
 		reply(w, http.StatusBadRequest, false)
 		return
 	}

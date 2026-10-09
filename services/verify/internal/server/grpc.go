@@ -14,6 +14,7 @@ func NewGRPCServer(serverConf *conf.Server, verify *service.VerifyService) *grpc
 	var opts = []grpc.ServerOption{
 		grpc.Middleware(
 			recovery.Recovery(),
+			sanitizeErrors(),
 		),
 	}
 	if serverConf.Grpc.Network != "" {

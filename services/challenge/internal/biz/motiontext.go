@@ -11,7 +11,7 @@ import (
 )
 
 // firaSansBold is Fira Sans Bold (SIL Open Font License, fonts/OFL.txt): heavy strokes, open
-// counters and narrow capitals, so four of them fill the frame.
+// counters and narrow capitals, so five of them still fit the frame at a size the eye follows.
 //
 //go:embed fonts/FiraSans-Bold.ttf
 var firaSansBold []byte

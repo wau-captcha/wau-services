@@ -41,6 +41,11 @@ spec:
               value: http://tenant:8002
             - name: WAU_BILLING_URL
               value: http://billing:8003
+            # /status checks the /healthz of every service, inside the cluster too.
+            - name: WAU_CHALLENGE_URL
+              value: http://challenge:8000
+            - name: WAU_VERIFY_URL
+              value: http://verify:8001
             # Only shown to customers, in the code samples.
             - name: WAU_PUBLIC_API_URL
               value: https://api.waucaptcha.com

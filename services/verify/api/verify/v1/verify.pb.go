@@ -31,8 +31,14 @@ type VerifyChallengeRequest struct {
 	// CheckAnswerRequest.answer.
 	Answer string `protobuf:"bytes,2,opt,name=answer,proto3" json:"answer,omitempty"`
 	// How the person behaved while the challenge was on screen, as the SDK records it. Optional:
-	// without it only the answer is checked, as before.
-	Behavior      *Behavior `protobuf:"bytes,3,opt,name=behavior,proto3" json:"behavior,omitempty"`
+	// without it only the answer is checked, as before, unless the key requires it.
+	Behavior *Behavior `protobuf:"bytes,3,opt,name=behavior,proto3" json:"behavior,omitempty"`
+	// The site key of the widget: an answer to a challenge of another key is wrong. Optional, for
+	// SDKs before 1.3.0.
+	SiteKey string `protobuf:"bytes,4,opt,name=site_key,json=siteKey,proto3" json:"site_key,omitempty"`
+	// The proof of work for the pow_salt and pow_difficulty of the challenge (see /challenge/new).
+	// Optional, for SDKs before 1.3.0: without it the verdict is at most "suspicious".
+	PowNonce      string `protobuf:"bytes,5,opt,name=pow_nonce,json=powNonce,proto3" json:"pow_nonce,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -86,6 +92,20 @@ func (x *VerifyChallengeRequest) GetBehavior() *Behavior {
 		return x.Behavior
 	}
 	return nil
+}
+
+func (x *VerifyChallengeRequest) GetSiteKey() string {
+	if x != nil {
+		return x.SiteKey
+	}
+	return ""
+}
+
+func (x *VerifyChallengeRequest) GetPowNonce() string {
+	if x != nil {
+		return x.PowNonce
+	}
+	return ""
 }
 
 type VerifyChallengeReply struct {
@@ -202,7 +222,11 @@ type SiteVerifyReply struct {
 	ChallengeTs *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=challenge_ts,json=challengeTs,proto3" json:"challenge_ts,omitempty"`
 	// What the behaviour check concluded about the answer behind the token, set when success is
 	// true. Answers judged "automated" never get a token.
-	Behavior      *BehaviorResult `protobuf:"bytes,4,opt,name=behavior,proto3" json:"behavior,omitempty"`
+	Behavior *BehaviorResult `protobuf:"bytes,4,opt,name=behavior,proto3" json:"behavior,omitempty"`
+	// Host name of the website the challenge was solved on, from the Origin of the browser's
+	// requests: compare it with your own. A script outside a browser can forge it. Empty when the
+	// challenge was asked for without an origin.
+	Hostname      string `protobuf:"bytes,5,opt,name=hostname,proto3" json:"hostname,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -265,6 +289,13 @@ func (x *SiteVerifyReply) GetBehavior() *BehaviorResult {
 	return nil
 }
 
+func (x *SiteVerifyReply) GetHostname() string {
+	if x != nil {
+		return x.Hostname
+	}
+	return ""
+}
+
 // Behavior is what the SDK records from the moment a challenge is shown (its image has loaded) to
 // the moment its answer is sent. Times are milliseconds since it was shown; x and y are CSS pixels
 // from the top-left corner of the widget. Key values, page content and anything outside that time
@@ -290,9 +321,16 @@ type Behavior struct {
 	// navigator.webdriver: the browser says it is under automation.
 	Webdriver bool `protobuf:"varint,9,opt,name=webdriver,proto3" json:"webdriver,omitempty"`
 	// Time the page was hidden while the challenge was on screen.
-	HiddenMs      int32 `protobuf:"varint,10,opt,name=hidden_ms,json=hiddenMs,proto3" json:"hidden_ms,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	HiddenMs int32 `protobuf:"varint,10,opt,name=hidden_ms,json=hiddenMs,proto3" json:"hidden_ms,omitempty"`
+	// Hints the browser gives about itself. A script can fake them, so they only lower the score:
+	// navigator.userAgent names HeadlessChrome,
+	HeadlessUa bool `protobuf:"varint,11,opt,name=headless_ua,json=headlessUa,proto3" json:"headless_ua,omitempty"`
+	// navigator.languages is empty,
+	NoLanguages bool `protobuf:"varint,12,opt,name=no_languages,json=noLanguages,proto3" json:"no_languages,omitempty"`
+	// or the user agent says Chrome but window.chrome is missing.
+	ChromeWithoutWindowChrome bool `protobuf:"varint,13,opt,name=chrome_without_window_chrome,json=chromeWithoutWindowChrome,proto3" json:"chrome_without_window_chrome,omitempty"`
+	unknownFields             protoimpl.UnknownFields
+	sizeCache                 protoimpl.SizeCache
 }
 
 func (x *Behavior) Reset() {
@@ -395,6 +433,27 @@ func (x *Behavior) GetHiddenMs() int32 {
 	return 0
 }
 
+func (x *Behavior) GetHeadlessUa() bool {
+	if x != nil {
+		return x.HeadlessUa
+	}
+	return false
+}
+
+func (x *Behavior) GetNoLanguages() bool {
+	if x != nil {
+		return x.NoLanguages
+	}
+	return false
+}
+
+func (x *Behavior) GetChromeWithoutWindowChrome() bool {
+	if x != nil {
+		return x.ChromeWithoutWindowChrome
+	}
+	return false
+}
+
 type PointerSample struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Milliseconds since the challenge was shown.
@@ -459,8 +518,9 @@ func (x *PointerSample) GetY() float32 {
 // BehaviorResult is what the behaviour check concluded about the answer behind a token.
 type BehaviorResult struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// "human"; "suspicious" (the answer counted, decide for yourself, e.g. refuse it for sensitive
-	// actions); "not_measured" (the client sent no behaviour, so only the answer was checked).
+	// "human"; "suspicious" (the answer counted, decide for yourself, e.g. refuse it for sign-ups and
+	// logins); "not_measured" (the client sent no behaviour, an SDK before 1.2.0 or a hand-written
+	// integration: treat it as untrusted).
 	Verdict string `protobuf:"bytes,1,opt,name=verdict,proto3" json:"verdict,omitempty"`
 	// From 0 (scripted) to 1 (human-like); unset when not measured.
 	Score *float64 `protobuf:"fixed64,2,opt,name=score,proto3,oneof" json:"score,omitempty"`
@@ -525,23 +585,26 @@ var File_verify_v1_verify_proto protoreflect.FileDescriptor
 
 const file_verify_v1_verify_proto_rawDesc = "" +
 	"\n" +
-	"\x16verify/v1/verify.proto\x12\tverify.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x8e\x01\n" +
+	"\x16verify/v1/verify.proto\x12\tverify.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xc6\x01\n" +
 	"\x16VerifyChallengeRequest\x12&\n" +
 	"\fchallenge_id\x18\x01 \x01(\tB\x03\xe0A\x02R\vchallengeId\x12\x1b\n" +
 	"\x06answer\x18\x02 \x01(\tB\x03\xe0A\x02R\x06answer\x12/\n" +
-	"\bbehavior\x18\x03 \x01(\v2\x13.verify.v1.BehaviorR\bbehavior\"e\n" +
+	"\bbehavior\x18\x03 \x01(\v2\x13.verify.v1.BehaviorR\bbehavior\x12\x19\n" +
+	"\bsite_key\x18\x04 \x01(\tR\asiteKey\x12\x1b\n" +
+	"\tpow_nonce\x18\x05 \x01(\tR\bpowNonce\"e\n" +
 	"\x14VerifyChallengeReply\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x14\n" +
 	"\x05token\x18\x02 \x01(\tR\x05token\x12\x1d\n" +
 	"\n" +
 	"expires_in\x18\x03 \x01(\x05R\texpiresIn\".\n" +
 	"\x11SiteVerifyRequest\x12\x19\n" +
-	"\x05token\x18\x01 \x01(\tB\x03\xe0A\x02R\x05token\"\xc8\x01\n" +
+	"\x05token\x18\x01 \x01(\tB\x03\xe0A\x02R\x05token\"\xe4\x01\n" +
 	"\x0fSiteVerifyReply\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12%\n" +
 	"\x0echallenge_type\x18\x02 \x01(\tR\rchallengeType\x12=\n" +
 	"\fchallenge_ts\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\vchallengeTs\x125\n" +
-	"\bbehavior\x18\x04 \x01(\v2\x19.verify.v1.BehaviorResultR\bbehavior\"\xf0\x02\n" +
+	"\bbehavior\x18\x04 \x01(\v2\x19.verify.v1.BehaviorResultR\bbehavior\x12\x1a\n" +
+	"\bhostname\x18\x05 \x01(\tR\bhostname\"\xf5\x03\n" +
 	"\bBehavior\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\x05R\aversion\x12\x1d\n" +
 	"\n" +
@@ -554,7 +617,11 @@ const file_verify_v1_verify_proto_rawDesc = "" +
 	"\x10untrusted_events\x18\b \x01(\x05R\x0funtrustedEvents\x12\x1c\n" +
 	"\twebdriver\x18\t \x01(\bR\twebdriver\x12\x1b\n" +
 	"\thidden_ms\x18\n" +
-	" \x01(\x05R\bhiddenMs\"9\n" +
+	" \x01(\x05R\bhiddenMs\x12\x1f\n" +
+	"\vheadless_ua\x18\v \x01(\bR\n" +
+	"headlessUa\x12!\n" +
+	"\fno_languages\x18\f \x01(\bR\vnoLanguages\x12?\n" +
+	"\x1cchrome_without_window_chrome\x18\r \x01(\bR\x19chromeWithoutWindowChrome\"9\n" +
 	"\rPointerSample\x12\f\n" +
 	"\x01t\x18\x01 \x01(\x05R\x01t\x12\f\n" +
 	"\x01x\x18\x02 \x01(\x02R\x01x\x12\f\n" +
@@ -563,11 +630,11 @@ const file_verify_v1_verify_proto_rawDesc = "" +
 	"\averdict\x18\x01 \x01(\tR\averdict\x12\x19\n" +
 	"\x05score\x18\x02 \x01(\x01H\x00R\x05score\x88\x01\x01\x12\x18\n" +
 	"\areasons\x18\x03 \x03(\tR\areasonsB\b\n" +
-	"\x06_score2\xe1\x01\n" +
+	"\x06_score2\xe4\x01\n" +
 	"\rVerifyService\x12s\n" +
-	"\x0fVerifyChallenge\x12!.verify.v1.VerifyChallengeRequest\x1a\x1f.verify.v1.VerifyChallengeReply\"\x1c\x82\xd3\xe4\x93\x02\x16:\x01*\"\x11/challenge/verify\x12[\n" +
+	"\x0fVerifyChallenge\x12!.verify.v1.VerifyChallengeRequest\x1a\x1f.verify.v1.VerifyChallengeReply\"\x1c\x82\xd3\xe4\x93\x02\x16:\x01*\"\x11/challenge/verify\x12^\n" +
 	"\n" +
-	"SiteVerify\x12\x1c.verify.v1.SiteVerifyRequest\x1a\x1a.verify.v1.SiteVerifyReply\"\x13\x82\xd3\xe4\x93\x02\r\"\v/siteverifyB\x19Z\x17verify/api/verify/v1;v1b\x06proto3"
+	"SiteVerify\x12\x1c.verify.v1.SiteVerifyRequest\x1a\x1a.verify.v1.SiteVerifyReply\"\x16\x82\xd3\xe4\x93\x02\x10:\x01*\"\v/siteverifyB\x19Z\x17verify/api/verify/v1;v1b\x06proto3"
 
 var (
 	file_verify_v1_verify_proto_rawDescOnce sync.Once

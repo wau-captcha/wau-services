@@ -6,11 +6,17 @@ import "google/api/annotations.proto";
 
 option go_package = "tenant/api/tenant/v1;v1";
 
-// CatalogService lists what the tier of the signed-in user may use.
+// CatalogService lists what the tier of the signed-in user may use, and the plans on sale.
 service CatalogService {
   // ListChallengeTypes requires "Authorization: Bearer <access_token>".
   rpc ListChallengeTypes(ListChallengeTypesRequest) returns (ChallengeTypeSet) {
     option (google.api.http) = {get: "/v1/challenge-types"};
+  }
+
+  // ListPublicPlans returns the active plans, cheapest first, for the public pricing page. It takes
+  // no token. Like every /v1 path it is not on the Ingress: only the dashboard's server calls it.
+  rpc ListPublicPlans(ListPublicPlansRequest) returns (PublicPlanSet) {
+    option (google.api.http) = {get: "/v1/plans"};
   }
 }
 
@@ -24,4 +30,25 @@ message ChallengeType {
   // Value accepted by /challenge/new?challenge_type=, e.g. "image_distort".
   string id = 1;
   string code = 2;
+}
+
+message ListPublicPlansRequest {}
+
+message PublicPlanSet {
+  repeated PublicPlan plans = 1;
+}
+
+// PublicPlan is a tier as the pricing page shows it.
+message PublicPlan {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  // VND for one month; 0 for a plan that is not sold (free).
+  int64 monthly_price = 4;
+  // VND for one year; 0 when the plan is not sold by the year.
+  int64 yearly_price = 5;
+  // Successful verifications per day, across all keys of an account.
+  int64 daily_quota = 6;
+  // Challenge types the plan includes, active ones only.
+  repeated string challenge_types = 7;
 }

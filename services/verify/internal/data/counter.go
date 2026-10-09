@@ -17,8 +17,22 @@ func NewCounterRepo(data *Data) biz.CounterRepo {
 	return &counterRepo{data: data}
 }
 
-func (r *counterRepo) CountVerification(ctx context.Context, apiKeyID, day string) error {
-	return incrementDailyCounter(ctx, r.data.redis, quota.CheckedAnswersKey(apiKeyID, day))
+// CountAnswer adds to up to three counters. Their keys fall in different slots of the cluster, so
+// each gets its own transaction.
+func (r *counterRepo) CountAnswer(ctx context.Context, apiKeyID, day string, solved, automated bool) error {
+	keys := []string{quota.CheckedAnswersKey(apiKeyID, day)}
+	if solved {
+		keys = append(keys, quota.SolvedAnswersKey(apiKeyID, day))
+	}
+	if automated {
+		keys = append(keys, quota.AutomatedAnswersKey(apiKeyID, day))
+	}
+	for _, key := range keys {
+		if err := incrementDailyCounter(ctx, r.data.redis, key); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (r *counterRepo) CountSuccess(ctx context.Context, userID, day string) error {

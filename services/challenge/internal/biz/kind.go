@@ -15,7 +15,7 @@ type challengeKind struct {
 
 var challengeKinds = map[string]challengeKind{
 	TypeImageDistort: textKind(alphanumericChars, 5, renderImageDistort),
-	TypeMotionNoise:  textKind(distinctChars, 4, renderMotionNoise),
+	TypeMotionNoise:  textKind(distinctChars, 5, renderMotionNoise),
 	TypeSlidePuzzle:  {generate: generateSlidePuzzle, check: checkSlidePuzzle},
 }
 

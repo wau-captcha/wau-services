@@ -11,4 +11,15 @@ enum ErrorReason {
   API_KEY_SUSPENDED = 2;
   // The owner of the key was banned by an administrator.
   ACCOUNT_BANNED = 3;
+  // challenge_id is not a challenge id, which is a UUID in its canonical 36-character form.
+  CHALLENGE_ID_INVALID = 4;
+  // Too many requests from this address or for this key. The Retry-After header and metadata
+  // "retry_after" give the seconds until the window resets.
+  RATE_LIMITED = 5;
+  // The request body is larger than the endpoint accepts.
+  PAYLOAD_TOO_LARGE = 6;
+  // Something failed inside the service; its log has the details.
+  INTERNAL = 7;
+  // The key requires behaviour data and the answer came without any: update @wau-captcha/client.
+  BEHAVIOR_REQUIRED = 8;
 }

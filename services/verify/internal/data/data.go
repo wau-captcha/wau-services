@@ -17,7 +17,8 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-var ProviderSet = wire.NewSet(NewData, NewChallengeServiceClient, NewChallengeClient, NewGrantRepo, NewSiteRepo, NewCounterRepo)
+var ProviderSet = wire.NewSet(NewData, NewChallengeServiceClient, NewChallengeClient, NewGrantRepo, NewSiteRepo, NewCounterRepo,
+	NewRateLimiter)
 
 type Data struct {
 	queries *db.Queries

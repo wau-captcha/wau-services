@@ -5,6 +5,7 @@ import (
 	"billing/internal/auth"
 	"billing/internal/biz"
 	"billing/internal/conf"
+	"billing/internal/pkg/filter"
 	"billing/internal/service"
 
 	"github.com/go-kratos/kratos/v3/middleware/recovery"
@@ -25,6 +26,10 @@ func NewHTTPServer(
 	sepayIPN *service.SepayIPN,
 ) *http.Server {
 	var opts = []http.ServerOption{
+		// SePay's notifications are about 2 KiB; checkouts carry a tier and a period.
+		http.Filter(filter.LimitBody(map[string]int64{service.SepayIPNPath: 16 << 10}, 4<<10)),
+		http.RequestDecoder(decodeRequest),
+		http.ErrorEncoder(encodeError),
 		http.Middleware(
 			recovery.Recovery(),
 			sanitizeErrors(),

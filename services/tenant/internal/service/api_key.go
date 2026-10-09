@@ -10,7 +10,6 @@ import (
 
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // ApiKeyService implements the tenant api key API.
@@ -46,7 +45,7 @@ func (s *ApiKeyService) CreateApiKey(ctx context.Context, req *v1.CreateApiKeyRe
 	if err != nil {
 		return nil, err
 	}
-	key, err := s.keys.Create(ctx, userID, req.GetName())
+	key, err := s.keys.Create(ctx, userID, req.GetName(), req.GetAllowedDomains())
 	if err != nil {
 		return nil, err
 	}
@@ -121,6 +120,54 @@ func (s *ApiKeyService) SetAllowedOrigins(ctx context.Context, req *v1.SetAllowe
 	return convertApiKey(key), nil
 }
 
+func (s *ApiKeyService) SetAllowedDomains(ctx context.Context, req *v1.SetAllowedDomainsRequest) (*v1.ApiKey, error) {
+	userID, id, err := callerAndKey(ctx, req.GetId())
+	if err != nil {
+		return nil, err
+	}
+	domains := make([]string, 0, len(req.GetAllowedDomains()))
+	for _, domain := range req.GetAllowedDomains() {
+		domains = append(domains, domain.GetDomain())
+	}
+	key, err := s.keys.SetAllowedDomains(ctx, userID, id, domains)
+	if err != nil {
+		return nil, err
+	}
+	return convertApiKey(key), nil
+}
+
+func (s *ApiKeyService) CreateAppeal(ctx context.Context, req *v1.CreateAppealRequest) (*v1.ApiKeyAppeal, error) {
+	userID, id, err := callerAndKey(ctx, req.GetId())
+	if err != nil {
+		return nil, err
+	}
+	appeal, err := s.keys.CreateAppeal(ctx, userID, id, req.GetMessage())
+	if err != nil {
+		return nil, err
+	}
+	return convertAppeal(appeal), nil
+}
+
+func (s *ApiKeyService) ListApiKeyEvents(ctx context.Context, req *v1.ListApiKeyEventsRequest) (*v1.ApiKeyEventSet, error) {
+	userID, id, err := callerAndKey(ctx, req.GetId())
+	if err != nil {
+		return nil, err
+	}
+	events, err := s.keys.Events(ctx, userID, id)
+	if err != nil {
+		return nil, err
+	}
+	reply := &v1.ApiKeyEventSet{Events: make([]*v1.ApiKeyEvent, 0, len(events))}
+	for _, event := range events {
+		converted, err := convertEvent(event)
+		if err != nil {
+			return nil, err
+		}
+		reply.Events = append(reply.Events, converted)
+	}
+	return reply, nil
+}
+
 func (s *ApiKeyService) DeleteApiKey(ctx context.Context, req *v1.DeleteApiKeyRequest) (*emptypb.Empty, error) {
 	userID, id, err := callerAndKey(ctx, req.GetId())
 	if err != nil {
@@ -155,40 +202,12 @@ func patchFromMask(mask *fieldmaskpb.FieldMask, key *v1.ApiKey) (biz.ApiKeyPatch
 		case "is_active":
 			isActive := key.GetIsActive()
 			patch.IsActive = &isActive
+		case "require_behavior":
+			requireBehavior := key.GetRequireBehavior()
+			patch.RequireBehavior = &requireBehavior
 		default:
-			return patch, biz.InvalidField("update_mask", "update_mask accepts name and is_active")
+			return patch, biz.InvalidField("update_mask", "update_mask accepts name, is_active and require_behavior")
 		}
 	}
 	return patch, nil
-}
-
-func convertAllowedOrigins(origins []biz.AllowedOrigin) []*v1.AllowedOrigin {
-	converted := make([]*v1.AllowedOrigin, 0, len(origins))
-	for _, origin := range origins {
-		converted = append(converted, &v1.AllowedOrigin{
-			IpAddress:   origin.IPAddress,
-			Description: origin.Description,
-			CreateDate:  timestamppb.New(origin.CreateDate),
-		})
-	}
-	return converted
-}
-
-func convertApiKey(key *biz.ApiKey) *v1.ApiKey {
-	converted := &v1.ApiKey{
-		Id:             key.ID.String(),
-		Name:           key.Name,
-		SiteKey:        key.SiteKey,
-		SecretKey:      key.SecretKey,
-		IsActive:       key.IsActive,
-		CreateDate:     timestamppb.New(key.CreateDate),
-		IsSuspended:    key.IsSuspended,
-		SuspendReason:  key.SuspendReason,
-		AllowedOrigins: convertAllowedOrigins(key.AllowedOrigins),
-	}
-	if key.PreviousSecretKey != "" {
-		converted.PreviousSecretKey = key.PreviousSecretKey
-		converted.PreviousSecretKeyExpiresAt = timestamppb.New(key.PreviousSecretExpiresAt)
-	}
-	return converted
 }

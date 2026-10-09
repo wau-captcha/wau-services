@@ -37,20 +37,39 @@ const (
 	ErrorReason_DAILY_QUOTA_EXCEEDED ErrorReason = 7
 	// The address asking for the challenge is not among the key's allowed origins.
 	ErrorReason_ORIGIN_NOT_ALLOWED ErrorReason = 8
+	// challenge_id is not a challenge id, which is a UUID in its canonical 36-character form.
+	ErrorReason_CHALLENGE_ID_INVALID ErrorReason = 9
+	// Too many requests from this address or for this key. The Retry-After header and metadata
+	// "retry_after" give the seconds until the window resets.
+	ErrorReason_RATE_LIMITED ErrorReason = 10
+	// The request body is larger than the endpoint accepts.
+	ErrorReason_PAYLOAD_TOO_LARGE ErrorReason = 11
+	// Something failed inside the service; its log has the details.
+	ErrorReason_INTERNAL ErrorReason = 12
+	// The key lists the websites allowed to use it, and the request comes from none of them.
+	ErrorReason_DOMAIN_NOT_ALLOWED ErrorReason = 13
+	// The key requires behaviour data and the answer came without any: update @wau-captcha/client.
+	ErrorReason_BEHAVIOR_REQUIRED ErrorReason = 14
 )
 
 // Enum value maps for ErrorReason.
 var (
 	ErrorReason_name = map[int32]string{
-		0: "ERROR_REASON_UNSPECIFIED",
-		1: "SITE_KEY_INVALID",
-		2: "CHALLENGE_TYPE_NOT_ALLOWED",
-		3: "CHALLENGE_NOT_FOUND",
-		4: "CHALLENGE_TYPE_UNSUPPORTED",
-		5: "API_KEY_SUSPENDED",
-		6: "ACCOUNT_BANNED",
-		7: "DAILY_QUOTA_EXCEEDED",
-		8: "ORIGIN_NOT_ALLOWED",
+		0:  "ERROR_REASON_UNSPECIFIED",
+		1:  "SITE_KEY_INVALID",
+		2:  "CHALLENGE_TYPE_NOT_ALLOWED",
+		3:  "CHALLENGE_NOT_FOUND",
+		4:  "CHALLENGE_TYPE_UNSUPPORTED",
+		5:  "API_KEY_SUSPENDED",
+		6:  "ACCOUNT_BANNED",
+		7:  "DAILY_QUOTA_EXCEEDED",
+		8:  "ORIGIN_NOT_ALLOWED",
+		9:  "CHALLENGE_ID_INVALID",
+		10: "RATE_LIMITED",
+		11: "PAYLOAD_TOO_LARGE",
+		12: "INTERNAL",
+		13: "DOMAIN_NOT_ALLOWED",
+		14: "BEHAVIOR_REQUIRED",
 	}
 	ErrorReason_value = map[string]int32{
 		"ERROR_REASON_UNSPECIFIED":   0,
@@ -62,6 +81,12 @@ var (
 		"ACCOUNT_BANNED":             6,
 		"DAILY_QUOTA_EXCEEDED":       7,
 		"ORIGIN_NOT_ALLOWED":         8,
+		"CHALLENGE_ID_INVALID":       9,
+		"RATE_LIMITED":               10,
+		"PAYLOAD_TOO_LARGE":          11,
+		"INTERNAL":                   12,
+		"DOMAIN_NOT_ALLOWED":         13,
+		"BEHAVIOR_REQUIRED":          14,
 	}
 )
 
@@ -96,7 +121,7 @@ var File_challenge_v1_error_reason_proto protoreflect.FileDescriptor
 
 const file_challenge_v1_error_reason_proto_rawDesc = "" +
 	"\n" +
-	"\x1fchallenge/v1/error_reason.proto\x12\fchallenge.v1*\xf7\x01\n" +
+	"\x1fchallenge/v1/error_reason.proto\x12\fchallenge.v1*\xf7\x02\n" +
 	"\vErrorReason\x12\x1c\n" +
 	"\x18ERROR_REASON_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10SITE_KEY_INVALID\x10\x01\x12\x1e\n" +
@@ -106,7 +131,14 @@ const file_challenge_v1_error_reason_proto_rawDesc = "" +
 	"\x11API_KEY_SUSPENDED\x10\x05\x12\x12\n" +
 	"\x0eACCOUNT_BANNED\x10\x06\x12\x18\n" +
 	"\x14DAILY_QUOTA_EXCEEDED\x10\a\x12\x16\n" +
-	"\x12ORIGIN_NOT_ALLOWED\x10\bB\x1fZ\x1dchallenge/api/challenge/v1;v1b\x06proto3"
+	"\x12ORIGIN_NOT_ALLOWED\x10\b\x12\x18\n" +
+	"\x14CHALLENGE_ID_INVALID\x10\t\x12\x10\n" +
+	"\fRATE_LIMITED\x10\n" +
+	"\x12\x15\n" +
+	"\x11PAYLOAD_TOO_LARGE\x10\v\x12\f\n" +
+	"\bINTERNAL\x10\f\x12\x16\n" +
+	"\x12DOMAIN_NOT_ALLOWED\x10\r\x12\x15\n" +
+	"\x11BEHAVIOR_REQUIRED\x10\x0eB\x1fZ\x1dchallenge/api/challenge/v1;v1b\x06proto3"
 
 var (
 	file_challenge_v1_error_reason_proto_rawDescOnce sync.Once

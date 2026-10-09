@@ -14,13 +14,33 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// Request body caps. An answer with its behaviour is a few KiB, a slide_puzzle drag up to about
+// 9 KiB; /siteverify carries one token.
+var bodyLimits = map[string]int64{
+	"/challenge/verify": 64 << 10,
+	"/siteverify":       4 << 10,
+}
+
+const maxBodyBytes = 4 << 10
+
 // NewHTTPServer new an HTTP server.
 func NewHTTPServer(serverConf *conf.Server, verify *service.VerifyService) *http.Server {
 	var opts = []http.ServerOption{
-		// The usage history is written once the response is out.
-		http.Filter(filter.CORS, afterresponse.Filter),
+		http.Filter(
+			filter.NoStore,
+			// Browsers may call /challenge/verify only; /siteverify is for servers and gets no CORS
+			// headers. /challenge/verify names the caller's origin back: the challenge service then
+			// refuses an answer from another website than the one the challenge was asked for from.
+			filter.CORS(map[string]filter.Route{"/challenge/verify": {Methods: "POST, OPTIONS", ReflectOrigin: true}}),
+			filter.LimitBody(bodyLimits, maxBodyBytes),
+			// The usage history is written once the response is out.
+			afterresponse.Filter,
+		),
+		http.RequestDecoder(decodeRequest),
+		http.ErrorEncoder(encodeError),
 		http.Middleware(
 			recovery.Recovery(),
+			sanitizeErrors(),
 			validate.Validator(func(req any) error {
 				if message, ok := req.(proto.Message); ok {
 					return fieldbehavior.ValidateRequiredFields(message)

@@ -96,7 +96,9 @@ func main() {
 	log.SetDefault(logger)
 	configSource := config.New(
 		config.WithSource(file.NewSource(configPath)),
-		config.WithResolver(envconf.Resolver(&conf.Bootstrap{})),
+		// ${NAME} placeholders are filled from the environment; the values of rate_limit, scraping and
+		// ip_history may be replaced from it.
+		config.WithResolver(envconf.Resolver(&conf.Bootstrap{}, "rate_limit", "scraping", "ip_history")),
 	)
 	defer configSource.Close()
 
@@ -109,7 +111,8 @@ func main() {
 		panic(err)
 	}
 
-	app, cleanup, err := wireApp(bootstrap.Server, bootstrap.Data, bootstrap.Challenge, bootstrap.Quota, logger)
+	app, cleanup, err := wireApp(bootstrap.Server, bootstrap.Data, bootstrap.Challenge, bootstrap.Quota, bootstrap.RateLimit,
+		bootstrap.Scraping, bootstrap.IpHistory, logger)
 	if err != nil {
 		panic(err)
 	}

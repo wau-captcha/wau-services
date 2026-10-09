@@ -14,6 +14,8 @@ func NewGRPCServer(serverConf *conf.Server, challenge *service.ChallengeService)
 	var opts = []grpc.ServerOption{
 		grpc.Middleware(
 			recovery.Recovery(),
+			// verify passes on what CheckAnswer refuses, so its errors must be fit for clients too.
+			sanitizeErrors(),
 		),
 	}
 	if serverConf.Grpc.Network != "" {
