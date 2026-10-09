@@ -43,6 +43,10 @@ spec:
               value: 0.0.0.0:9001
             - name: KRATOS_CHALLENGE_GRPC_ENDPOINT
               value: challenge:9000
+            # X-Forwarded-For is believed from pods only: Traefik, which sets it to the visitor's
+            # address. The same as challenge's; the rate limits count by that address.
+            - name: KRATOS_TRUSTED_PROXIES
+              value: 10.42.0.0/16
           readinessProbe:
             httpGet:
               path: /healthz

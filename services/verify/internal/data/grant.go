@@ -22,6 +22,8 @@ type grantPO struct {
 	BehaviorVerdict string   `json:"behavior_verdict,omitempty"`
 	BehaviorScore   *float64 `json:"behavior_score,omitempty"`
 	BehaviorReasons []string `json:"behavior_reasons,omitempty"`
+	// Absent from tokens issued before site binding.
+	Hostname string `json:"hostname,omitempty"`
 }
 
 type grantRepo struct {
@@ -41,6 +43,7 @@ func (r *grantRepo) Save(ctx context.Context, id string, grant *biz.Grant, ttl t
 		BehaviorVerdict: grant.Behavior.Verdict,
 		BehaviorScore:   grant.Behavior.Score,
 		BehaviorReasons: grant.Behavior.Reasons,
+		Hostname:        grant.Hostname,
 	})
 	if err != nil {
 		return err
@@ -64,5 +67,6 @@ func (r *grantRepo) Take(ctx context.Context, id string) (*biz.Grant, error) {
 	if behavior.Verdict == "" {
 		behavior = biz.BehaviorResult{Verdict: biz.VerdictNotMeasured}
 	}
-	return &biz.Grant{APIKeyID: record.APIKeyID, ChallengeType: record.ChallengeType, SolvedAt: record.SolvedAt, Behavior: behavior}, nil
+	return &biz.Grant{APIKeyID: record.APIKeyID, ChallengeType: record.ChallengeType, SolvedAt: record.SolvedAt, Behavior: behavior,
+		Hostname: record.Hostname}, nil
 }

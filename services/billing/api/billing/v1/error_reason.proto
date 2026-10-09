@@ -20,4 +20,6 @@ enum ErrorReason {
   PLAN_NOT_RENEWABLE = 7;
   // Missing, or owned by another user.
   TRANSACTION_NOT_FOUND = 8;
+  // The request body is larger than the endpoint accepts.
+  PAYLOAD_TOO_LARGE = 9;
 }

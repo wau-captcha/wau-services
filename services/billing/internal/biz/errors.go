@@ -2,6 +2,7 @@ package biz
 
 import (
 	stderrors "errors"
+	"net/http"
 
 	v1 "billing/api/billing/v1"
 
@@ -19,6 +20,7 @@ var (
 	ErrPlanDowngrade       = errors.Conflict(v1.ErrorReason_PLAN_DOWNGRADE_NOT_ALLOWED.String(), "a plan can only be renewed or upgraded")
 	ErrPlanNotRenewable    = errors.Conflict(v1.ErrorReason_PLAN_NOT_RENEWABLE.String(), "the current plan never ends")
 	ErrTransactionNotFound = errors.NotFound(v1.ErrorReason_TRANSACTION_NOT_FOUND.String(), "transaction not found")
+	ErrPayloadTooLarge     = errors.New(http.StatusRequestEntityTooLarge, v1.ErrorReason_PAYLOAD_TOO_LARGE.String(), "request body too large")
 )
 
 // InvalidField names the input that broke a validation rule. It matches ErrInvalidArgument under

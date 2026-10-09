@@ -18,15 +18,20 @@ var _ = new(context.Context)
 const _ = http.SupportPackageIsVersion3
 
 const OperationCatalogServiceListChallengeTypes = "/tenant.v1.CatalogService/ListChallengeTypes"
+const OperationCatalogServiceListPublicPlans = "/tenant.v1.CatalogService/ListPublicPlans"
 
 type CatalogServiceHTTPServer interface {
 	// ListChallengeTypes ListChallengeTypes requires "Authorization: Bearer <access_token>".
 	ListChallengeTypes(context.Context, *ListChallengeTypesRequest) (*ChallengeTypeSet, error)
+	// ListPublicPlans ListPublicPlans returns the active plans, cheapest first, for the public pricing page. It takes
+	// no token. Like every /v1 path it is not on the Ingress: only the dashboard's server calls it.
+	ListPublicPlans(context.Context, *ListPublicPlansRequest) (*PublicPlanSet, error)
 }
 
 func RegisterCatalogServiceHTTPServer(s *http.Server, srv CatalogServiceHTTPServer) {
 	r := s.Route("/")
 	r.Handle("GET", "/v1/challenge-types", _CatalogService_ListChallengeTypes0_HTTP_Handler(srv))
+	r.Handle("GET", "/v1/plans", _CatalogService_ListPublicPlans0_HTTP_Handler(srv))
 }
 
 func _CatalogService_ListChallengeTypes0_HTTP_Handler(srv CatalogServiceHTTPServer) func(ctx http.Context) error {
@@ -48,9 +53,31 @@ func _CatalogService_ListChallengeTypes0_HTTP_Handler(srv CatalogServiceHTTPServ
 	}
 }
 
+func _CatalogService_ListPublicPlans0_HTTP_Handler(srv CatalogServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in ListPublicPlansRequest
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationCatalogServiceListPublicPlans)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.ListPublicPlans(ctx, req.(*ListPublicPlansRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*PublicPlanSet)
+		return ctx.Result(200, reply)
+	}
+}
+
 type CatalogServiceHTTPClient interface {
 	// ListChallengeTypes ListChallengeTypes requires "Authorization: Bearer <access_token>".
 	ListChallengeTypes(ctx context.Context, req *ListChallengeTypesRequest, opts ...http.CallOption) (rsp *ChallengeTypeSet, err error)
+	// ListPublicPlans ListPublicPlans returns the active plans, cheapest first, for the public pricing page. It takes
+	// no token. Like every /v1 path it is not on the Ingress: only the dashboard's server calls it.
+	ListPublicPlans(ctx context.Context, req *ListPublicPlansRequest, opts ...http.CallOption) (rsp *PublicPlanSet, err error)
 }
 
 type CatalogServiceHTTPClientImpl struct {
@@ -69,6 +96,24 @@ func (c *CatalogServiceHTTPClientImpl) ListChallengeTypes(ctx context.Context, i
 	opts = append([]http.CallOption{
 		http.Accept("application/protojson"),
 		http.Operation(OperationCatalogServiceListChallengeTypes),
+		http.PathTemplate(pattern),
+	}, opts...)
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// ListPublicPlans ListPublicPlans returns the active plans, cheapest first, for the public pricing page. It takes
+// no token. Like every /v1 path it is not on the Ingress: only the dashboard's server calls it.
+func (c *CatalogServiceHTTPClientImpl) ListPublicPlans(ctx context.Context, in *ListPublicPlansRequest, opts ...http.CallOption) (*PublicPlanSet, error) {
+	var out PublicPlanSet
+	pattern := "/v1/plans"
+	path := http.BuildPath(pattern, in, http.WithQueryParams())
+	opts = append([]http.CallOption{
+		http.Accept("application/protojson"),
+		http.Operation(OperationCatalogServiceListPublicPlans),
 		http.PathTemplate(pattern),
 	}, opts...)
 	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)

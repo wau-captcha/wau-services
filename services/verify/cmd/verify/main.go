@@ -100,8 +100,9 @@ func main() {
 	log.SetDefault(logger)
 	configSource := config.New(
 		config.WithSource(file.NewSource(configPath)),
-		// ${NAME} placeholders are filled from the environment; the file holds no fallback values.
-		config.WithResolver(envconf.Resolver(&conf.Bootstrap{})),
+		// ${NAME} placeholders are filled from the environment; the file holds no fallback values for
+		// them. rate_limit values may be replaced from it.
+		config.WithResolver(envconf.Resolver(&conf.Bootstrap{}, "rate_limit")),
 	)
 	defer configSource.Close()
 
@@ -114,7 +115,7 @@ func main() {
 		panic(err)
 	}
 
-	app, cleanup, err := wireApp(bootstrap.Server, bootstrap.Data, bootstrap.Client, bootstrap.Token, bootstrap.Quota, logger)
+	app, cleanup, err := wireApp(bootstrap.Server, bootstrap.Data, bootstrap.Client, bootstrap.Token, bootstrap.Quota, bootstrap.RateLimit, logger)
 	if err != nil {
 		panic(err)
 	}

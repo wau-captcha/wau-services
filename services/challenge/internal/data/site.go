@@ -2,13 +2,17 @@ package data
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/netip"
+	"time"
 
 	"challenge/internal/biz"
+	"challenge/internal/data/db"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type siteRepo struct {
@@ -28,13 +32,17 @@ func (r *siteRepo) FindBySiteKey(ctx context.Context, siteKey string) (*biz.Site
 		return nil, err
 	}
 	return &biz.Site{
-		APIKeyID:       row.APIKeyID.String(),
-		UserID:         row.UserID.String(),
-		ChallengeTypes: row.ChallengeTypes,
-		Suspended:      row.IsSuspended,
-		OwnerBanned:    row.IsBanned,
-		AllowedOrigins: parsePrefixes(row.AllowedOrigins),
-		DailyQuota:     int64(row.DailyQuota),
+		APIKeyID:        row.APIKeyID.String(),
+		UserID:          row.UserID.String(),
+		ChallengeTypes:  row.ChallengeTypes,
+		Suspended:       row.IsSuspended,
+		OwnerBanned:     row.IsBanned,
+		AllowedOrigins:  parsePrefixes(row.AllowedOrigins),
+		AllowedDomains:  row.AllowedDomains,
+		RequireBehavior: row.RequireBehavior,
+		// NULL scans as the zero time: never flagged.
+		FlaggedAt:  row.ScrapingFlaggedAt.Time,
+		DailyQuota: int64(row.DailyQuota),
 	}, nil
 }
 
@@ -54,10 +62,35 @@ func parsePrefixes(values []string) []netip.Prefix {
 	return prefixes
 }
 
-func (r *siteRepo) SuspendForScraping(ctx context.Context, apiKeyID string) error {
+func (r *siteRepo) SuspendForScraping(ctx context.Context, apiKeyID string) (bool, error) {
+	id, err := uuid.Parse(apiKeyID)
+	if err != nil {
+		return false, err
+	}
+	suspended, err := r.data.queries.SuspendAPIKeyForScraping(ctx, id)
+	return suspended > 0, err
+}
+
+func (r *siteRepo) FlagForScraping(ctx context.Context, apiKeyID string, dayStart time.Time) (bool, error) {
+	id, err := uuid.Parse(apiKeyID)
+	if err != nil {
+		return false, err
+	}
+	flagged, err := r.data.queries.FlagAPIKeyForScraping(ctx, db.FlagAPIKeyForScrapingParams{
+		APIKeyID: id,
+		DayStart: pgtype.Timestamptz{Time: dayStart, Valid: true},
+	})
+	return flagged > 0, err
+}
+
+func (r *siteRepo) RecordEvent(ctx context.Context, apiKeyID, action string, detail map[string]any) error {
 	id, err := uuid.Parse(apiKeyID)
 	if err != nil {
 		return err
 	}
-	return r.data.queries.SuspendAPIKeyForScraping(ctx, id)
+	encoded, err := json.Marshal(detail)
+	if err != nil {
+		return err
+	}
+	return r.data.queries.CreateSystemAPIKeyEvent(ctx, db.CreateSystemAPIKeyEventParams{APIKeyID: id, Action: action, Detail: encoded})
 }

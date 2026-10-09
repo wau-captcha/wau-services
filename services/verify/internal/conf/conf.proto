@@ -11,6 +11,7 @@ message Bootstrap {
   Client client = 3;
   Token token = 4;
   Quota quota = 5;
+  RateLimit rate_limit = 6;
 }
 
 message Server {
@@ -26,6 +27,10 @@ message Server {
   }
   HTTP http = 1;
   GRPC grpc = 2;
+  // CIDR blocks whose X-Forwarded-For header is believed, comma separated: where the load
+  // balancer connects from (Traefik's pods on k3s; loopback behind the local Caddy on Docker
+  // Desktop). Requests from anywhere else are known by their own address. The same as challenge's.
+  string trusted_proxies = 3;
 }
 
 message Data {
@@ -64,4 +69,14 @@ message Token {
 message Quota {
   // IANA zone whose calendar days the daily counters follow; the same in every service.
   string time_zone = 1;
+}
+
+// RateLimit caps calls per minute, counted in Redis in fixed one-minute windows, before any
+// costly work. 0 turns a limit off. Each value can be replaced from the environment, e.g.
+// KRATOS_RATE_LIMIT_VERIFY_PER_IP for verify_per_ip (see envconf.Override).
+message RateLimit {
+  // /challenge/verify calls per client address.
+  int32 verify_per_ip = 1;
+  // /siteverify calls per secret key, known in Redis only by its SHA-256.
+  int32 siteverify_per_secret_key = 2;
 }

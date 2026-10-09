@@ -27,6 +27,9 @@ const (
 	ApiKeyService_RotateSecretKey_FullMethodName      = "/tenant.v1.ApiKeyService/RotateSecretKey"
 	ApiKeyService_RevokePreviousSecret_FullMethodName = "/tenant.v1.ApiKeyService/RevokePreviousSecret"
 	ApiKeyService_SetAllowedOrigins_FullMethodName    = "/tenant.v1.ApiKeyService/SetAllowedOrigins"
+	ApiKeyService_SetAllowedDomains_FullMethodName    = "/tenant.v1.ApiKeyService/SetAllowedDomains"
+	ApiKeyService_CreateAppeal_FullMethodName         = "/tenant.v1.ApiKeyService/CreateAppeal"
+	ApiKeyService_ListApiKeyEvents_FullMethodName     = "/tenant.v1.ApiKeyService/ListApiKeyEvents"
 	ApiKeyService_DeleteApiKey_FullMethodName         = "/tenant.v1.ApiKeyService/DeleteApiKey"
 )
 
@@ -42,7 +45,8 @@ type ApiKeyServiceClient interface {
 	// CreateApiKey issues a new site key and secret key.
 	CreateApiKey(ctx context.Context, in *CreateApiKeyRequest, opts ...grpc.CallOption) (*ApiKey, error)
 	GetApiKey(ctx context.Context, in *GetApiKeyRequest, opts ...grpc.CallOption) (*ApiKey, error)
-	// UpdateApiKey applies a partial update; update_mask accepts "name" and "is_active".
+	// UpdateApiKey applies a partial update; update_mask accepts "name", "is_active" and
+	// "require_behavior".
 	UpdateApiKey(ctx context.Context, in *UpdateApiKeyRequest, opts ...grpc.CallOption) (*ApiKey, error)
 	// RotateSecretKey issues a new secret key in one step and keeps the replaced one
 	// working as previous_secret_key until previous_secret_key_expires_at, so a site can
@@ -56,6 +60,14 @@ type ApiKeyServiceClient interface {
 	// given; an empty list lets every address use it again. Entries that stay keep their
 	// create_date.
 	SetAllowedOrigins(ctx context.Context, in *SetAllowedOriginsRequest, opts ...grpc.CallOption) (*ApiKey, error)
+	// SetAllowedDomains replaces the websites allowed to use the site key with the list given; an
+	// empty list lets any website use it again. Entries that stay keep their create_date.
+	SetAllowedDomains(ctx context.Context, in *SetAllowedDomainsRequest, opts ...grpc.CallOption) (*ApiKey, error)
+	// CreateAppeal asks an administrator to review a suspended or flagged key. A key has at most one
+	// pending appeal.
+	CreateAppeal(ctx context.Context, in *CreateAppealRequest, opts ...grpc.CallOption) (*ApiKeyAppeal, error)
+	// ListApiKeyEvents returns the latest 100 events of the activity log of the key, newest first.
+	ListApiKeyEvents(ctx context.Context, in *ListApiKeyEventsRequest, opts ...grpc.CallOption) (*ApiKeyEventSet, error)
 	// DeleteApiKey soft-deletes the key and deactivates it.
 	DeleteApiKey(ctx context.Context, in *DeleteApiKeyRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
@@ -138,6 +150,36 @@ func (c *apiKeyServiceClient) SetAllowedOrigins(ctx context.Context, in *SetAllo
 	return out, nil
 }
 
+func (c *apiKeyServiceClient) SetAllowedDomains(ctx context.Context, in *SetAllowedDomainsRequest, opts ...grpc.CallOption) (*ApiKey, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ApiKey)
+	err := c.cc.Invoke(ctx, ApiKeyService_SetAllowedDomains_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *apiKeyServiceClient) CreateAppeal(ctx context.Context, in *CreateAppealRequest, opts ...grpc.CallOption) (*ApiKeyAppeal, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ApiKeyAppeal)
+	err := c.cc.Invoke(ctx, ApiKeyService_CreateAppeal_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *apiKeyServiceClient) ListApiKeyEvents(ctx context.Context, in *ListApiKeyEventsRequest, opts ...grpc.CallOption) (*ApiKeyEventSet, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ApiKeyEventSet)
+	err := c.cc.Invoke(ctx, ApiKeyService_ListApiKeyEvents_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *apiKeyServiceClient) DeleteApiKey(ctx context.Context, in *DeleteApiKeyRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
@@ -160,7 +202,8 @@ type ApiKeyServiceServer interface {
 	// CreateApiKey issues a new site key and secret key.
 	CreateApiKey(context.Context, *CreateApiKeyRequest) (*ApiKey, error)
 	GetApiKey(context.Context, *GetApiKeyRequest) (*ApiKey, error)
-	// UpdateApiKey applies a partial update; update_mask accepts "name" and "is_active".
+	// UpdateApiKey applies a partial update; update_mask accepts "name", "is_active" and
+	// "require_behavior".
 	UpdateApiKey(context.Context, *UpdateApiKeyRequest) (*ApiKey, error)
 	// RotateSecretKey issues a new secret key in one step and keeps the replaced one
 	// working as previous_secret_key until previous_secret_key_expires_at, so a site can
@@ -174,6 +217,14 @@ type ApiKeyServiceServer interface {
 	// given; an empty list lets every address use it again. Entries that stay keep their
 	// create_date.
 	SetAllowedOrigins(context.Context, *SetAllowedOriginsRequest) (*ApiKey, error)
+	// SetAllowedDomains replaces the websites allowed to use the site key with the list given; an
+	// empty list lets any website use it again. Entries that stay keep their create_date.
+	SetAllowedDomains(context.Context, *SetAllowedDomainsRequest) (*ApiKey, error)
+	// CreateAppeal asks an administrator to review a suspended or flagged key. A key has at most one
+	// pending appeal.
+	CreateAppeal(context.Context, *CreateAppealRequest) (*ApiKeyAppeal, error)
+	// ListApiKeyEvents returns the latest 100 events of the activity log of the key, newest first.
+	ListApiKeyEvents(context.Context, *ListApiKeyEventsRequest) (*ApiKeyEventSet, error)
 	// DeleteApiKey soft-deletes the key and deactivates it.
 	DeleteApiKey(context.Context, *DeleteApiKeyRequest) (*emptypb.Empty, error)
 	mustEmbedUnimplementedApiKeyServiceServer()
@@ -206,6 +257,15 @@ func (UnimplementedApiKeyServiceServer) RevokePreviousSecret(context.Context, *R
 }
 func (UnimplementedApiKeyServiceServer) SetAllowedOrigins(context.Context, *SetAllowedOriginsRequest) (*ApiKey, error) {
 	return nil, status.Error(codes.Unimplemented, "method SetAllowedOrigins not implemented")
+}
+func (UnimplementedApiKeyServiceServer) SetAllowedDomains(context.Context, *SetAllowedDomainsRequest) (*ApiKey, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetAllowedDomains not implemented")
+}
+func (UnimplementedApiKeyServiceServer) CreateAppeal(context.Context, *CreateAppealRequest) (*ApiKeyAppeal, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateAppeal not implemented")
+}
+func (UnimplementedApiKeyServiceServer) ListApiKeyEvents(context.Context, *ListApiKeyEventsRequest) (*ApiKeyEventSet, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListApiKeyEvents not implemented")
 }
 func (UnimplementedApiKeyServiceServer) DeleteApiKey(context.Context, *DeleteApiKeyRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteApiKey not implemented")
@@ -357,6 +417,60 @@ func _ApiKeyService_SetAllowedOrigins_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ApiKeyService_SetAllowedDomains_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetAllowedDomainsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ApiKeyServiceServer).SetAllowedDomains(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ApiKeyService_SetAllowedDomains_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ApiKeyServiceServer).SetAllowedDomains(ctx, req.(*SetAllowedDomainsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ApiKeyService_CreateAppeal_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateAppealRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ApiKeyServiceServer).CreateAppeal(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ApiKeyService_CreateAppeal_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ApiKeyServiceServer).CreateAppeal(ctx, req.(*CreateAppealRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ApiKeyService_ListApiKeyEvents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListApiKeyEventsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ApiKeyServiceServer).ListApiKeyEvents(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ApiKeyService_ListApiKeyEvents_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ApiKeyServiceServer).ListApiKeyEvents(ctx, req.(*ListApiKeyEventsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ApiKeyService_DeleteApiKey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeleteApiKeyRequest)
 	if err := dec(in); err != nil {
@@ -409,6 +523,18 @@ var ApiKeyService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SetAllowedOrigins",
 			Handler:    _ApiKeyService_SetAllowedOrigins_Handler,
+		},
+		{
+			MethodName: "SetAllowedDomains",
+			Handler:    _ApiKeyService_SetAllowedDomains_Handler,
+		},
+		{
+			MethodName: "CreateAppeal",
+			Handler:    _ApiKeyService_CreateAppeal_Handler,
+		},
+		{
+			MethodName: "ListApiKeyEvents",
+			Handler:    _ApiKeyService_ListApiKeyEvents_Handler,
 		},
 		{
 			MethodName: "DeleteApiKey",

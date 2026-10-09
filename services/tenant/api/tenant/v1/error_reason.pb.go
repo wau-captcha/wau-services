@@ -44,6 +44,12 @@ const (
 	// address Google does not own (only Gmail and Google Workspace addresses are accepted).
 	ErrorReason_PERMISSION_DENIED ErrorReason = 13
 	ErrorReason_USER_NOT_FOUND    ErrorReason = 14
+	// A review is only for a key that is suspended or that the scraping check flagged today.
+	ErrorReason_APPEAL_NOT_ALLOWED ErrorReason = 15
+	// The key already has a review waiting for an administrator.
+	ErrorReason_APPEAL_PENDING ErrorReason = 16
+	// No such review, or it was decided already.
+	ErrorReason_APPEAL_NOT_FOUND ErrorReason = 17
 )
 
 // Enum value maps for ErrorReason.
@@ -61,6 +67,9 @@ var (
 		12: "ACCOUNT_BANNED",
 		13: "PERMISSION_DENIED",
 		14: "USER_NOT_FOUND",
+		15: "APPEAL_NOT_ALLOWED",
+		16: "APPEAL_PENDING",
+		17: "APPEAL_NOT_FOUND",
 	}
 	ErrorReason_value = map[string]int32{
 		"ERROR_REASON_UNSPECIFIED": 0,
@@ -75,6 +84,9 @@ var (
 		"ACCOUNT_BANNED":           12,
 		"PERMISSION_DENIED":        13,
 		"USER_NOT_FOUND":           14,
+		"APPEAL_NOT_ALLOWED":       15,
+		"APPEAL_PENDING":           16,
+		"APPEAL_NOT_FOUND":         17,
 	}
 )
 
@@ -109,7 +121,7 @@ var File_tenant_v1_error_reason_proto protoreflect.FileDescriptor
 
 const file_tenant_v1_error_reason_proto_rawDesc = "" +
 	"\n" +
-	"\x1ctenant/v1/error_reason.proto\x12\ttenant.v1*\xed\x02\n" +
+	"\x1ctenant/v1/error_reason.proto\x12\ttenant.v1*\xaf\x03\n" +
 	"\vErrorReason\x12\x1c\n" +
 	"\x18ERROR_REASON_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10INVALID_ARGUMENT\x10\x01\x12\x13\n" +
@@ -123,7 +135,10 @@ const file_tenant_v1_error_reason_proto_rawDesc = "" +
 	"\x17GOOGLE_ACCOUNT_CONFLICT\x10\v\x12\x12\n" +
 	"\x0eACCOUNT_BANNED\x10\f\x12\x15\n" +
 	"\x11PERMISSION_DENIED\x10\r\x12\x12\n" +
-	"\x0eUSER_NOT_FOUND\x10\x0e\"\x04\b\x02\x10\x02\"\x04\b\x03\x10\x03\"\x04\b\x04\x10\x04*\x0eUSERNAME_TAKEN*\vEMAIL_TAKEN*\x13INVALID_CREDENTIALSB\x19Z\x17tenant/api/tenant/v1;v1b\x06proto3"
+	"\x0eUSER_NOT_FOUND\x10\x0e\x12\x16\n" +
+	"\x12APPEAL_NOT_ALLOWED\x10\x0f\x12\x12\n" +
+	"\x0eAPPEAL_PENDING\x10\x10\x12\x14\n" +
+	"\x10APPEAL_NOT_FOUND\x10\x11\"\x04\b\x02\x10\x02\"\x04\b\x03\x10\x03\"\x04\b\x04\x10\x04*\x0eUSERNAME_TAKEN*\vEMAIL_TAKEN*\x13INVALID_CREDENTIALSB\x19Z\x17tenant/api/tenant/v1;v1b\x06proto3"
 
 var (
 	file_tenant_v1_error_reason_proto_rawDescOnce sync.Once

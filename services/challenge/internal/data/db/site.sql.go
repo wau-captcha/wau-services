@@ -9,18 +9,64 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const createSystemAPIKeyEvent = `-- name: CreateSystemAPIKeyEvent :exec
+INSERT INTO api_key_events (api_key_id, actor, action, detail)
+VALUES ($1, 'system', $2, $3::jsonb)
+`
+
+type CreateSystemAPIKeyEventParams struct {
+	APIKeyID uuid.UUID
+	Action   string
+	Detail   []byte
+}
+
+// What the scraping check did to a key, for its activity log.
+func (q *Queries) CreateSystemAPIKeyEvent(ctx context.Context, arg CreateSystemAPIKeyEventParams) error {
+	_, err := q.db.Exec(ctx, createSystemAPIKeyEvent, arg.APIKeyID, arg.Action, arg.Detail)
+	return err
+}
+
+const flagAPIKeyForScraping = `-- name: FlagAPIKeyForScraping :execrows
+UPDATE api_keys
+SET scraping_flagged_at = now()
+WHERE api_key_id = $1
+  AND (scraping_flagged_at IS NULL OR scraping_flagged_at < $2::timestamptz)
+`
+
+type FlagAPIKeyForScrapingParams struct {
+	APIKeyID uuid.UUID
+	DayStart pgtype.Timestamptz
+}
+
+// Flags a key once a day: no row changed means it already was flagged since day_start.
+func (q *Queries) FlagAPIKeyForScraping(ctx context.Context, arg FlagAPIKeyForScrapingParams) (int64, error) {
+	result, err := q.db.Exec(ctx, flagAPIKeyForScraping, arg.APIKeyID, arg.DayStart)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
 
 const getSiteBySiteKey = `-- name: GetSiteBySiteKey :one
 SELECT
     k.api_key_id,
     k.user_id,
     k.is_suspended,
+    k.require_behavior,
+    k.scraping_flagged_at,
     ARRAY(
         SELECT o.ip_address::text
         FROM api_key_allowed_origins o
         WHERE o.api_key_id = k.api_key_id
     )::text[] AS allowed_origins,
+    ARRAY(
+        SELECT d.domain
+        FROM api_key_allowed_domains d
+        WHERE d.api_key_id = k.api_key_id
+    )::text[] AS allowed_domains,
     u.is_banned,
     t.daily_quota,
     ARRAY(
@@ -40,13 +86,16 @@ WHERE k.site_key = $1
 `
 
 type GetSiteBySiteKeyRow struct {
-	APIKeyID       uuid.UUID
-	UserID         uuid.UUID
-	IsSuspended    bool
-	AllowedOrigins []string
-	IsBanned       bool
-	DailyQuota     int32
-	ChallengeTypes []string
+	APIKeyID          uuid.UUID
+	UserID            uuid.UUID
+	IsSuspended       bool
+	RequireBehavior   bool
+	ScrapingFlaggedAt pgtype.Timestamptz
+	AllowedOrigins    []string
+	AllowedDomains    []string
+	IsBanned          bool
+	DailyQuota        int32
+	ChallengeTypes    []string
 }
 
 // The key, its account and the tier the account has now: a paid tier past its end counts as free.
@@ -57,7 +106,10 @@ func (q *Queries) GetSiteBySiteKey(ctx context.Context, siteKey string) (GetSite
 		&i.APIKeyID,
 		&i.UserID,
 		&i.IsSuspended,
+		&i.RequireBehavior,
+		&i.ScrapingFlaggedAt,
 		&i.AllowedOrigins,
+		&i.AllowedDomains,
 		&i.IsBanned,
 		&i.DailyQuota,
 		&i.ChallengeTypes,
@@ -65,7 +117,7 @@ func (q *Queries) GetSiteBySiteKey(ctx context.Context, siteKey string) (GetSite
 	return i, err
 }
 
-const suspendAPIKeyForScraping = `-- name: SuspendAPIKeyForScraping :exec
+const suspendAPIKeyForScraping = `-- name: SuspendAPIKeyForScraping :execrows
 UPDATE api_keys
 SET is_suspended = true,
     suspend_reason = 'SCRAPING'
@@ -73,8 +125,11 @@ WHERE api_key_id = $1
   AND NOT is_suspended
 `
 
-// A key already suspended keeps the reason it was suspended for.
-func (q *Queries) SuspendAPIKeyForScraping(ctx context.Context, apiKeyID uuid.UUID) error {
-	_, err := q.db.Exec(ctx, suspendAPIKeyForScraping, apiKeyID)
-	return err
+// A key already suspended keeps the reason it was suspended for. No row changed means it already was.
+func (q *Queries) SuspendAPIKeyForScraping(ctx context.Context, apiKeyID uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, suspendAPIKeyForScraping, apiKeyID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

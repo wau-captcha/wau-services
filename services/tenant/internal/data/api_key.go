@@ -44,13 +44,14 @@ func (r *apiKeyRepo) Get(ctx context.Context, userID, id uuid.UUID) (*biz.ApiKey
 	return toApiKey(row), nil
 }
 
-func (r *apiKeyRepo) Create(ctx context.Context, userID uuid.UUID, name, siteKey, secretKey string, maxKeys int) (*biz.ApiKey, error) {
+func (r *apiKeyRepo) Create(ctx context.Context, userID uuid.UUID, name, siteKey, secretKey string, domains []string, maxKeys int) (*biz.ApiKey, error) {
 	row, err := r.data.queries.CreateAPIKey(ctx, db.CreateAPIKeyParams{
 		UserID:    userID,
 		Name:      name,
 		SiteKey:   siteKey,
 		SecretKey: secretKey,
 		MaxKeys:   int64(maxKeys),
+		Domains:   domains,
 	})
 	// The insert is guarded by the key count, so no row means the limit was hit.
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -64,7 +65,7 @@ func (r *apiKeyRepo) Create(ctx context.Context, userID uuid.UUID, name, siteKey
 	if err != nil {
 		return nil, err
 	}
-	return toApiKey(row), nil
+	return toApiKey(db.APIKey(row)), nil
 }
 
 func (r *apiKeyRepo) Update(ctx context.Context, userID, id uuid.UUID, patch biz.ApiKeyPatch) (*biz.ApiKey, error) {
@@ -74,6 +75,9 @@ func (r *apiKeyRepo) Update(ctx context.Context, userID, id uuid.UUID, patch biz
 	}
 	if patch.IsActive != nil {
 		params.IsActive = pgtype.Bool{Bool: *patch.IsActive, Valid: true}
+	}
+	if patch.RequireBehavior != nil {
+		params.RequireBehavior = pgtype.Bool{Bool: *patch.RequireBehavior, Valid: true}
 	}
 	row, err := r.data.queries.UpdateAPIKey(ctx, params)
 	if err != nil {
@@ -174,6 +178,9 @@ func toApiKey(row db.APIKey) *biz.ApiKey {
 		CreateDate:    row.CreateDate.Time,
 		IsSuspended:   row.IsSuspended,
 		SuspendReason: row.SuspendReason.String,
+		// NULL scans as the zero time: never flagged.
+		RequireBehavior:   row.RequireBehavior,
+		ScrapingFlaggedAt: row.ScrapingFlaggedAt.Time,
 	}
 	// An expired previous secret already works nowhere, so it is reported as gone; that is
 	// why no job has to clear it out.

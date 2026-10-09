@@ -10,6 +10,9 @@ message Bootstrap {
   Data data = 2;
   Challenge challenge = 3;
   Quota quota = 4;
+  RateLimit rate_limit = 5;
+  Scraping scraping = 6;
+  IPHistory ip_history = 7;
 }
 
 message Server {
@@ -52,9 +55,51 @@ message Data {
 message Challenge {
   // Lifetime of an unsolved challenge.
   google.protobuf.Duration ttl = 1;
+  // Leading zero bits the proof of work of a challenge must reach: each bit doubles the work, 15
+  // is about 33 000 hashes. 0 asks for no proof of work.
+  int32 pow_difficulty = 2;
 }
 
 message Quota {
   // IANA zone whose calendar days the daily counters follow; the same in every service.
   string time_zone = 1;
+}
+
+// RateLimit caps calls per minute, counted in Redis in fixed one-minute windows, before any
+// costly work. 0 turns a limit off. Each value can be replaced from the environment, e.g.
+// KRATOS_RATE_LIMIT_NEW_PER_IP for new_per_ip (see envconf.Override).
+message RateLimit {
+  // /challenge/new calls per client address.
+  int32 new_per_ip = 1;
+  // /challenge/new calls per API key, whatever address they come from.
+  int32 new_per_site_key = 2;
+  // new_per_site_key for a key the scraping check flagged today.
+  int32 new_per_flagged_site_key = 3;
+}
+
+// Scraping grades the daily counters of a key (challenges issued, answers checked, right answers,
+// answers judged automated). A key is flagged, and throttled to new_per_flagged_site_key for the
+// rest of the day, when it was issued flag_min_issued challenges of which under
+// flag_max_answered_percent were answered, or answered flag_min_answered of which under
+// flag_max_solved_percent were right or over flag_max_automated_percent automated. It is
+// suspended only once issued suspend_min_issued with under suspend_max_answered_percent answered.
+// Each value can be replaced from the environment, e.g. KRATOS_SCRAPING_FLAG_MIN_ISSUED.
+message Scraping {
+  int32 flag_min_issued = 1;
+  int32 flag_max_answered_percent = 2;
+  int32 flag_min_answered = 3;
+  int32 flag_max_solved_percent = 4;
+  int32 flag_max_automated_percent = 5;
+  int32 suspend_min_issued = 6;
+  int32 suspend_max_answered_percent = 7;
+}
+
+// IPHistory counts, per client address, wrong answers in fixed 10-minute buckets and answers
+// judged automated over the last hour. Over wrong_per_10_minutes, the address gets RATE_LIMITED
+// on /challenge/new and /challenge/verify for the rest of the bucket; over automated_per_hour,
+// its later verdicts carry ip_bad_history. Each value can be replaced from the environment, e.g.
+// KRATOS_IP_HISTORY_WRONG_PER_10_MINUTES.
+message IPHistory {
+  int32 wrong_per_10_minutes = 1;
+  int32 automated_per_hour = 2;
 }

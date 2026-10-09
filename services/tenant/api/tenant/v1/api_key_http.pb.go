@@ -19,20 +19,28 @@ var _ = new(context.Context)
 const _ = http.SupportPackageIsVersion3
 
 const OperationApiKeyServiceCreateApiKey = "/tenant.v1.ApiKeyService/CreateApiKey"
+const OperationApiKeyServiceCreateAppeal = "/tenant.v1.ApiKeyService/CreateAppeal"
 const OperationApiKeyServiceDeleteApiKey = "/tenant.v1.ApiKeyService/DeleteApiKey"
 const OperationApiKeyServiceGetApiKey = "/tenant.v1.ApiKeyService/GetApiKey"
+const OperationApiKeyServiceListApiKeyEvents = "/tenant.v1.ApiKeyService/ListApiKeyEvents"
 const OperationApiKeyServiceListApiKeys = "/tenant.v1.ApiKeyService/ListApiKeys"
 const OperationApiKeyServiceRevokePreviousSecret = "/tenant.v1.ApiKeyService/RevokePreviousSecret"
 const OperationApiKeyServiceRotateSecretKey = "/tenant.v1.ApiKeyService/RotateSecretKey"
+const OperationApiKeyServiceSetAllowedDomains = "/tenant.v1.ApiKeyService/SetAllowedDomains"
 const OperationApiKeyServiceSetAllowedOrigins = "/tenant.v1.ApiKeyService/SetAllowedOrigins"
 const OperationApiKeyServiceUpdateApiKey = "/tenant.v1.ApiKeyService/UpdateApiKey"
 
 type ApiKeyServiceHTTPServer interface {
 	// CreateApiKey CreateApiKey issues a new site key and secret key.
 	CreateApiKey(context.Context, *CreateApiKeyRequest) (*ApiKey, error)
+	// CreateAppeal CreateAppeal asks an administrator to review a suspended or flagged key. A key has at most one
+	// pending appeal.
+	CreateAppeal(context.Context, *CreateAppealRequest) (*ApiKeyAppeal, error)
 	// DeleteApiKey DeleteApiKey soft-deletes the key and deactivates it.
 	DeleteApiKey(context.Context, *DeleteApiKeyRequest) (*emptypb.Empty, error)
 	GetApiKey(context.Context, *GetApiKeyRequest) (*ApiKey, error)
+	// ListApiKeyEvents ListApiKeyEvents returns the latest 100 events of the activity log of the key, newest first.
+	ListApiKeyEvents(context.Context, *ListApiKeyEventsRequest) (*ApiKeyEventSet, error)
 	// ListApiKeys ListApiKeys returns the keys that are not deleted, newest first.
 	ListApiKeys(context.Context, *ListApiKeysRequest) (*ApiKeySet, error)
 	// RevokePreviousSecret RevokePreviousSecret drops the previous secret key before it expires, for a site
@@ -43,11 +51,15 @@ type ApiKeyServiceHTTPServer interface {
 	// roll the key out without downtime. Only one previous key is kept: resetting again
 	// inside that window overwrites it.
 	RotateSecretKey(context.Context, *RotateSecretKeyRequest) (*ApiKey, error)
+	// SetAllowedDomains SetAllowedDomains replaces the websites allowed to use the site key with the list given; an
+	// empty list lets any website use it again. Entries that stay keep their create_date.
+	SetAllowedDomains(context.Context, *SetAllowedDomainsRequest) (*ApiKey, error)
 	// SetAllowedOrigins SetAllowedOrigins replaces the addresses allowed to use the site key with the list
 	// given; an empty list lets every address use it again. Entries that stay keep their
 	// create_date.
 	SetAllowedOrigins(context.Context, *SetAllowedOriginsRequest) (*ApiKey, error)
-	// UpdateApiKey UpdateApiKey applies a partial update; update_mask accepts "name" and "is_active".
+	// UpdateApiKey UpdateApiKey applies a partial update; update_mask accepts "name", "is_active" and
+	// "require_behavior".
 	UpdateApiKey(context.Context, *UpdateApiKeyRequest) (*ApiKey, error)
 }
 
@@ -60,6 +72,9 @@ func RegisterApiKeyServiceHTTPServer(s *http.Server, srv ApiKeyServiceHTTPServer
 	r.Handle("POST", "/v1/api-keys/{id}/rotate-secret", _ApiKeyService_RotateSecretKey0_HTTP_Handler(srv))
 	r.Handle("POST", "/v1/api-keys/{id}/revoke-previous-secret", _ApiKeyService_RevokePreviousSecret0_HTTP_Handler(srv))
 	r.Handle("PUT", "/v1/api-keys/{id}/allowed-origins", _ApiKeyService_SetAllowedOrigins0_HTTP_Handler(srv))
+	r.Handle("PUT", "/v1/api-keys/{id}/allowed-domains", _ApiKeyService_SetAllowedDomains0_HTTP_Handler(srv))
+	r.Handle("POST", "/v1/api-keys/{id}/appeals", _ApiKeyService_CreateAppeal0_HTTP_Handler(srv))
+	r.Handle("GET", "/v1/api-keys/{id}/events", _ApiKeyService_ListApiKeyEvents0_HTTP_Handler(srv))
 	r.Handle("DELETE", "/v1/api-keys/{id}", _ApiKeyService_DeleteApiKey0_HTTP_Handler(srv))
 }
 
@@ -211,6 +226,72 @@ func _ApiKeyService_SetAllowedOrigins0_HTTP_Handler(srv ApiKeyServiceHTTPServer)
 	}
 }
 
+func _ApiKeyService_SetAllowedDomains0_HTTP_Handler(srv ApiKeyServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in SetAllowedDomainsRequest
+		if err := ctx.Bind(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindVars(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationApiKeyServiceSetAllowedDomains)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.SetAllowedDomains(ctx, req.(*SetAllowedDomainsRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*ApiKey)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _ApiKeyService_CreateAppeal0_HTTP_Handler(srv ApiKeyServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in CreateAppealRequest
+		if err := ctx.Bind(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindVars(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationApiKeyServiceCreateAppeal)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.CreateAppeal(ctx, req.(*CreateAppealRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*ApiKeyAppeal)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _ApiKeyService_ListApiKeyEvents0_HTTP_Handler(srv ApiKeyServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in ListApiKeyEventsRequest
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindVars(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationApiKeyServiceListApiKeyEvents)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.ListApiKeyEvents(ctx, req.(*ListApiKeyEventsRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*ApiKeyEventSet)
+		return ctx.Result(200, reply)
+	}
+}
+
 func _ApiKeyService_DeleteApiKey0_HTTP_Handler(srv ApiKeyServiceHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in DeleteApiKeyRequest
@@ -236,9 +317,14 @@ func _ApiKeyService_DeleteApiKey0_HTTP_Handler(srv ApiKeyServiceHTTPServer) func
 type ApiKeyServiceHTTPClient interface {
 	// CreateApiKey CreateApiKey issues a new site key and secret key.
 	CreateApiKey(ctx context.Context, req *CreateApiKeyRequest, opts ...http.CallOption) (rsp *ApiKey, err error)
+	// CreateAppeal CreateAppeal asks an administrator to review a suspended or flagged key. A key has at most one
+	// pending appeal.
+	CreateAppeal(ctx context.Context, req *CreateAppealRequest, opts ...http.CallOption) (rsp *ApiKeyAppeal, err error)
 	// DeleteApiKey DeleteApiKey soft-deletes the key and deactivates it.
 	DeleteApiKey(ctx context.Context, req *DeleteApiKeyRequest, opts ...http.CallOption) (rsp *emptypb.Empty, err error)
 	GetApiKey(ctx context.Context, req *GetApiKeyRequest, opts ...http.CallOption) (rsp *ApiKey, err error)
+	// ListApiKeyEvents ListApiKeyEvents returns the latest 100 events of the activity log of the key, newest first.
+	ListApiKeyEvents(ctx context.Context, req *ListApiKeyEventsRequest, opts ...http.CallOption) (rsp *ApiKeyEventSet, err error)
 	// ListApiKeys ListApiKeys returns the keys that are not deleted, newest first.
 	ListApiKeys(ctx context.Context, req *ListApiKeysRequest, opts ...http.CallOption) (rsp *ApiKeySet, err error)
 	// RevokePreviousSecret RevokePreviousSecret drops the previous secret key before it expires, for a site
@@ -249,11 +335,15 @@ type ApiKeyServiceHTTPClient interface {
 	// roll the key out without downtime. Only one previous key is kept: resetting again
 	// inside that window overwrites it.
 	RotateSecretKey(ctx context.Context, req *RotateSecretKeyRequest, opts ...http.CallOption) (rsp *ApiKey, err error)
+	// SetAllowedDomains SetAllowedDomains replaces the websites allowed to use the site key with the list given; an
+	// empty list lets any website use it again. Entries that stay keep their create_date.
+	SetAllowedDomains(ctx context.Context, req *SetAllowedDomainsRequest, opts ...http.CallOption) (rsp *ApiKey, err error)
 	// SetAllowedOrigins SetAllowedOrigins replaces the addresses allowed to use the site key with the list
 	// given; an empty list lets every address use it again. Entries that stay keep their
 	// create_date.
 	SetAllowedOrigins(ctx context.Context, req *SetAllowedOriginsRequest, opts ...http.CallOption) (rsp *ApiKey, err error)
-	// UpdateApiKey UpdateApiKey applies a partial update; update_mask accepts "name" and "is_active".
+	// UpdateApiKey UpdateApiKey applies a partial update; update_mask accepts "name", "is_active" and
+	// "require_behavior".
 	UpdateApiKey(ctx context.Context, req *UpdateApiKeyRequest, opts ...http.CallOption) (rsp *ApiKey, err error)
 }
 
@@ -274,6 +364,25 @@ func (c *ApiKeyServiceHTTPClientImpl) CreateApiKey(ctx context.Context, in *Crea
 		http.Accept("application/protojson"),
 		http.ContentType("application/protojson"),
 		http.Operation(OperationApiKeyServiceCreateApiKey),
+		http.PathTemplate(pattern),
+	}, opts...)
+	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// CreateAppeal CreateAppeal asks an administrator to review a suspended or flagged key. A key has at most one
+// pending appeal.
+func (c *ApiKeyServiceHTTPClientImpl) CreateAppeal(ctx context.Context, in *CreateAppealRequest, opts ...http.CallOption) (*ApiKeyAppeal, error) {
+	var out ApiKeyAppeal
+	pattern := "/v1/api-keys/{id}/appeals"
+	path := http.BuildPath(pattern, in)
+	opts = append([]http.CallOption{
+		http.Accept("application/protojson"),
+		http.ContentType("application/protojson"),
+		http.Operation(OperationApiKeyServiceCreateAppeal),
 		http.PathTemplate(pattern),
 	}, opts...)
 	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
@@ -307,6 +416,23 @@ func (c *ApiKeyServiceHTTPClientImpl) GetApiKey(ctx context.Context, in *GetApiK
 	opts = append([]http.CallOption{
 		http.Accept("application/protojson"),
 		http.Operation(OperationApiKeyServiceGetApiKey),
+		http.PathTemplate(pattern),
+	}, opts...)
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// ListApiKeyEvents ListApiKeyEvents returns the latest 100 events of the activity log of the key, newest first.
+func (c *ApiKeyServiceHTTPClientImpl) ListApiKeyEvents(ctx context.Context, in *ListApiKeyEventsRequest, opts ...http.CallOption) (*ApiKeyEventSet, error) {
+	var out ApiKeyEventSet
+	pattern := "/v1/api-keys/{id}/events"
+	path := http.BuildPath(pattern, in, http.WithQueryParams())
+	opts = append([]http.CallOption{
+		http.Accept("application/protojson"),
+		http.Operation(OperationApiKeyServiceListApiKeyEvents),
 		http.PathTemplate(pattern),
 	}, opts...)
 	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
@@ -371,6 +497,25 @@ func (c *ApiKeyServiceHTTPClientImpl) RotateSecretKey(ctx context.Context, in *R
 	return &out, nil
 }
 
+// SetAllowedDomains SetAllowedDomains replaces the websites allowed to use the site key with the list given; an
+// empty list lets any website use it again. Entries that stay keep their create_date.
+func (c *ApiKeyServiceHTTPClientImpl) SetAllowedDomains(ctx context.Context, in *SetAllowedDomainsRequest, opts ...http.CallOption) (*ApiKey, error) {
+	var out ApiKey
+	pattern := "/v1/api-keys/{id}/allowed-domains"
+	path := http.BuildPath(pattern, in)
+	opts = append([]http.CallOption{
+		http.Accept("application/protojson"),
+		http.ContentType("application/protojson"),
+		http.Operation(OperationApiKeyServiceSetAllowedDomains),
+		http.PathTemplate(pattern),
+	}, opts...)
+	err := c.cc.Invoke(ctx, "PUT", path, in, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 // SetAllowedOrigins SetAllowedOrigins replaces the addresses allowed to use the site key with the list
 // given; an empty list lets every address use it again. Entries that stay keep their
 // create_date.
@@ -391,7 +536,8 @@ func (c *ApiKeyServiceHTTPClientImpl) SetAllowedOrigins(ctx context.Context, in 
 	return &out, nil
 }
 
-// UpdateApiKey UpdateApiKey applies a partial update; update_mask accepts "name" and "is_active".
+// UpdateApiKey UpdateApiKey applies a partial update; update_mask accepts "name", "is_active" and
+// "require_behavior".
 func (c *ApiKeyServiceHTTPClientImpl) UpdateApiKey(ctx context.Context, in *UpdateApiKeyRequest, opts ...http.CallOption) (*ApiKey, error) {
 	var out ApiKey
 	pattern := "/v1/api-keys/{api_key.id}"

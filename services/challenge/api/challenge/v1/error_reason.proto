@@ -18,4 +18,17 @@ enum ErrorReason {
   DAILY_QUOTA_EXCEEDED = 7;
   // The address asking for the challenge is not among the key's allowed origins.
   ORIGIN_NOT_ALLOWED = 8;
+  // challenge_id is not a challenge id, which is a UUID in its canonical 36-character form.
+  CHALLENGE_ID_INVALID = 9;
+  // Too many requests from this address or for this key. The Retry-After header and metadata
+  // "retry_after" give the seconds until the window resets.
+  RATE_LIMITED = 10;
+  // The request body is larger than the endpoint accepts.
+  PAYLOAD_TOO_LARGE = 11;
+  // Something failed inside the service; its log has the details.
+  INTERNAL = 12;
+  // The key lists the websites allowed to use it, and the request comes from none of them.
+  DOMAIN_NOT_ALLOWED = 13;
+  // The key requires behaviour data and the answer came without any: update @wau-captcha/client.
+  BEHAVIOR_REQUIRED = 14;
 }

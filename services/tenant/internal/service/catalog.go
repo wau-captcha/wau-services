@@ -33,3 +33,24 @@ func (s *CatalogService) ListChallengeTypes(ctx context.Context, _ *v1.ListChall
 	}
 	return typeSet, nil
 }
+
+// ListPublicPlans needs no token: the pricing page shows the plans to anyone.
+func (s *CatalogService) ListPublicPlans(ctx context.Context, _ *v1.ListPublicPlansRequest) (*v1.PublicPlanSet, error) {
+	plans, err := s.catalog.ListPublicPlans(ctx)
+	if err != nil {
+		return nil, err
+	}
+	reply := &v1.PublicPlanSet{Plans: make([]*v1.PublicPlan, 0, len(plans))}
+	for _, plan := range plans {
+		reply.Plans = append(reply.Plans, &v1.PublicPlan{
+			Id:             plan.ID,
+			Name:           plan.Name,
+			Description:    plan.Description,
+			MonthlyPrice:   plan.MonthlyPrice,
+			YearlyPrice:    plan.YearlyPrice,
+			DailyQuota:     plan.DailyQuota,
+			ChallengeTypes: plan.ChallengeTypes,
+		})
+	}
+	return reply, nil
+}

@@ -47,13 +47,20 @@ SET is_banned = @banned::boolean
 WHERE user_id = @user_id;
 
 -- name: ListAdminAPIKeys :many
-SELECT api_key_id, name, site_key, is_active, is_suspended, suspend_reason, create_date
+SELECT api_key_id, name, site_key, is_active, is_suspended, suspend_reason, create_date, scraping_flagged_at
 FROM api_keys
 WHERE user_id = $1
   AND NOT is_deleted
 ORDER BY create_date DESC;
 
--- A key suspended for scraping keeps that reason when an administrator confirms it.
+-- name: GetAdminAPIKey :one
+SELECT api_key_id, name, site_key, is_active, is_suspended, suspend_reason, create_date, scraping_flagged_at
+FROM api_keys
+WHERE api_key_id = $1
+  AND NOT is_deleted;
+
+-- A key suspended for scraping keeps that reason when an administrator confirms it. Lifting a
+-- suspension also clears the scraping flag.
 -- name: SetAPIKeySuspended :one
 UPDATE api_keys
 SET is_suspended = @suspended::boolean,
@@ -61,7 +68,53 @@ SET is_suspended = @suspended::boolean,
         WHEN NOT @suspended::boolean THEN NULL
         WHEN is_suspended THEN suspend_reason
         ELSE 'ADMIN'
-    END
+    END,
+    scraping_flagged_at = CASE WHEN @suspended::boolean THEN scraping_flagged_at END
 WHERE api_key_id = @api_key_id
   AND NOT is_deleted
-RETURNING api_key_id, name, site_key, is_active, is_suspended, suspend_reason, create_date;
+RETURNING api_key_id, name, site_key, is_active, is_suspended, suspend_reason, create_date, scraping_flagged_at;
+
+-- status 'all' lists every appeal.
+-- name: ListAPIKeyAppeals :many
+SELECT a.api_key_appeal_id, a.status, a.message, a.admin_note, a.create_date, a.decided_at,
+       u.user_id, u.email, u.username,
+       k.api_key_id, k.name, k.site_key, k.is_active, k.is_suspended, k.suspend_reason,
+       k.create_date AS key_create_date, k.scraping_flagged_at
+FROM api_key_appeals a
+JOIN api_keys k ON k.api_key_id = a.api_key_id
+JOIN users u ON u.user_id = a.user_id
+WHERE @status::text = 'all' OR a.status = @status::text
+ORDER BY a.create_date DESC, a.api_key_appeal_id DESC
+LIMIT @max_appeals::bigint;
+
+-- name: GetAPIKeyAppeal :one
+SELECT a.api_key_appeal_id, a.status, a.message, a.admin_note, a.create_date, a.decided_at,
+       u.user_id, u.email, u.username,
+       k.api_key_id, k.name, k.site_key, k.is_active, k.is_suspended, k.suspend_reason,
+       k.create_date AS key_create_date, k.scraping_flagged_at
+FROM api_key_appeals a
+JOIN api_keys k ON k.api_key_id = a.api_key_id
+JOIN users u ON u.user_id = a.user_id
+WHERE a.api_key_appeal_id = $1;
+
+-- Approving lifts the suspension of the key and clears its flag in the same statement. No row
+-- means the appeal does not exist or was decided already.
+-- name: DecideAPIKeyAppeal :one
+WITH decided AS (
+    UPDATE api_key_appeals
+    SET status = CASE WHEN @approve::boolean THEN 'approved' ELSE 'rejected' END,
+        admin_note = NULLIF(@admin_note::text, ''),
+        decided_at = now()
+    WHERE api_key_appeal_id = @api_key_appeal_id
+      AND status = 'pending'
+    RETURNING api_key_id
+), lifted AS (
+    UPDATE api_keys k
+    SET is_suspended = false,
+        suspend_reason = NULL,
+        scraping_flagged_at = NULL
+    FROM decided d
+    WHERE @approve::boolean
+      AND k.api_key_id = d.api_key_id
+)
+SELECT api_key_id FROM decided;

@@ -18,6 +18,12 @@ type Behavior struct {
 	UntrustedEvents int
 	Webdriver       bool
 	HiddenMs        int
+	// Hints the browser gives about itself, from SDKs 1.3.0 on: navigator.userAgent names
+	// HeadlessChrome, navigator.languages is empty, a Chrome user agent lacks window.chrome. A
+	// script can fake each, so they only lower the score.
+	HeadlessUA                bool
+	NoLanguages               bool
+	ChromeWithoutWindowChrome bool
 }
 
 type PointerSample struct {

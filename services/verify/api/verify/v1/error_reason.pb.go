@@ -30,6 +30,17 @@ const (
 	ErrorReason_API_KEY_SUSPENDED ErrorReason = 2
 	// The owner of the key was banned by an administrator.
 	ErrorReason_ACCOUNT_BANNED ErrorReason = 3
+	// challenge_id is not a challenge id, which is a UUID in its canonical 36-character form.
+	ErrorReason_CHALLENGE_ID_INVALID ErrorReason = 4
+	// Too many requests from this address or for this key. The Retry-After header and metadata
+	// "retry_after" give the seconds until the window resets.
+	ErrorReason_RATE_LIMITED ErrorReason = 5
+	// The request body is larger than the endpoint accepts.
+	ErrorReason_PAYLOAD_TOO_LARGE ErrorReason = 6
+	// Something failed inside the service; its log has the details.
+	ErrorReason_INTERNAL ErrorReason = 7
+	// The key requires behaviour data and the answer came without any: update @wau-captcha/client.
+	ErrorReason_BEHAVIOR_REQUIRED ErrorReason = 8
 )
 
 // Enum value maps for ErrorReason.
@@ -39,12 +50,22 @@ var (
 		1: "SECRET_KEY_INVALID",
 		2: "API_KEY_SUSPENDED",
 		3: "ACCOUNT_BANNED",
+		4: "CHALLENGE_ID_INVALID",
+		5: "RATE_LIMITED",
+		6: "PAYLOAD_TOO_LARGE",
+		7: "INTERNAL",
+		8: "BEHAVIOR_REQUIRED",
 	}
 	ErrorReason_value = map[string]int32{
 		"ERROR_REASON_UNSPECIFIED": 0,
 		"SECRET_KEY_INVALID":       1,
 		"API_KEY_SUSPENDED":        2,
 		"ACCOUNT_BANNED":           3,
+		"CHALLENGE_ID_INVALID":     4,
+		"RATE_LIMITED":             5,
+		"PAYLOAD_TOO_LARGE":        6,
+		"INTERNAL":                 7,
+		"BEHAVIOR_REQUIRED":        8,
 	}
 )
 
@@ -79,12 +100,17 @@ var File_verify_v1_error_reason_proto protoreflect.FileDescriptor
 
 const file_verify_v1_error_reason_proto_rawDesc = "" +
 	"\n" +
-	"\x1cverify/v1/error_reason.proto\x12\tverify.v1*n\n" +
+	"\x1cverify/v1/error_reason.proto\x12\tverify.v1*\xd6\x01\n" +
 	"\vErrorReason\x12\x1c\n" +
 	"\x18ERROR_REASON_UNSPECIFIED\x10\x00\x12\x16\n" +
 	"\x12SECRET_KEY_INVALID\x10\x01\x12\x15\n" +
 	"\x11API_KEY_SUSPENDED\x10\x02\x12\x12\n" +
-	"\x0eACCOUNT_BANNED\x10\x03B\x19Z\x17verify/api/verify/v1;v1b\x06proto3"
+	"\x0eACCOUNT_BANNED\x10\x03\x12\x18\n" +
+	"\x14CHALLENGE_ID_INVALID\x10\x04\x12\x10\n" +
+	"\fRATE_LIMITED\x10\x05\x12\x15\n" +
+	"\x11PAYLOAD_TOO_LARGE\x10\x06\x12\f\n" +
+	"\bINTERNAL\x10\a\x12\x15\n" +
+	"\x11BEHAVIOR_REQUIRED\x10\bB\x19Z\x17verify/api/verify/v1;v1b\x06proto3"
 
 var (
 	file_verify_v1_error_reason_proto_rawDescOnce sync.Once

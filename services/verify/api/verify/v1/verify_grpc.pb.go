@@ -31,7 +31,10 @@ const (
 type VerifyServiceClient interface {
 	// VerifyChallenge checks an answer and issues a one-time token on success.
 	VerifyChallenge(ctx context.Context, in *VerifyChallengeRequest, opts ...grpc.CallOption) (*VerifyChallengeReply, error)
-	// SiteVerify consumes the token given as ?token=. Requires "Authorization: Bearer <secret_key>".
+	// SiteVerify consumes the token sent in the body, as JSON {"token": "..."} or as the form
+	// token=..., so it never lands in access logs. Requires "Authorization: Bearer <secret_key>".
+	// Deprecated, for SDKs before 1.3.0: the token as ?token= with an empty body; a token in the
+	// body wins over one in the query.
 	SiteVerify(ctx context.Context, in *SiteVerifyRequest, opts ...grpc.CallOption) (*SiteVerifyReply, error)
 }
 
@@ -71,7 +74,10 @@ func (c *verifyServiceClient) SiteVerify(ctx context.Context, in *SiteVerifyRequ
 type VerifyServiceServer interface {
 	// VerifyChallenge checks an answer and issues a one-time token on success.
 	VerifyChallenge(context.Context, *VerifyChallengeRequest) (*VerifyChallengeReply, error)
-	// SiteVerify consumes the token given as ?token=. Requires "Authorization: Bearer <secret_key>".
+	// SiteVerify consumes the token sent in the body, as JSON {"token": "..."} or as the form
+	// token=..., so it never lands in access logs. Requires "Authorization: Bearer <secret_key>".
+	// Deprecated, for SDKs before 1.3.0: the token as ?token= with an empty body; a token in the
+	// body wins over one in the query.
 	SiteVerify(context.Context, *SiteVerifyRequest) (*SiteVerifyReply, error)
 	mustEmbedUnimplementedVerifyServiceServer()
 }

@@ -8,7 +8,6 @@ import (
 	"tenant/internal/auth"
 	"tenant/internal/biz"
 	"tenant/internal/conf"
-	"tenant/internal/pkg/filter"
 	"tenant/internal/service"
 
 	"github.com/go-kratos/kratos/v3/middleware/recovery"
@@ -31,8 +30,9 @@ func NewHTTPServer(
 	catalog *service.CatalogService,
 	admin *service.AdminService,
 ) *http.Server {
+	// No CORS filter: only the dashboard's server calls tenant, never a browser.
 	var opts = []http.ServerOption{
-		http.Filter(filter.CORS),
+		http.ErrorEncoder(encodeError),
 		http.Middleware(
 			recovery.Recovery(),
 			sanitizeErrors(),
@@ -68,13 +68,14 @@ func NewHTTPServer(
 // adminOperations prefixes every AdminService operation; they take administrator tokens.
 const adminOperations = "/tenant.v1.AdminService/"
 
-// signIn operations hand out tokens, so they need none.
-var signIn = map[string]bool{
+// public operations need no token: sign-in hands tokens out, and the plans are for anyone.
+var public = map[string]bool{
 	v1.OperationAuthServiceSignInWithGoogle:      true,
 	v1.OperationAuthServiceSignInAdminWithGoogle: true,
+	v1.OperationCatalogServiceListPublicPlans:    true,
 }
 
-// userOperation requires a user's token everywhere but on sign-in and in AdminService.
+// userOperation requires a user's token everywhere but on the public operations and in AdminService.
 func userOperation(_ context.Context, operation string) bool {
-	return !signIn[operation] && !strings.HasPrefix(operation, adminOperations)
+	return !public[operation] && !strings.HasPrefix(operation, adminOperations)
 }

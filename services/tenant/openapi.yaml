@@ -33,6 +33,54 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/tenant.v1.AdminApiKey'
+    /v1/admin/appeals:
+        get:
+            tags:
+                - AdminService
+            description: |-
+                ListAppeals returns the reviews owners asked for, newest first: the pending ones unless
+                 status says otherwise.
+            operationId: AdminService_ListAppeals
+            parameters:
+                - name: status
+                  in: query
+                  description: '"pending" (the default when empty), "approved", "rejected" or "all".'
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/tenant.v1.AdminAppealSet'
+    /v1/admin/appeals/{appeal_id}/decision:
+        post:
+            tags:
+                - AdminService
+            description: |-
+                DecideAppeal approves a pending appeal, which lifts the suspension of the key and clears its
+                 flag, or rejects it, with a note the owner sees.
+            operationId: AdminService_DecideAppeal
+            parameters:
+                - name: appeal_id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/tenant.v1.DecideAppealRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/tenant.v1.AdminAppeal'
     /v1/admin/me:
         get:
             tags:
@@ -227,7 +275,9 @@ paths:
         patch:
             tags:
                 - ApiKeyService
-            description: UpdateApiKey applies a partial update; update_mask accepts "name" and "is_active".
+            description: |-
+                UpdateApiKey applies a partial update; update_mask accepts "name", "is_active" and
+                 "require_behavior".
             operationId: ApiKeyService_UpdateApiKey
             parameters:
                 - name: api_key.id
@@ -281,6 +331,33 @@ paths:
                 "200":
                     description: OK
                     content: {}
+    /v1/api-keys/{id}/allowed-domains:
+        put:
+            tags:
+                - ApiKeyService
+            description: |-
+                SetAllowedDomains replaces the websites allowed to use the site key with the list given; an
+                 empty list lets any website use it again. Entries that stay keep their create_date.
+            operationId: ApiKeyService_SetAllowedDomains
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/tenant.v1.SetAllowedDomainsRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/tenant.v1.ApiKey'
     /v1/api-keys/{id}/allowed-origins:
         put:
             tags:
@@ -309,6 +386,52 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/tenant.v1.ApiKey'
+    /v1/api-keys/{id}/appeals:
+        post:
+            tags:
+                - ApiKeyService
+            description: |-
+                CreateAppeal asks an administrator to review a suspended or flagged key. A key has at most one
+                 pending appeal.
+            operationId: ApiKeyService_CreateAppeal
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/tenant.v1.CreateAppealRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/tenant.v1.ApiKeyAppeal'
+    /v1/api-keys/{id}/events:
+        get:
+            tags:
+                - ApiKeyService
+            description: ListApiKeyEvents returns the latest 100 events of the activity log of the key, newest first.
+            operationId: ApiKeyService_ListApiKeyEvents
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/tenant.v1.ApiKeyEventSet'
     /v1/api-keys/{id}/revoke-previous-secret:
         post:
             tags:
@@ -423,6 +546,21 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/tenant.v1.User'
+    /v1/plans:
+        get:
+            tags:
+                - CatalogService
+            description: |-
+                ListPublicPlans returns the active plans, cheapest first, for the public pricing page. It takes
+                 no token. Like every /v1 path it is not on the Ingress: only the dashboard's server calls it.
+            operationId: CatalogService_ListPublicPlans
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/tenant.v1.PublicPlanSet'
     /v1/quota:
         get:
             tags:
@@ -509,6 +647,14 @@ components:
                     description: 'Today''s scraping counters: challenges issued and answers checked.'
                 verifications_today:
                     type: string
+                scraping_flagged:
+                    type: boolean
+                    description: The scraping check flagged the key today and throttles it.
+                solved_today:
+                    type: string
+                    description: Right answers today, and answers judged automated.
+                automated_today:
+                    type: string
             description: 'AdminApiKey is an API key as administrators see it: never with its secret key.'
         tenant.v1.AdminApiKeySet:
             type: object
@@ -517,6 +663,40 @@ components:
                     type: array
                     items:
                         $ref: '#/components/schemas/tenant.v1.AdminApiKey'
+        tenant.v1.AdminAppeal:
+            type: object
+            properties:
+                id:
+                    type: string
+                status:
+                    type: string
+                    description: '"pending", "approved" or "rejected".'
+                message:
+                    type: string
+                admin_note:
+                    type: string
+                create_date:
+                    type: string
+                    format: date-time
+                decided_at:
+                    type: string
+                    format: date-time
+                api_key:
+                    $ref: '#/components/schemas/tenant.v1.AdminApiKey'
+                user_id:
+                    type: string
+                user_email:
+                    type: string
+                user_name:
+                    type: string
+            description: AdminAppeal is a review an owner asked for, with the key and the owner.
+        tenant.v1.AdminAppealSet:
+            type: object
+            properties:
+                appeals:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/tenant.v1.AdminAppeal'
         tenant.v1.AdminAuthReply:
             type: object
             properties:
@@ -574,6 +754,21 @@ components:
                     type: string
                     description: When the paid tier ends; empty when it never ends. tier_id already counts an ended tier as free.
                     format: date-time
+        tenant.v1.AllowedDomain:
+            required:
+                - domain
+            type: object
+            properties:
+                domain:
+                    type: string
+                create_date:
+                    readOnly: true
+                    type: string
+                    format: date-time
+            description: |-
+                AllowedDomain is one website allowed to use a site key: a lowercase host name, in punycode for
+                 international names, such as "shop.example.com"; "*.example.com" for its subdomains (not the
+                 domain itself); "localhost" or "localhost:3000" and "127.0.0.1" for development.
         tenant.v1.AllowedOrigin:
             required:
                 - ip_address
@@ -634,6 +829,84 @@ components:
                 previous_secret_key_expires_at:
                     type: string
                     format: date-time
+                allowed_domains:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/tenant.v1.AllowedDomain'
+                    description: |-
+                        Websites allowed to use the site key. Empty means any website may, as for keys created before
+                         domains existed. Only GetApiKey, CreateApiKey and SetAllowedDomains fill this in.
+                require_behavior:
+                    type: boolean
+                    description: |-
+                        Answers without behaviour data (SDKs before 1.2.0, hand-written integrations) are refused
+                         with BEHAVIOR_REQUIRED. New keys start with it on; keys created before it existed keep it off
+                         until their owner turns it on.
+                scraping_flagged:
+                    type: boolean
+                    description: 'The scraping check flagged the key today: it is throttled to a lower rate until the day ends.'
+                scraping_flagged_at:
+                    type: string
+                    description: When the key was last flagged; empty when it never was.
+                    format: date-time
+                today:
+                    allOf:
+                        - $ref: '#/components/schemas/tenant.v1.KeyCounters'
+                    description: Counters of the scraping check for today. Only GetApiKey fills this in.
+                latest_appeal:
+                    allOf:
+                        - $ref: '#/components/schemas/tenant.v1.ApiKeyAppeal'
+                    description: The latest review asked for the key, if any. Only GetApiKey fills this in.
+        tenant.v1.ApiKeyAppeal:
+            type: object
+            properties:
+                id:
+                    type: string
+                status:
+                    type: string
+                    description: '"pending", "approved" or "rejected".'
+                message:
+                    type: string
+                admin_note:
+                    type: string
+                    description: What the administrator answered; empty while pending.
+                create_date:
+                    type: string
+                    format: date-time
+                decided_at:
+                    type: string
+                    description: Empty while pending.
+                    format: date-time
+            description: ApiKeyAppeal is a review an owner asked for, of a suspended or flagged key.
+        tenant.v1.ApiKeyEvent:
+            type: object
+            properties:
+                id:
+                    type: string
+                actor:
+                    type: string
+                    description: '"user" (the owner), "admin" or "system".'
+                action:
+                    type: string
+                    description: |-
+                        What happened: "created", "renamed", "activated", "paused", "secret_rotated",
+                         "previous_secret_revoked", "allowed_ips_changed", "allowed_domains_changed",
+                         "require_behavior_changed", "flagged", "suspended", "unsuspended", "appeal_created",
+                         "appeal_approved", "appeal_rejected" or "deleted".
+                detail:
+                    type: object
+                    description: 'The details of the change, e.g. {"name": "Shop"}; never a secret key.'
+                create_date:
+                    type: string
+                    format: date-time
+            description: ApiKeyEvent is one entry of the activity log of a key.
+        tenant.v1.ApiKeyEventSet:
+            type: object
+            properties:
+                events:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/tenant.v1.ApiKeyEvent'
         tenant.v1.ApiKeySet:
             type: object
             properties:
@@ -678,6 +951,22 @@ components:
             properties:
                 name:
                     type: string
+                allowed_domains:
+                    type: array
+                    items:
+                        type: string
+                    description: The websites allowed to use the key from the start, optional; see AllowedDomain.
+        tenant.v1.CreateAppealRequest:
+            required:
+                - id
+                - message
+            type: object
+            properties:
+                id:
+                    type: string
+                message:
+                    type: string
+                    description: Why the key should work again, 1-2000 characters.
         tenant.v1.DailyUsage:
             type: object
             properties:
@@ -690,6 +979,65 @@ components:
                     type: string
                 successes:
                     type: string
+        tenant.v1.DecideAppealRequest:
+            required:
+                - appeal_id
+            type: object
+            properties:
+                appeal_id:
+                    type: string
+                approve:
+                    type: boolean
+                note:
+                    type: string
+                    description: Shown to the owner, at most 2000 characters.
+        tenant.v1.KeyCounters:
+            type: object
+            properties:
+                challenges:
+                    type: string
+                    description: 'Challenges issued: /challenge/new calls.'
+                answers:
+                    type: string
+                    description: 'Answers checked: /challenge/verify calls that reached a challenge.'
+                solved:
+                    type: string
+                    description: Right answers.
+                automated:
+                    type: string
+                    description: Answers the behaviour check judged automated.
+            description: KeyCounters is what the scraping check of a key counted on one day.
+        tenant.v1.PublicPlan:
+            type: object
+            properties:
+                id:
+                    type: string
+                name:
+                    type: string
+                description:
+                    type: string
+                monthly_price:
+                    type: string
+                    description: VND for one month; 0 for a plan that is not sold (free).
+                yearly_price:
+                    type: string
+                    description: VND for one year; 0 when the plan is not sold by the year.
+                daily_quota:
+                    type: string
+                    description: Successful verifications per day, across all keys of an account.
+                challenge_types:
+                    type: array
+                    items:
+                        type: string
+                    description: Challenge types the plan includes, active ones only.
+            description: PublicPlan is a tier as the pricing page shows it.
+        tenant.v1.PublicPlanSet:
+            type: object
+            properties:
+                plans:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/tenant.v1.PublicPlan'
         tenant.v1.Quota:
             type: object
             properties:
@@ -706,6 +1054,18 @@ components:
                     type: string
                     description: 'When the count starts over: the next local midnight.'
                     format: date-time
+        tenant.v1.SetAllowedDomainsRequest:
+            required:
+                - id
+            type: object
+            properties:
+                id:
+                    type: string
+                allowed_domains:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/tenant.v1.AllowedDomain'
+                    description: The whole list, at most 50; domains left out are dropped. Empty allows any website.
         tenant.v1.SetAllowedOriginsRequest:
             required:
                 - id
@@ -861,7 +1221,7 @@ tags:
         AuthService signs people in with their Google account: dashboard users, and apart from
          them the administrators of the admins table. The two get different access tokens.
     - name: CatalogService
-      description: CatalogService lists what the tier of the signed-in user may use.
+      description: CatalogService lists what the tier of the signed-in user may use, and the plans on sale.
     - name: UsageService
       description: |-
         UsageService reports how often the keys of the signed-in user were exercised.

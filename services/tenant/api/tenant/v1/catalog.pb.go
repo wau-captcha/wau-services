@@ -155,6 +155,183 @@ func (x *ChallengeType) GetCode() string {
 	return ""
 }
 
+type ListPublicPlansRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListPublicPlansRequest) Reset() {
+	*x = ListPublicPlansRequest{}
+	mi := &file_tenant_v1_catalog_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListPublicPlansRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListPublicPlansRequest) ProtoMessage() {}
+
+func (x *ListPublicPlansRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_tenant_v1_catalog_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListPublicPlansRequest.ProtoReflect.Descriptor instead.
+func (*ListPublicPlansRequest) Descriptor() ([]byte, []int) {
+	return file_tenant_v1_catalog_proto_rawDescGZIP(), []int{3}
+}
+
+type PublicPlanSet struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Plans         []*PublicPlan          `protobuf:"bytes,1,rep,name=plans,proto3" json:"plans,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PublicPlanSet) Reset() {
+	*x = PublicPlanSet{}
+	mi := &file_tenant_v1_catalog_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PublicPlanSet) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PublicPlanSet) ProtoMessage() {}
+
+func (x *PublicPlanSet) ProtoReflect() protoreflect.Message {
+	mi := &file_tenant_v1_catalog_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PublicPlanSet.ProtoReflect.Descriptor instead.
+func (*PublicPlanSet) Descriptor() ([]byte, []int) {
+	return file_tenant_v1_catalog_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *PublicPlanSet) GetPlans() []*PublicPlan {
+	if x != nil {
+		return x.Plans
+	}
+	return nil
+}
+
+// PublicPlan is a tier as the pricing page shows it.
+type PublicPlan struct {
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Id          string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name        string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Description string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	// VND for one month; 0 for a plan that is not sold (free).
+	MonthlyPrice int64 `protobuf:"varint,4,opt,name=monthly_price,json=monthlyPrice,proto3" json:"monthly_price,omitempty"`
+	// VND for one year; 0 when the plan is not sold by the year.
+	YearlyPrice int64 `protobuf:"varint,5,opt,name=yearly_price,json=yearlyPrice,proto3" json:"yearly_price,omitempty"`
+	// Successful verifications per day, across all keys of an account.
+	DailyQuota int64 `protobuf:"varint,6,opt,name=daily_quota,json=dailyQuota,proto3" json:"daily_quota,omitempty"`
+	// Challenge types the plan includes, active ones only.
+	ChallengeTypes []string `protobuf:"bytes,7,rep,name=challenge_types,json=challengeTypes,proto3" json:"challenge_types,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *PublicPlan) Reset() {
+	*x = PublicPlan{}
+	mi := &file_tenant_v1_catalog_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PublicPlan) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PublicPlan) ProtoMessage() {}
+
+func (x *PublicPlan) ProtoReflect() protoreflect.Message {
+	mi := &file_tenant_v1_catalog_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PublicPlan.ProtoReflect.Descriptor instead.
+func (*PublicPlan) Descriptor() ([]byte, []int) {
+	return file_tenant_v1_catalog_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *PublicPlan) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *PublicPlan) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *PublicPlan) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *PublicPlan) GetMonthlyPrice() int64 {
+	if x != nil {
+		return x.MonthlyPrice
+	}
+	return 0
+}
+
+func (x *PublicPlan) GetYearlyPrice() int64 {
+	if x != nil {
+		return x.YearlyPrice
+	}
+	return 0
+}
+
+func (x *PublicPlan) GetDailyQuota() int64 {
+	if x != nil {
+		return x.DailyQuota
+	}
+	return 0
+}
+
+func (x *PublicPlan) GetChallengeTypes() []string {
+	if x != nil {
+		return x.ChallengeTypes
+	}
+	return nil
+}
+
 var File_tenant_v1_catalog_proto protoreflect.FileDescriptor
 
 const file_tenant_v1_catalog_proto_rawDesc = "" +
@@ -165,9 +342,23 @@ const file_tenant_v1_catalog_proto_rawDesc = "" +
 	"\x0fchallenge_types\x18\x01 \x03(\v2\x18.tenant.v1.ChallengeTypeR\x0echallengeTypes\"3\n" +
 	"\rChallengeType\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
-	"\x04code\x18\x02 \x01(\tR\x04code2\x86\x01\n" +
+	"\x04code\x18\x02 \x01(\tR\x04code\"\x18\n" +
+	"\x16ListPublicPlansRequest\"<\n" +
+	"\rPublicPlanSet\x12+\n" +
+	"\x05plans\x18\x01 \x03(\v2\x15.tenant.v1.PublicPlanR\x05plans\"\xe4\x01\n" +
+	"\n" +
+	"PublicPlan\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12#\n" +
+	"\rmonthly_price\x18\x04 \x01(\x03R\fmonthlyPrice\x12!\n" +
+	"\fyearly_price\x18\x05 \x01(\x03R\vyearlyPrice\x12\x1f\n" +
+	"\vdaily_quota\x18\x06 \x01(\x03R\n" +
+	"dailyQuota\x12'\n" +
+	"\x0fchallenge_types\x18\a \x03(\tR\x0echallengeTypes2\xe9\x01\n" +
 	"\x0eCatalogService\x12t\n" +
-	"\x12ListChallengeTypes\x12$.tenant.v1.ListChallengeTypesRequest\x1a\x1b.tenant.v1.ChallengeTypeSet\"\x1b\x82\xd3\xe4\x93\x02\x15\x12\x13/v1/challenge-typesB\x19Z\x17tenant/api/tenant/v1;v1b\x06proto3"
+	"\x12ListChallengeTypes\x12$.tenant.v1.ListChallengeTypesRequest\x1a\x1b.tenant.v1.ChallengeTypeSet\"\x1b\x82\xd3\xe4\x93\x02\x15\x12\x13/v1/challenge-types\x12a\n" +
+	"\x0fListPublicPlans\x12!.tenant.v1.ListPublicPlansRequest\x1a\x18.tenant.v1.PublicPlanSet\"\x11\x82\xd3\xe4\x93\x02\v\x12\t/v1/plansB\x19Z\x17tenant/api/tenant/v1;v1b\x06proto3"
 
 var (
 	file_tenant_v1_catalog_proto_rawDescOnce sync.Once
@@ -181,21 +372,27 @@ func file_tenant_v1_catalog_proto_rawDescGZIP() []byte {
 	return file_tenant_v1_catalog_proto_rawDescData
 }
 
-var file_tenant_v1_catalog_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_tenant_v1_catalog_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_tenant_v1_catalog_proto_goTypes = []any{
 	(*ListChallengeTypesRequest)(nil), // 0: tenant.v1.ListChallengeTypesRequest
 	(*ChallengeTypeSet)(nil),          // 1: tenant.v1.ChallengeTypeSet
 	(*ChallengeType)(nil),             // 2: tenant.v1.ChallengeType
+	(*ListPublicPlansRequest)(nil),    // 3: tenant.v1.ListPublicPlansRequest
+	(*PublicPlanSet)(nil),             // 4: tenant.v1.PublicPlanSet
+	(*PublicPlan)(nil),                // 5: tenant.v1.PublicPlan
 }
 var file_tenant_v1_catalog_proto_depIdxs = []int32{
 	2, // 0: tenant.v1.ChallengeTypeSet.challenge_types:type_name -> tenant.v1.ChallengeType
-	0, // 1: tenant.v1.CatalogService.ListChallengeTypes:input_type -> tenant.v1.ListChallengeTypesRequest
-	1, // 2: tenant.v1.CatalogService.ListChallengeTypes:output_type -> tenant.v1.ChallengeTypeSet
-	2, // [2:3] is the sub-list for method output_type
-	1, // [1:2] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	5, // 1: tenant.v1.PublicPlanSet.plans:type_name -> tenant.v1.PublicPlan
+	0, // 2: tenant.v1.CatalogService.ListChallengeTypes:input_type -> tenant.v1.ListChallengeTypesRequest
+	3, // 3: tenant.v1.CatalogService.ListPublicPlans:input_type -> tenant.v1.ListPublicPlansRequest
+	1, // 4: tenant.v1.CatalogService.ListChallengeTypes:output_type -> tenant.v1.ChallengeTypeSet
+	4, // 5: tenant.v1.CatalogService.ListPublicPlans:output_type -> tenant.v1.PublicPlanSet
+	4, // [4:6] is the sub-list for method output_type
+	2, // [2:4] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_tenant_v1_catalog_proto_init() }
@@ -209,7 +406,7 @@ func file_tenant_v1_catalog_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_tenant_v1_catalog_proto_rawDesc), len(file_tenant_v1_catalog_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   3,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

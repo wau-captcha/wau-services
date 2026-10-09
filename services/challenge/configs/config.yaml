@@ -17,5 +17,24 @@ data:
     tls: ${KRATOS_REDIS_TLS}
 challenge:
   ttl: 120s
+  pow_difficulty: 15
 quota:
   time_zone: Asia/Ho_Chi_Minh
+# Per minute; KRATOS_RATE_LIMIT_<KEY> replaces a value, e.g. KRATOS_RATE_LIMIT_NEW_PER_IP.
+rate_limit:
+  new_per_ip: 30
+  new_per_site_key: 600
+  new_per_flagged_site_key: 60
+# The graded response to scraping (see conf.proto); KRATOS_SCRAPING_<KEY> replaces a value.
+scraping:
+  flag_min_issued: 500
+  flag_max_answered_percent: 10
+  flag_min_answered: 200
+  flag_max_solved_percent: 10
+  flag_max_automated_percent: 50
+  suspend_min_issued: 5000
+  suspend_max_answered_percent: 5
+# Per client address; KRATOS_IP_HISTORY_<KEY> replaces a value.
+ip_history:
+  wrong_per_10_minutes: 20
+  automated_per_hour: 5

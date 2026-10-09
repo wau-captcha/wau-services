@@ -80,5 +80,16 @@ components:
                     type: integer
                     description: 'slide_puzzle only: height of the piece, in CSS pixels of image.'
                     format: int32
+                pow_salt:
+                    type: string
+                    description: |-
+                        Proof of work: find a decimal nonce such that SHA-256(pow_salt ‖ challenge_id ‖ nonce), the
+                         salt as its 16 bytes and the other two as UTF-8, starts with pow_difficulty zero bits, and
+                         send it with the answer as pow_nonce. The SDKs from 1.3.0 do it while the person solves the
+                         challenge. A difficulty of 0 asks for none.
+                    format: bytes
+                pow_difficulty:
+                    type: integer
+                    format: int32
 tags:
     - name: ChallengeService

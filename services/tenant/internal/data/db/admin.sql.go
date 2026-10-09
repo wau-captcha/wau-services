@@ -25,6 +25,42 @@ func (q *Queries) CountAdminUsers(ctx context.Context, pattern string) (int64, e
 	return count, err
 }
 
+const decideAPIKeyAppeal = `-- name: DecideAPIKeyAppeal :one
+WITH decided AS (
+    UPDATE api_key_appeals
+    SET status = CASE WHEN $1::boolean THEN 'approved' ELSE 'rejected' END,
+        admin_note = NULLIF($2::text, ''),
+        decided_at = now()
+    WHERE api_key_appeal_id = $3
+      AND status = 'pending'
+    RETURNING api_key_id
+), lifted AS (
+    UPDATE api_keys k
+    SET is_suspended = false,
+        suspend_reason = NULL,
+        scraping_flagged_at = NULL
+    FROM decided d
+    WHERE $1::boolean
+      AND k.api_key_id = d.api_key_id
+)
+SELECT api_key_id FROM decided
+`
+
+type DecideAPIKeyAppealParams struct {
+	Approve        bool
+	AdminNote      string
+	APIKeyAppealID uuid.UUID
+}
+
+// Approving lifts the suspension of the key and clears its flag in the same statement. No row
+// means the appeal does not exist or was decided already.
+func (q *Queries) DecideAPIKeyAppeal(ctx context.Context, arg DecideAPIKeyAppealParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, decideAPIKeyAppeal, arg.Approve, arg.AdminNote, arg.APIKeyAppealID)
+	var api_key_id uuid.UUID
+	err := row.Scan(&api_key_id)
+	return api_key_id, err
+}
+
 const findAdminByEmail = `-- name: FindAdminByEmail :one
 SELECT admin_id, username, email, create_date
 FROM admins
@@ -45,6 +81,62 @@ func (q *Queries) FindAdminByEmail(ctx context.Context, email string) (Admin, er
 	return i, err
 }
 
+const getAPIKeyAppeal = `-- name: GetAPIKeyAppeal :one
+SELECT a.api_key_appeal_id, a.status, a.message, a.admin_note, a.create_date, a.decided_at,
+       u.user_id, u.email, u.username,
+       k.api_key_id, k.name, k.site_key, k.is_active, k.is_suspended, k.suspend_reason,
+       k.create_date AS key_create_date, k.scraping_flagged_at
+FROM api_key_appeals a
+JOIN api_keys k ON k.api_key_id = a.api_key_id
+JOIN users u ON u.user_id = a.user_id
+WHERE a.api_key_appeal_id = $1
+`
+
+type GetAPIKeyAppealRow struct {
+	APIKeyAppealID    uuid.UUID
+	Status            string
+	Message           string
+	AdminNote         pgtype.Text
+	CreateDate        pgtype.Timestamptz
+	DecidedAt         pgtype.Timestamptz
+	UserID            uuid.UUID
+	Email             string
+	Username          string
+	APIKeyID          uuid.UUID
+	Name              string
+	SiteKey           string
+	IsActive          bool
+	IsSuspended       bool
+	SuspendReason     pgtype.Text
+	KeyCreateDate     pgtype.Timestamptz
+	ScrapingFlaggedAt pgtype.Timestamptz
+}
+
+func (q *Queries) GetAPIKeyAppeal(ctx context.Context, apiKeyAppealID uuid.UUID) (GetAPIKeyAppealRow, error) {
+	row := q.db.QueryRow(ctx, getAPIKeyAppeal, apiKeyAppealID)
+	var i GetAPIKeyAppealRow
+	err := row.Scan(
+		&i.APIKeyAppealID,
+		&i.Status,
+		&i.Message,
+		&i.AdminNote,
+		&i.CreateDate,
+		&i.DecidedAt,
+		&i.UserID,
+		&i.Email,
+		&i.Username,
+		&i.APIKeyID,
+		&i.Name,
+		&i.SiteKey,
+		&i.IsActive,
+		&i.IsSuspended,
+		&i.SuspendReason,
+		&i.KeyCreateDate,
+		&i.ScrapingFlaggedAt,
+	)
+	return i, err
+}
+
 const getAdmin = `-- name: GetAdmin :one
 SELECT admin_id, username, email, create_date
 FROM admins
@@ -59,6 +151,40 @@ func (q *Queries) GetAdmin(ctx context.Context, adminID uuid.UUID) (Admin, error
 		&i.Username,
 		&i.Email,
 		&i.CreateDate,
+	)
+	return i, err
+}
+
+const getAdminAPIKey = `-- name: GetAdminAPIKey :one
+SELECT api_key_id, name, site_key, is_active, is_suspended, suspend_reason, create_date, scraping_flagged_at
+FROM api_keys
+WHERE api_key_id = $1
+  AND NOT is_deleted
+`
+
+type GetAdminAPIKeyRow struct {
+	APIKeyID          uuid.UUID
+	Name              string
+	SiteKey           string
+	IsActive          bool
+	IsSuspended       bool
+	SuspendReason     pgtype.Text
+	CreateDate        pgtype.Timestamptz
+	ScrapingFlaggedAt pgtype.Timestamptz
+}
+
+func (q *Queries) GetAdminAPIKey(ctx context.Context, apiKeyID uuid.UUID) (GetAdminAPIKeyRow, error) {
+	row := q.db.QueryRow(ctx, getAdminAPIKey, apiKeyID)
+	var i GetAdminAPIKeyRow
+	err := row.Scan(
+		&i.APIKeyID,
+		&i.Name,
+		&i.SiteKey,
+		&i.IsActive,
+		&i.IsSuspended,
+		&i.SuspendReason,
+		&i.CreateDate,
+		&i.ScrapingFlaggedAt,
 	)
 	return i, err
 }
@@ -132,8 +258,85 @@ func (q *Queries) GetAdminUser(ctx context.Context, userID uuid.UUID) (GetAdminU
 	return i, err
 }
 
+const listAPIKeyAppeals = `-- name: ListAPIKeyAppeals :many
+SELECT a.api_key_appeal_id, a.status, a.message, a.admin_note, a.create_date, a.decided_at,
+       u.user_id, u.email, u.username,
+       k.api_key_id, k.name, k.site_key, k.is_active, k.is_suspended, k.suspend_reason,
+       k.create_date AS key_create_date, k.scraping_flagged_at
+FROM api_key_appeals a
+JOIN api_keys k ON k.api_key_id = a.api_key_id
+JOIN users u ON u.user_id = a.user_id
+WHERE $1::text = 'all' OR a.status = $1::text
+ORDER BY a.create_date DESC, a.api_key_appeal_id DESC
+LIMIT $2::bigint
+`
+
+type ListAPIKeyAppealsParams struct {
+	Status     string
+	MaxAppeals int64
+}
+
+type ListAPIKeyAppealsRow struct {
+	APIKeyAppealID    uuid.UUID
+	Status            string
+	Message           string
+	AdminNote         pgtype.Text
+	CreateDate        pgtype.Timestamptz
+	DecidedAt         pgtype.Timestamptz
+	UserID            uuid.UUID
+	Email             string
+	Username          string
+	APIKeyID          uuid.UUID
+	Name              string
+	SiteKey           string
+	IsActive          bool
+	IsSuspended       bool
+	SuspendReason     pgtype.Text
+	KeyCreateDate     pgtype.Timestamptz
+	ScrapingFlaggedAt pgtype.Timestamptz
+}
+
+// status 'all' lists every appeal.
+func (q *Queries) ListAPIKeyAppeals(ctx context.Context, arg ListAPIKeyAppealsParams) ([]ListAPIKeyAppealsRow, error) {
+	rows, err := q.db.Query(ctx, listAPIKeyAppeals, arg.Status, arg.MaxAppeals)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAPIKeyAppealsRow
+	for rows.Next() {
+		var i ListAPIKeyAppealsRow
+		if err := rows.Scan(
+			&i.APIKeyAppealID,
+			&i.Status,
+			&i.Message,
+			&i.AdminNote,
+			&i.CreateDate,
+			&i.DecidedAt,
+			&i.UserID,
+			&i.Email,
+			&i.Username,
+			&i.APIKeyID,
+			&i.Name,
+			&i.SiteKey,
+			&i.IsActive,
+			&i.IsSuspended,
+			&i.SuspendReason,
+			&i.KeyCreateDate,
+			&i.ScrapingFlaggedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAdminAPIKeys = `-- name: ListAdminAPIKeys :many
-SELECT api_key_id, name, site_key, is_active, is_suspended, suspend_reason, create_date
+SELECT api_key_id, name, site_key, is_active, is_suspended, suspend_reason, create_date, scraping_flagged_at
 FROM api_keys
 WHERE user_id = $1
   AND NOT is_deleted
@@ -141,13 +344,14 @@ ORDER BY create_date DESC
 `
 
 type ListAdminAPIKeysRow struct {
-	APIKeyID      uuid.UUID
-	Name          string
-	SiteKey       string
-	IsActive      bool
-	IsSuspended   bool
-	SuspendReason pgtype.Text
-	CreateDate    pgtype.Timestamptz
+	APIKeyID          uuid.UUID
+	Name              string
+	SiteKey           string
+	IsActive          bool
+	IsSuspended       bool
+	SuspendReason     pgtype.Text
+	CreateDate        pgtype.Timestamptz
+	ScrapingFlaggedAt pgtype.Timestamptz
 }
 
 func (q *Queries) ListAdminAPIKeys(ctx context.Context, userID uuid.UUID) ([]ListAdminAPIKeysRow, error) {
@@ -167,6 +371,7 @@ func (q *Queries) ListAdminAPIKeys(ctx context.Context, userID uuid.UUID) ([]Lis
 			&i.IsSuspended,
 			&i.SuspendReason,
 			&i.CreateDate,
+			&i.ScrapingFlaggedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -247,10 +452,11 @@ SET is_suspended = $1::boolean,
         WHEN NOT $1::boolean THEN NULL
         WHEN is_suspended THEN suspend_reason
         ELSE 'ADMIN'
-    END
+    END,
+    scraping_flagged_at = CASE WHEN $1::boolean THEN scraping_flagged_at END
 WHERE api_key_id = $2
   AND NOT is_deleted
-RETURNING api_key_id, name, site_key, is_active, is_suspended, suspend_reason, create_date
+RETURNING api_key_id, name, site_key, is_active, is_suspended, suspend_reason, create_date, scraping_flagged_at
 `
 
 type SetAPIKeySuspendedParams struct {
@@ -259,16 +465,18 @@ type SetAPIKeySuspendedParams struct {
 }
 
 type SetAPIKeySuspendedRow struct {
-	APIKeyID      uuid.UUID
-	Name          string
-	SiteKey       string
-	IsActive      bool
-	IsSuspended   bool
-	SuspendReason pgtype.Text
-	CreateDate    pgtype.Timestamptz
+	APIKeyID          uuid.UUID
+	Name              string
+	SiteKey           string
+	IsActive          bool
+	IsSuspended       bool
+	SuspendReason     pgtype.Text
+	CreateDate        pgtype.Timestamptz
+	ScrapingFlaggedAt pgtype.Timestamptz
 }
 
-// A key suspended for scraping keeps that reason when an administrator confirms it.
+// A key suspended for scraping keeps that reason when an administrator confirms it. Lifting a
+// suspension also clears the scraping flag.
 func (q *Queries) SetAPIKeySuspended(ctx context.Context, arg SetAPIKeySuspendedParams) (SetAPIKeySuspendedRow, error) {
 	row := q.db.QueryRow(ctx, setAPIKeySuspended, arg.Suspended, arg.APIKeyID)
 	var i SetAPIKeySuspendedRow
@@ -280,6 +488,7 @@ func (q *Queries) SetAPIKeySuspended(ctx context.Context, arg SetAPIKeySuspended
 		&i.IsSuspended,
 		&i.SuspendReason,
 		&i.CreateDate,
+		&i.ScrapingFlaggedAt,
 	)
 	return i, err
 }

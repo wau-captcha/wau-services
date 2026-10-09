@@ -17,16 +17,21 @@ var _ = new(context.Context)
 
 const _ = http.SupportPackageIsVersion3
 
+const OperationAdminServiceDecideAppeal = "/tenant.v1.AdminService/DecideAppeal"
 const OperationAdminServiceGetAdmin = "/tenant.v1.AdminService/GetAdmin"
 const OperationAdminServiceGetStats = "/tenant.v1.AdminService/GetStats"
 const OperationAdminServiceGetUsage = "/tenant.v1.AdminService/GetUsage"
 const OperationAdminServiceGetUser = "/tenant.v1.AdminService/GetUser"
+const OperationAdminServiceListAppeals = "/tenant.v1.AdminService/ListAppeals"
 const OperationAdminServiceListUserApiKeys = "/tenant.v1.AdminService/ListUserApiKeys"
 const OperationAdminServiceListUsers = "/tenant.v1.AdminService/ListUsers"
 const OperationAdminServiceSetApiKeySuspended = "/tenant.v1.AdminService/SetApiKeySuspended"
 const OperationAdminServiceSetUserBanned = "/tenant.v1.AdminService/SetUserBanned"
 
 type AdminServiceHTTPServer interface {
+	// DecideAppeal DecideAppeal approves a pending appeal, which lifts the suspension of the key and clears its
+	// flag, or rejects it, with a note the owner sees.
+	DecideAppeal(context.Context, *DecideAppealRequest) (*AdminAppeal, error)
 	// GetAdmin GetAdmin returns the signed-in administrator.
 	GetAdmin(context.Context, *GetAdminRequest) (*Admin, error)
 	// GetStats GetStats counts accounts and keys across the system.
@@ -36,6 +41,9 @@ type AdminServiceHTTPServer interface {
 	// by_api_key is only filled in for one account or one key.
 	GetUsage(context.Context, *AdminUsageRequest) (*Usage, error)
 	GetUser(context.Context, *GetUserRequest) (*AdminUser, error)
+	// ListAppeals ListAppeals returns the reviews owners asked for, newest first: the pending ones unless
+	// status says otherwise.
+	ListAppeals(context.Context, *ListAppealsRequest) (*AdminAppealSet, error)
 	// ListUserApiKeys ListUserApiKeys returns the keys of an account that are not deleted, newest first.
 	ListUserApiKeys(context.Context, *ListUserApiKeysRequest) (*AdminApiKeySet, error)
 	// ListUsers ListUsers pages through accounts, newest first.
@@ -57,6 +65,8 @@ func RegisterAdminServiceHTTPServer(s *http.Server, srv AdminServiceHTTPServer) 
 	r.Handle("POST", "/v1/admin/users/{user_id}/banned", _AdminService_SetUserBanned0_HTTP_Handler(srv))
 	r.Handle("GET", "/v1/admin/users/{user_id}/api-keys", _AdminService_ListUserApiKeys0_HTTP_Handler(srv))
 	r.Handle("POST", "/v1/admin/api-keys/{api_key_id}/suspended", _AdminService_SetApiKeySuspended0_HTTP_Handler(srv))
+	r.Handle("GET", "/v1/admin/appeals", _AdminService_ListAppeals0_HTTP_Handler(srv))
+	r.Handle("POST", "/v1/admin/appeals/{appeal_id}/decision", _AdminService_DecideAppeal0_HTTP_Handler(srv))
 	r.Handle("GET", "/v1/admin/usage", _AdminService_GetUsage1_HTTP_Handler(srv))
 }
 
@@ -205,6 +215,47 @@ func _AdminService_SetApiKeySuspended0_HTTP_Handler(srv AdminServiceHTTPServer) 
 	}
 }
 
+func _AdminService_ListAppeals0_HTTP_Handler(srv AdminServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in ListAppealsRequest
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationAdminServiceListAppeals)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.ListAppeals(ctx, req.(*ListAppealsRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*AdminAppealSet)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _AdminService_DecideAppeal0_HTTP_Handler(srv AdminServiceHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in DecideAppealRequest
+		if err := ctx.Bind(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindVars(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationAdminServiceDecideAppeal)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.DecideAppeal(ctx, req.(*DecideAppealRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*AdminAppeal)
+		return ctx.Result(200, reply)
+	}
+}
+
 func _AdminService_GetUsage1_HTTP_Handler(srv AdminServiceHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in AdminUsageRequest
@@ -225,6 +276,9 @@ func _AdminService_GetUsage1_HTTP_Handler(srv AdminServiceHTTPServer) func(ctx h
 }
 
 type AdminServiceHTTPClient interface {
+	// DecideAppeal DecideAppeal approves a pending appeal, which lifts the suspension of the key and clears its
+	// flag, or rejects it, with a note the owner sees.
+	DecideAppeal(ctx context.Context, req *DecideAppealRequest, opts ...http.CallOption) (rsp *AdminAppeal, err error)
 	// GetAdmin GetAdmin returns the signed-in administrator.
 	GetAdmin(ctx context.Context, req *GetAdminRequest, opts ...http.CallOption) (rsp *Admin, err error)
 	// GetStats GetStats counts accounts and keys across the system.
@@ -234,6 +288,9 @@ type AdminServiceHTTPClient interface {
 	// by_api_key is only filled in for one account or one key.
 	GetUsage(ctx context.Context, req *AdminUsageRequest, opts ...http.CallOption) (rsp *Usage, err error)
 	GetUser(ctx context.Context, req *GetUserRequest, opts ...http.CallOption) (rsp *AdminUser, err error)
+	// ListAppeals ListAppeals returns the reviews owners asked for, newest first: the pending ones unless
+	// status says otherwise.
+	ListAppeals(ctx context.Context, req *ListAppealsRequest, opts ...http.CallOption) (rsp *AdminAppealSet, err error)
 	// ListUserApiKeys ListUserApiKeys returns the keys of an account that are not deleted, newest first.
 	ListUserApiKeys(ctx context.Context, req *ListUserApiKeysRequest, opts ...http.CallOption) (rsp *AdminApiKeySet, err error)
 	// ListUsers ListUsers pages through accounts, newest first.
@@ -252,6 +309,25 @@ type AdminServiceHTTPClientImpl struct {
 
 func NewAdminServiceHTTPClient(client *http.Client) AdminServiceHTTPClient {
 	return &AdminServiceHTTPClientImpl{client}
+}
+
+// DecideAppeal DecideAppeal approves a pending appeal, which lifts the suspension of the key and clears its
+// flag, or rejects it, with a note the owner sees.
+func (c *AdminServiceHTTPClientImpl) DecideAppeal(ctx context.Context, in *DecideAppealRequest, opts ...http.CallOption) (*AdminAppeal, error) {
+	var out AdminAppeal
+	pattern := "/v1/admin/appeals/{appeal_id}/decision"
+	path := http.BuildPath(pattern, in)
+	opts = append([]http.CallOption{
+		http.Accept("application/protojson"),
+		http.ContentType("application/protojson"),
+		http.Operation(OperationAdminServiceDecideAppeal),
+		http.PathTemplate(pattern),
+	}, opts...)
+	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 // GetAdmin GetAdmin returns the signed-in administrator.
@@ -314,6 +390,24 @@ func (c *AdminServiceHTTPClientImpl) GetUser(ctx context.Context, in *GetUserReq
 	opts = append([]http.CallOption{
 		http.Accept("application/protojson"),
 		http.Operation(OperationAdminServiceGetUser),
+		http.PathTemplate(pattern),
+	}, opts...)
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// ListAppeals ListAppeals returns the reviews owners asked for, newest first: the pending ones unless
+// status says otherwise.
+func (c *AdminServiceHTTPClientImpl) ListAppeals(ctx context.Context, in *ListAppealsRequest, opts ...http.CallOption) (*AdminAppealSet, error) {
+	var out AdminAppealSet
+	pattern := "/v1/admin/appeals"
+	path := http.BuildPath(pattern, in, http.WithQueryParams())
+	opts = append([]http.CallOption{
+		http.Accept("application/protojson"),
+		http.Operation(OperationAdminServiceListAppeals),
 		http.PathTemplate(pattern),
 	}, opts...)
 	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)

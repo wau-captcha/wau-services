@@ -102,11 +102,15 @@ func (s *AdminService) ListUserApiKeys(ctx context.Context, req *v1.ListUserApiK
 }
 
 func (s *AdminService) SetApiKeySuspended(ctx context.Context, req *v1.SetApiKeySuspendedRequest) (*v1.AdminApiKey, error) {
+	adminID, err := currentAdmin(ctx)
+	if err != nil {
+		return nil, err
+	}
 	id, err := parseKeyID(req.GetApiKeyId())
 	if err != nil {
 		return nil, err
 	}
-	key, err := s.admin.SetApiKeySuspended(ctx, id, req.GetSuspended())
+	key, err := s.admin.SetApiKeySuspended(ctx, adminID, id, req.GetSuspended())
 	if err != nil {
 		return nil, err
 	}
@@ -156,19 +160,5 @@ func convertAdminUser(user *biz.AdminUser) *v1.AdminUser {
 		QuotaUsed:     user.QuotaUsed,
 		DailyQuota:    user.DailyQuota,
 		TierExpiresAt: optionalTime(user.TierExpiresAt),
-	}
-}
-
-func convertAdminApiKey(key *biz.AdminApiKey) *v1.AdminApiKey {
-	return &v1.AdminApiKey{
-		Id:                 key.ID.String(),
-		Name:               key.Name,
-		SiteKey:            key.SiteKey,
-		IsActive:           key.IsActive,
-		IsSuspended:        key.IsSuspended,
-		SuspendReason:      key.SuspendReason,
-		CreateDate:         timestamppb.New(key.CreateDate),
-		ChallengesToday:    key.Challenges,
-		VerificationsToday: key.Verifications,
 	}
 }

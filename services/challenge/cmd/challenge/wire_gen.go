@@ -19,12 +19,13 @@ import (
 import (
 	_ "challenge/internal/pkg/codec"
 	_ "go.uber.org/automaxprocs"
+	_ "time/tzdata"
 )
 
 // Injectors from wire.go:
 
 // wireApp init kratos application.
-func wireApp(confServer *conf.Server, confData *conf.Data, challenge *conf.Challenge, quota *conf.Quota, logger *slog.Logger) (*kratos.App, func(), error) {
+func wireApp(confServer *conf.Server, confData *conf.Data, challenge *conf.Challenge, quota *conf.Quota, rateLimit *conf.RateLimit, scraping *conf.Scraping, ipHistory *conf.IPHistory, logger *slog.Logger) (*kratos.App, func(), error) {
 	dataData, cleanup, err := data.NewData(confData)
 	if err != nil {
 		return nil, nil, err
@@ -33,7 +34,9 @@ func wireApp(confServer *conf.Server, confData *conf.Data, challenge *conf.Chall
 	challengeRepo := data.NewChallengeRepo(dataData)
 	counterRepo := data.NewCounterRepo(dataData)
 	usageRepo := data.NewUsageRepo(dataData)
-	challengeUsecase, err := biz.NewChallengeUsecase(siteRepo, challengeRepo, counterRepo, usageRepo, challenge, quota)
+	rateLimiter := data.NewRateLimiter(dataData)
+	bizIPHistory := data.NewIPHistory(dataData)
+	challengeUsecase, err := biz.NewChallengeUsecase(siteRepo, challengeRepo, counterRepo, usageRepo, rateLimiter, bizIPHistory, challenge, quota, rateLimit, scraping, ipHistory)
 	if err != nil {
 		cleanup()
 		return nil, nil, err

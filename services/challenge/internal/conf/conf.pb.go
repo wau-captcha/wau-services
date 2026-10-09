@@ -28,6 +28,9 @@ type Bootstrap struct {
 	Data          *Data                  `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
 	Challenge     *Challenge             `protobuf:"bytes,3,opt,name=challenge,proto3" json:"challenge,omitempty"`
 	Quota         *Quota                 `protobuf:"bytes,4,opt,name=quota,proto3" json:"quota,omitempty"`
+	RateLimit     *RateLimit             `protobuf:"bytes,5,opt,name=rate_limit,json=rateLimit,proto3" json:"rate_limit,omitempty"`
+	Scraping      *Scraping              `protobuf:"bytes,6,opt,name=scraping,proto3" json:"scraping,omitempty"`
+	IpHistory     *IPHistory             `protobuf:"bytes,7,opt,name=ip_history,json=ipHistory,proto3" json:"ip_history,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -86,6 +89,27 @@ func (x *Bootstrap) GetChallenge() *Challenge {
 func (x *Bootstrap) GetQuota() *Quota {
 	if x != nil {
 		return x.Quota
+	}
+	return nil
+}
+
+func (x *Bootstrap) GetRateLimit() *RateLimit {
+	if x != nil {
+		return x.RateLimit
+	}
+	return nil
+}
+
+func (x *Bootstrap) GetScraping() *Scraping {
+	if x != nil {
+		return x.Scraping
+	}
+	return nil
+}
+
+func (x *Bootstrap) GetIpHistory() *IPHistory {
+	if x != nil {
+		return x.IpHistory
 	}
 	return nil
 }
@@ -208,7 +232,10 @@ func (x *Data) GetRedis() *Data_Redis {
 type Challenge struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Lifetime of an unsolved challenge.
-	Ttl           *durationpb.Duration `protobuf:"bytes,1,opt,name=ttl,proto3" json:"ttl,omitempty"`
+	Ttl *durationpb.Duration `protobuf:"bytes,1,opt,name=ttl,proto3" json:"ttl,omitempty"`
+	// Leading zero bits the proof of work of a challenge must reach: each bit doubles the work, 15
+	// is about 33 000 hashes. 0 asks for no proof of work.
+	PowDifficulty int32 `protobuf:"varint,2,opt,name=pow_difficulty,json=powDifficulty,proto3" json:"pow_difficulty,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -248,6 +275,13 @@ func (x *Challenge) GetTtl() *durationpb.Duration {
 		return x.Ttl
 	}
 	return nil
+}
+
+func (x *Challenge) GetPowDifficulty() int32 {
+	if x != nil {
+		return x.PowDifficulty
+	}
+	return 0
 }
 
 type Quota struct {
@@ -295,6 +329,228 @@ func (x *Quota) GetTimeZone() string {
 	return ""
 }
 
+// RateLimit caps calls per minute, counted in Redis in fixed one-minute windows, before any
+// costly work. 0 turns a limit off. Each value can be replaced from the environment, e.g.
+// KRATOS_RATE_LIMIT_NEW_PER_IP for new_per_ip (see envconf.Override).
+type RateLimit struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// /challenge/new calls per client address.
+	NewPerIp int32 `protobuf:"varint,1,opt,name=new_per_ip,json=newPerIp,proto3" json:"new_per_ip,omitempty"`
+	// /challenge/new calls per API key, whatever address they come from.
+	NewPerSiteKey int32 `protobuf:"varint,2,opt,name=new_per_site_key,json=newPerSiteKey,proto3" json:"new_per_site_key,omitempty"`
+	// new_per_site_key for a key the scraping check flagged today.
+	NewPerFlaggedSiteKey int32 `protobuf:"varint,3,opt,name=new_per_flagged_site_key,json=newPerFlaggedSiteKey,proto3" json:"new_per_flagged_site_key,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *RateLimit) Reset() {
+	*x = RateLimit{}
+	mi := &file_conf_conf_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RateLimit) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RateLimit) ProtoMessage() {}
+
+func (x *RateLimit) ProtoReflect() protoreflect.Message {
+	mi := &file_conf_conf_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RateLimit.ProtoReflect.Descriptor instead.
+func (*RateLimit) Descriptor() ([]byte, []int) {
+	return file_conf_conf_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *RateLimit) GetNewPerIp() int32 {
+	if x != nil {
+		return x.NewPerIp
+	}
+	return 0
+}
+
+func (x *RateLimit) GetNewPerSiteKey() int32 {
+	if x != nil {
+		return x.NewPerSiteKey
+	}
+	return 0
+}
+
+func (x *RateLimit) GetNewPerFlaggedSiteKey() int32 {
+	if x != nil {
+		return x.NewPerFlaggedSiteKey
+	}
+	return 0
+}
+
+// Scraping grades the daily counters of a key (challenges issued, answers checked, right answers,
+// answers judged automated). A key is flagged, and throttled to new_per_flagged_site_key for the
+// rest of the day, when it was issued flag_min_issued challenges of which under
+// flag_max_answered_percent were answered, or answered flag_min_answered of which under
+// flag_max_solved_percent were right or over flag_max_automated_percent automated. It is
+// suspended only once issued suspend_min_issued with under suspend_max_answered_percent answered.
+// Each value can be replaced from the environment, e.g. KRATOS_SCRAPING_FLAG_MIN_ISSUED.
+type Scraping struct {
+	state                     protoimpl.MessageState `protogen:"open.v1"`
+	FlagMinIssued             int32                  `protobuf:"varint,1,opt,name=flag_min_issued,json=flagMinIssued,proto3" json:"flag_min_issued,omitempty"`
+	FlagMaxAnsweredPercent    int32                  `protobuf:"varint,2,opt,name=flag_max_answered_percent,json=flagMaxAnsweredPercent,proto3" json:"flag_max_answered_percent,omitempty"`
+	FlagMinAnswered           int32                  `protobuf:"varint,3,opt,name=flag_min_answered,json=flagMinAnswered,proto3" json:"flag_min_answered,omitempty"`
+	FlagMaxSolvedPercent      int32                  `protobuf:"varint,4,opt,name=flag_max_solved_percent,json=flagMaxSolvedPercent,proto3" json:"flag_max_solved_percent,omitempty"`
+	FlagMaxAutomatedPercent   int32                  `protobuf:"varint,5,opt,name=flag_max_automated_percent,json=flagMaxAutomatedPercent,proto3" json:"flag_max_automated_percent,omitempty"`
+	SuspendMinIssued          int32                  `protobuf:"varint,6,opt,name=suspend_min_issued,json=suspendMinIssued,proto3" json:"suspend_min_issued,omitempty"`
+	SuspendMaxAnsweredPercent int32                  `protobuf:"varint,7,opt,name=suspend_max_answered_percent,json=suspendMaxAnsweredPercent,proto3" json:"suspend_max_answered_percent,omitempty"`
+	unknownFields             protoimpl.UnknownFields
+	sizeCache                 protoimpl.SizeCache
+}
+
+func (x *Scraping) Reset() {
+	*x = Scraping{}
+	mi := &file_conf_conf_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Scraping) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Scraping) ProtoMessage() {}
+
+func (x *Scraping) ProtoReflect() protoreflect.Message {
+	mi := &file_conf_conf_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Scraping.ProtoReflect.Descriptor instead.
+func (*Scraping) Descriptor() ([]byte, []int) {
+	return file_conf_conf_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *Scraping) GetFlagMinIssued() int32 {
+	if x != nil {
+		return x.FlagMinIssued
+	}
+	return 0
+}
+
+func (x *Scraping) GetFlagMaxAnsweredPercent() int32 {
+	if x != nil {
+		return x.FlagMaxAnsweredPercent
+	}
+	return 0
+}
+
+func (x *Scraping) GetFlagMinAnswered() int32 {
+	if x != nil {
+		return x.FlagMinAnswered
+	}
+	return 0
+}
+
+func (x *Scraping) GetFlagMaxSolvedPercent() int32 {
+	if x != nil {
+		return x.FlagMaxSolvedPercent
+	}
+	return 0
+}
+
+func (x *Scraping) GetFlagMaxAutomatedPercent() int32 {
+	if x != nil {
+		return x.FlagMaxAutomatedPercent
+	}
+	return 0
+}
+
+func (x *Scraping) GetSuspendMinIssued() int32 {
+	if x != nil {
+		return x.SuspendMinIssued
+	}
+	return 0
+}
+
+func (x *Scraping) GetSuspendMaxAnsweredPercent() int32 {
+	if x != nil {
+		return x.SuspendMaxAnsweredPercent
+	}
+	return 0
+}
+
+// IPHistory counts, per client address, wrong answers in fixed 10-minute buckets and answers
+// judged automated over the last hour. Over wrong_per_10_minutes, the address gets RATE_LIMITED
+// on /challenge/new and /challenge/verify for the rest of the bucket; over automated_per_hour,
+// its later verdicts carry ip_bad_history. Each value can be replaced from the environment, e.g.
+// KRATOS_IP_HISTORY_WRONG_PER_10_MINUTES.
+type IPHistory struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	WrongPer_10Minutes int32                  `protobuf:"varint,1,opt,name=wrong_per_10_minutes,json=wrongPer10Minutes,proto3" json:"wrong_per_10_minutes,omitempty"`
+	AutomatedPerHour   int32                  `protobuf:"varint,2,opt,name=automated_per_hour,json=automatedPerHour,proto3" json:"automated_per_hour,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *IPHistory) Reset() {
+	*x = IPHistory{}
+	mi := &file_conf_conf_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *IPHistory) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*IPHistory) ProtoMessage() {}
+
+func (x *IPHistory) ProtoReflect() protoreflect.Message {
+	mi := &file_conf_conf_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use IPHistory.ProtoReflect.Descriptor instead.
+func (*IPHistory) Descriptor() ([]byte, []int) {
+	return file_conf_conf_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *IPHistory) GetWrongPer_10Minutes() int32 {
+	if x != nil {
+		return x.WrongPer_10Minutes
+	}
+	return 0
+}
+
+func (x *IPHistory) GetAutomatedPerHour() int32 {
+	if x != nil {
+		return x.AutomatedPerHour
+	}
+	return 0
+}
+
 type Server_HTTP struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Network       string                 `protobuf:"bytes,1,opt,name=network,proto3" json:"network,omitempty"`
@@ -306,7 +562,7 @@ type Server_HTTP struct {
 
 func (x *Server_HTTP) Reset() {
 	*x = Server_HTTP{}
-	mi := &file_conf_conf_proto_msgTypes[5]
+	mi := &file_conf_conf_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -318,7 +574,7 @@ func (x *Server_HTTP) String() string {
 func (*Server_HTTP) ProtoMessage() {}
 
 func (x *Server_HTTP) ProtoReflect() protoreflect.Message {
-	mi := &file_conf_conf_proto_msgTypes[5]
+	mi := &file_conf_conf_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -366,7 +622,7 @@ type Server_GRPC struct {
 
 func (x *Server_GRPC) Reset() {
 	*x = Server_GRPC{}
-	mi := &file_conf_conf_proto_msgTypes[6]
+	mi := &file_conf_conf_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -378,7 +634,7 @@ func (x *Server_GRPC) String() string {
 func (*Server_GRPC) ProtoMessage() {}
 
 func (x *Server_GRPC) ProtoReflect() protoreflect.Message {
-	mi := &file_conf_conf_proto_msgTypes[6]
+	mi := &file_conf_conf_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -425,7 +681,7 @@ type Data_Database struct {
 
 func (x *Data_Database) Reset() {
 	*x = Data_Database{}
-	mi := &file_conf_conf_proto_msgTypes[7]
+	mi := &file_conf_conf_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -437,7 +693,7 @@ func (x *Data_Database) String() string {
 func (*Data_Database) ProtoMessage() {}
 
 func (x *Data_Database) ProtoReflect() protoreflect.Message {
-	mi := &file_conf_conf_proto_msgTypes[7]
+	mi := &file_conf_conf_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -475,7 +731,7 @@ type Data_Redis struct {
 
 func (x *Data_Redis) Reset() {
 	*x = Data_Redis{}
-	mi := &file_conf_conf_proto_msgTypes[8]
+	mi := &file_conf_conf_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -487,7 +743,7 @@ func (x *Data_Redis) String() string {
 func (*Data_Redis) ProtoMessage() {}
 
 func (x *Data_Redis) ProtoReflect() protoreflect.Message {
-	mi := &file_conf_conf_proto_msgTypes[8]
+	mi := &file_conf_conf_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -543,12 +799,17 @@ var File_conf_conf_proto protoreflect.FileDescriptor
 const file_conf_conf_proto_rawDesc = "" +
 	"\n" +
 	"\x0fconf/conf.proto\x12\n" +
-	"kratos.api\x1a\x1egoogle/protobuf/duration.proto\"\xbb\x01\n" +
+	"kratos.api\x1a\x1egoogle/protobuf/duration.proto\"\xd9\x02\n" +
 	"\tBootstrap\x12*\n" +
 	"\x06server\x18\x01 \x01(\v2\x12.kratos.api.ServerR\x06server\x12$\n" +
 	"\x04data\x18\x02 \x01(\v2\x10.kratos.api.DataR\x04data\x123\n" +
 	"\tchallenge\x18\x03 \x01(\v2\x15.kratos.api.ChallengeR\tchallenge\x12'\n" +
-	"\x05quota\x18\x04 \x01(\v2\x11.kratos.api.QuotaR\x05quota\"\xe1\x02\n" +
+	"\x05quota\x18\x04 \x01(\v2\x11.kratos.api.QuotaR\x05quota\x124\n" +
+	"\n" +
+	"rate_limit\x18\x05 \x01(\v2\x15.kratos.api.RateLimitR\trateLimit\x120\n" +
+	"\bscraping\x18\x06 \x01(\v2\x14.kratos.api.ScrapingR\bscraping\x124\n" +
+	"\n" +
+	"ip_history\x18\a \x01(\v2\x15.kratos.api.IPHistoryR\tipHistory\"\xe1\x02\n" +
 	"\x06Server\x12+\n" +
 	"\x04http\x18\x01 \x01(\v2\x17.kratos.api.Server.HTTPR\x04http\x12+\n" +
 	"\x04grpc\x18\x02 \x01(\v2\x17.kratos.api.Server.GRPCR\x04grpc\x12'\n" +
@@ -571,11 +832,28 @@ const file_conf_conf_proto_rawDesc = "" +
 	"\bpassword\x18\x02 \x01(\tR\bpassword\x12<\n" +
 	"\fread_timeout\x18\x03 \x01(\v2\x19.google.protobuf.DurationR\vreadTimeout\x12>\n" +
 	"\rwrite_timeout\x18\x04 \x01(\v2\x19.google.protobuf.DurationR\fwriteTimeout\x12\x10\n" +
-	"\x03tls\x18\x05 \x01(\bR\x03tls\"8\n" +
+	"\x03tls\x18\x05 \x01(\bR\x03tls\"_\n" +
 	"\tChallenge\x12+\n" +
-	"\x03ttl\x18\x01 \x01(\v2\x19.google.protobuf.DurationR\x03ttl\"$\n" +
+	"\x03ttl\x18\x01 \x01(\v2\x19.google.protobuf.DurationR\x03ttl\x12%\n" +
+	"\x0epow_difficulty\x18\x02 \x01(\x05R\rpowDifficulty\"$\n" +
 	"\x05Quota\x12\x1b\n" +
-	"\ttime_zone\x18\x01 \x01(\tR\btimeZoneB\x1eZ\x1cchallenge/internal/conf;confb\x06proto3"
+	"\ttime_zone\x18\x01 \x01(\tR\btimeZone\"\x8a\x01\n" +
+	"\tRateLimit\x12\x1c\n" +
+	"\n" +
+	"new_per_ip\x18\x01 \x01(\x05R\bnewPerIp\x12'\n" +
+	"\x10new_per_site_key\x18\x02 \x01(\x05R\rnewPerSiteKey\x126\n" +
+	"\x18new_per_flagged_site_key\x18\x03 \x01(\x05R\x14newPerFlaggedSiteKey\"\xfc\x02\n" +
+	"\bScraping\x12&\n" +
+	"\x0fflag_min_issued\x18\x01 \x01(\x05R\rflagMinIssued\x129\n" +
+	"\x19flag_max_answered_percent\x18\x02 \x01(\x05R\x16flagMaxAnsweredPercent\x12*\n" +
+	"\x11flag_min_answered\x18\x03 \x01(\x05R\x0fflagMinAnswered\x125\n" +
+	"\x17flag_max_solved_percent\x18\x04 \x01(\x05R\x14flagMaxSolvedPercent\x12;\n" +
+	"\x1aflag_max_automated_percent\x18\x05 \x01(\x05R\x17flagMaxAutomatedPercent\x12,\n" +
+	"\x12suspend_min_issued\x18\x06 \x01(\x05R\x10suspendMinIssued\x12?\n" +
+	"\x1csuspend_max_answered_percent\x18\a \x01(\x05R\x19suspendMaxAnsweredPercent\"j\n" +
+	"\tIPHistory\x12/\n" +
+	"\x14wrong_per_10_minutes\x18\x01 \x01(\x05R\x11wrongPer10Minutes\x12,\n" +
+	"\x12automated_per_hour\x18\x02 \x01(\x05R\x10automatedPerHourB\x1eZ\x1cchallenge/internal/conf;confb\x06proto3"
 
 var (
 	file_conf_conf_proto_rawDescOnce sync.Once
@@ -589,38 +867,44 @@ func file_conf_conf_proto_rawDescGZIP() []byte {
 	return file_conf_conf_proto_rawDescData
 }
 
-var file_conf_conf_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_conf_conf_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_conf_conf_proto_goTypes = []any{
 	(*Bootstrap)(nil),           // 0: kratos.api.Bootstrap
 	(*Server)(nil),              // 1: kratos.api.Server
 	(*Data)(nil),                // 2: kratos.api.Data
 	(*Challenge)(nil),           // 3: kratos.api.Challenge
 	(*Quota)(nil),               // 4: kratos.api.Quota
-	(*Server_HTTP)(nil),         // 5: kratos.api.Server.HTTP
-	(*Server_GRPC)(nil),         // 6: kratos.api.Server.GRPC
-	(*Data_Database)(nil),       // 7: kratos.api.Data.Database
-	(*Data_Redis)(nil),          // 8: kratos.api.Data.Redis
-	(*durationpb.Duration)(nil), // 9: google.protobuf.Duration
+	(*RateLimit)(nil),           // 5: kratos.api.RateLimit
+	(*Scraping)(nil),            // 6: kratos.api.Scraping
+	(*IPHistory)(nil),           // 7: kratos.api.IPHistory
+	(*Server_HTTP)(nil),         // 8: kratos.api.Server.HTTP
+	(*Server_GRPC)(nil),         // 9: kratos.api.Server.GRPC
+	(*Data_Database)(nil),       // 10: kratos.api.Data.Database
+	(*Data_Redis)(nil),          // 11: kratos.api.Data.Redis
+	(*durationpb.Duration)(nil), // 12: google.protobuf.Duration
 }
 var file_conf_conf_proto_depIdxs = []int32{
 	1,  // 0: kratos.api.Bootstrap.server:type_name -> kratos.api.Server
 	2,  // 1: kratos.api.Bootstrap.data:type_name -> kratos.api.Data
 	3,  // 2: kratos.api.Bootstrap.challenge:type_name -> kratos.api.Challenge
 	4,  // 3: kratos.api.Bootstrap.quota:type_name -> kratos.api.Quota
-	5,  // 4: kratos.api.Server.http:type_name -> kratos.api.Server.HTTP
-	6,  // 5: kratos.api.Server.grpc:type_name -> kratos.api.Server.GRPC
-	7,  // 6: kratos.api.Data.database:type_name -> kratos.api.Data.Database
-	8,  // 7: kratos.api.Data.redis:type_name -> kratos.api.Data.Redis
-	9,  // 8: kratos.api.Challenge.ttl:type_name -> google.protobuf.Duration
-	9,  // 9: kratos.api.Server.HTTP.timeout:type_name -> google.protobuf.Duration
-	9,  // 10: kratos.api.Server.GRPC.timeout:type_name -> google.protobuf.Duration
-	9,  // 11: kratos.api.Data.Redis.read_timeout:type_name -> google.protobuf.Duration
-	9,  // 12: kratos.api.Data.Redis.write_timeout:type_name -> google.protobuf.Duration
-	13, // [13:13] is the sub-list for method output_type
-	13, // [13:13] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	5,  // 4: kratos.api.Bootstrap.rate_limit:type_name -> kratos.api.RateLimit
+	6,  // 5: kratos.api.Bootstrap.scraping:type_name -> kratos.api.Scraping
+	7,  // 6: kratos.api.Bootstrap.ip_history:type_name -> kratos.api.IPHistory
+	8,  // 7: kratos.api.Server.http:type_name -> kratos.api.Server.HTTP
+	9,  // 8: kratos.api.Server.grpc:type_name -> kratos.api.Server.GRPC
+	10, // 9: kratos.api.Data.database:type_name -> kratos.api.Data.Database
+	11, // 10: kratos.api.Data.redis:type_name -> kratos.api.Data.Redis
+	12, // 11: kratos.api.Challenge.ttl:type_name -> google.protobuf.Duration
+	12, // 12: kratos.api.Server.HTTP.timeout:type_name -> google.protobuf.Duration
+	12, // 13: kratos.api.Server.GRPC.timeout:type_name -> google.protobuf.Duration
+	12, // 14: kratos.api.Data.Redis.read_timeout:type_name -> google.protobuf.Duration
+	12, // 15: kratos.api.Data.Redis.write_timeout:type_name -> google.protobuf.Duration
+	16, // [16:16] is the sub-list for method output_type
+	16, // [16:16] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_conf_conf_proto_init() }
@@ -634,7 +918,7 @@ func file_conf_conf_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_conf_conf_proto_rawDesc), len(file_conf_conf_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -21,7 +21,10 @@ const OperationVerifyServiceSiteVerify = "/verify.v1.VerifyService/SiteVerify"
 const OperationVerifyServiceVerifyChallenge = "/verify.v1.VerifyService/VerifyChallenge"
 
 type VerifyServiceHTTPServer interface {
-	// SiteVerify SiteVerify consumes the token given as ?token=. Requires "Authorization: Bearer <secret_key>".
+	// SiteVerify SiteVerify consumes the token sent in the body, as JSON {"token": "..."} or as the form
+	// token=..., so it never lands in access logs. Requires "Authorization: Bearer <secret_key>".
+	// Deprecated, for SDKs before 1.3.0: the token as ?token= with an empty body; a token in the
+	// body wins over one in the query.
 	SiteVerify(context.Context, *SiteVerifyRequest) (*SiteVerifyReply, error)
 	// VerifyChallenge VerifyChallenge checks an answer and issues a one-time token on success.
 	VerifyChallenge(context.Context, *VerifyChallengeRequest) (*VerifyChallengeReply, error)
@@ -55,7 +58,7 @@ func _VerifyService_VerifyChallenge0_HTTP_Handler(srv VerifyServiceHTTPServer) f
 func _VerifyService_SiteVerify0_HTTP_Handler(srv VerifyServiceHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in SiteVerifyRequest
-		if err := ctx.BindQuery(&in); err != nil {
+		if err := ctx.Bind(&in); err != nil {
 			return err
 		}
 		http.SetOperation(ctx, OperationVerifyServiceSiteVerify)
@@ -72,7 +75,10 @@ func _VerifyService_SiteVerify0_HTTP_Handler(srv VerifyServiceHTTPServer) func(c
 }
 
 type VerifyServiceHTTPClient interface {
-	// SiteVerify SiteVerify consumes the token given as ?token=. Requires "Authorization: Bearer <secret_key>".
+	// SiteVerify SiteVerify consumes the token sent in the body, as JSON {"token": "..."} or as the form
+	// token=..., so it never lands in access logs. Requires "Authorization: Bearer <secret_key>".
+	// Deprecated, for SDKs before 1.3.0: the token as ?token= with an empty body; a token in the
+	// body wins over one in the query.
 	SiteVerify(ctx context.Context, req *SiteVerifyRequest, opts ...http.CallOption) (rsp *SiteVerifyReply, err error)
 	// VerifyChallenge VerifyChallenge checks an answer and issues a one-time token on success.
 	VerifyChallenge(ctx context.Context, req *VerifyChallengeRequest, opts ...http.CallOption) (rsp *VerifyChallengeReply, err error)
@@ -86,17 +92,21 @@ func NewVerifyServiceHTTPClient(client *http.Client) VerifyServiceHTTPClient {
 	return &VerifyServiceHTTPClientImpl{client}
 }
 
-// SiteVerify SiteVerify consumes the token given as ?token=. Requires "Authorization: Bearer <secret_key>".
+// SiteVerify SiteVerify consumes the token sent in the body, as JSON {"token": "..."} or as the form
+// token=..., so it never lands in access logs. Requires "Authorization: Bearer <secret_key>".
+// Deprecated, for SDKs before 1.3.0: the token as ?token= with an empty body; a token in the
+// body wins over one in the query.
 func (c *VerifyServiceHTTPClientImpl) SiteVerify(ctx context.Context, in *SiteVerifyRequest, opts ...http.CallOption) (*SiteVerifyReply, error) {
 	var out SiteVerifyReply
 	pattern := "/siteverify"
-	path := http.BuildPath(pattern, in, http.WithQueryParams())
+	path := http.BuildPath(pattern, in)
 	opts = append([]http.CallOption{
 		http.Accept("application/protojson"),
+		http.ContentType("application/protojson"),
 		http.Operation(OperationVerifyServiceSiteVerify),
 		http.PathTemplate(pattern),
 	}, opts...)
-	err := c.cc.Invoke(ctx, "POST", path, nil, &out, opts...)
+	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
 	if err != nil {
 		return nil, err
 	}

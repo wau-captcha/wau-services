@@ -4,7 +4,6 @@ import (
 	"cmp"
 	"context"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
@@ -39,19 +38,6 @@ type UserPage struct {
 	TotalSize int
 }
 
-// AdminApiKey is a key as administrators see it: never with its secret key.
-type AdminApiKey struct {
-	ID            uuid.UUID
-	Name          string
-	SiteKey       string
-	IsActive      bool
-	IsSuspended   bool
-	SuspendReason string
-	CreateDate    time.Time
-	// Today's scraping counters.
-	ScrapingCount
-}
-
 // AdminRepo reads and changes any account.
 type AdminRepo interface {
 	Stats(ctx context.Context) (*AdminStats, error)
@@ -62,7 +48,8 @@ type AdminRepo interface {
 	// SetUserBanned returns ErrNoSuchUser when the account does not exist.
 	SetUserBanned(ctx context.Context, id uuid.UUID, banned bool) error
 	ListApiKeys(ctx context.Context, userID uuid.UUID) ([]*AdminApiKey, error)
-	// SetApiKeySuspended returns ErrApiKeyNotFound for a missing or deleted key.
+	// GetApiKey and SetApiKeySuspended return ErrApiKeyNotFound for a missing or deleted key.
+	GetApiKey(ctx context.Context, id uuid.UUID) (*AdminApiKey, error)
 	SetApiKeySuspended(ctx context.Context, id uuid.UUID, suspended bool) (*AdminApiKey, error)
 }
 
@@ -70,12 +57,15 @@ type AdminRepo interface {
 type AdminUsecase struct {
 	accounts AdminRepo
 	counters CounterRepo
+	events   EventRepo
+	appeals  AppealRepo
 	usage    *UsageUsecase
 	calendar *Calendar
 }
 
-func NewAdminUsecase(accounts AdminRepo, counters CounterRepo, usage *UsageUsecase, calendar *Calendar) *AdminUsecase {
-	return &AdminUsecase{accounts: accounts, counters: counters, usage: usage, calendar: calendar}
+func NewAdminUsecase(accounts AdminRepo, counters CounterRepo, events EventRepo, appeals AppealRepo, usage *UsageUsecase,
+	calendar *Calendar) *AdminUsecase {
+	return &AdminUsecase{accounts: accounts, counters: counters, events: events, appeals: appeals, usage: usage, calendar: calendar}
 }
 
 func (uc *AdminUsecase) Stats(ctx context.Context) (*AdminStats, error) {
@@ -125,39 +115,6 @@ func (uc *AdminUsecase) SetUserBanned(ctx context.Context, id uuid.UUID, banned 
 	return uc.GetUser(ctx, id)
 }
 
-// ListApiKeys returns the keys of an account that are not deleted, with today's counters.
-func (uc *AdminUsecase) ListApiKeys(ctx context.Context, userID uuid.UUID) ([]*AdminApiKey, error) {
-	if _, err := uc.accounts.GetUser(ctx, userID); err != nil {
-		return nil, err
-	}
-	keys, err := uc.accounts.ListApiKeys(ctx, userID)
-	if err != nil {
-		return nil, err
-	}
-	if err := uc.fillScraping(ctx, keys...); err != nil {
-		return nil, err
-	}
-	return keys, nil
-}
-
-// SetApiKeySuspended suspends a key or lifts its suspension. Lifting it also clears
-// today's scraping counters: they would suspend the key again on its next challenge.
-func (uc *AdminUsecase) SetApiKeySuspended(ctx context.Context, id uuid.UUID, suspended bool) (*AdminApiKey, error) {
-	key, err := uc.accounts.SetApiKeySuspended(ctx, id, suspended)
-	if err != nil {
-		return nil, err
-	}
-	if !suspended {
-		if err := uc.counters.ResetScraping(ctx, id, uc.calendar.Today()); err != nil {
-			return nil, err
-		}
-	}
-	if err := uc.fillScraping(ctx, key); err != nil {
-		return nil, err
-	}
-	return key, nil
-}
-
 // Usage reports verifications of the whole system, of one account, or of one key.
 func (uc *AdminUsecase) Usage(ctx context.Context, filter UsageFilter, window UsageWindow) (*Usage, error) {
 	return uc.usage.ForAnyone(ctx, filter, window)
@@ -177,24 +134,6 @@ func (uc *AdminUsecase) fillQuota(ctx context.Context, users ...*AdminUser) erro
 	}
 	for i, user := range users {
 		user.QuotaUsed = quotaUsed[i]
-	}
-	return nil
-}
-
-func (uc *AdminUsecase) fillScraping(ctx context.Context, keys ...*AdminApiKey) error {
-	if len(keys) == 0 {
-		return nil
-	}
-	ids := make([]uuid.UUID, len(keys))
-	for i, key := range keys {
-		ids[i] = key.ID
-	}
-	counts, err := uc.counters.ScrapingCounts(ctx, ids, uc.calendar.Today())
-	if err != nil {
-		return err
-	}
-	for i, key := range keys {
-		key.ScrapingCount = counts[i]
 	}
 	return nil
 }
