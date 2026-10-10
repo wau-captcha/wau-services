@@ -39,6 +39,19 @@ type entry struct {
 	PieceWidth  *int     `json:"piece_width,omitempty"`
 	PieceHeight *int     `json:"piece_height,omitempty"`
 	TolerancePx *float64 `json:"tolerance_px,omitempty"`
+	// animal_jump: File is round 1, SecondFile round 2, Poster round 1's first frame. Rounds holds
+	// each round's target: where a click counts and when its high jump peaks, in ms.
+	SecondFile string      `json:"second_file,omitempty"`
+	Rounds     []jumpRound `json:"rounds,omitempty"`
+}
+
+// jumpRound is one round of the stored animal_jump answer, {"r": [...]}.
+type jumpRound struct {
+	X0   float64 `json:"x0"`
+	X1   float64 `json:"x1"`
+	Y0   float64 `json:"y0"`
+	Y1   float64 `json:"y1"`
+	Apex float64 `json:"apex"`
 }
 
 var extensions = map[string]string{"image/png": ".png", "image/gif": ".gif", "image/jpeg": ".jpg"}
@@ -49,13 +62,14 @@ func main() {
 		biz.TypeImageDistort: flag.Int("image-distort", 10, "image_distort samples"),
 		biz.TypeMotionNoise:  flag.Int("motion-noise", 5, "motion_noise samples"),
 		biz.TypeSlidePuzzle:  flag.Int("slide-puzzle", 10, "slide_puzzle samples"),
+		biz.TypeAnimalJump:   flag.Int("animal-jump", 5, "animal_jump samples, two rounds each"),
 	}
 	flag.Parse()
 	if err := os.MkdirAll(*out, 0o755); err != nil {
 		log.Fatal(err)
 	}
 	var manifest []entry
-	for _, challengeType := range []string{biz.TypeImageDistort, biz.TypeMotionNoise, biz.TypeSlidePuzzle} {
+	for _, challengeType := range []string{biz.TypeImageDistort, biz.TypeMotionNoise, biz.TypeSlidePuzzle, biz.TypeAnimalJump} {
 		for i := 1; i <= *counts[challengeType]; i++ {
 			sample, err := write(*out, challengeType, i)
 			if err != nil {
@@ -81,6 +95,9 @@ func write(dir, challengeType string, index int) (entry, error) {
 	}
 	name := fmt.Sprintf("%s-%02d", challengeType, index)
 	sample := entry{File: name + extensions[media.MIMEType], Type: challengeType, Answer: answer, Width: media.Width, Height: media.Height}
+	if media.SecondRound != nil {
+		return writeJump(dir, name, sample, media)
+	}
 	if err := os.WriteFile(filepath.Join(dir, sample.File), media.Data, 0o644); err != nil {
 		return entry{}, err
 	}
@@ -104,6 +121,23 @@ func write(dir, challengeType string, index int) (entry, error) {
 		}
 	}
 	return sample, nil
+}
+
+// writeJump writes both rounds of an animal_jump sample, a poster of the first, and the targets.
+func writeJump(dir, name string, sample entry, media biz.Media) (entry, error) {
+	var stored struct {
+		R []jumpRound `json:"r"`
+	}
+	if err := json.Unmarshal([]byte(sample.Answer), &stored); err != nil {
+		return entry{}, err
+	}
+	sample.File, sample.SecondFile, sample.Poster, sample.Rounds = name+"-1.gif", name+"-2.gif", name+"-frame.png", stored.R
+	for file, data := range map[string][]byte{sample.File: media.Data, sample.SecondFile: media.SecondRound} {
+		if err := os.WriteFile(filepath.Join(dir, file), data, 0o644); err != nil {
+			return entry{}, err
+		}
+	}
+	return sample, writeFirstFrame(filepath.Join(dir, sample.Poster), media.Data)
 }
 
 // writeFirstFrame saves the first frame of a GIF as a PNG.

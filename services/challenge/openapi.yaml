@@ -21,7 +21,7 @@ paths:
                     type: string
                 - name: challenge_type
                   in: query
-                  description: '"image_distort" (default), "motion_noise" or "slide_puzzle".'
+                  description: '"image_distort" (default), "motion_noise", "slide_puzzle" or "animal_jump".'
                   schema:
                     type: string
             responses:
@@ -44,8 +44,9 @@ components:
                 image:
                     type: string
                     description: |-
-                        Media to solve: a PNG for image_distort, an animated GIF for motion_noise, and for
-                         slide_puzzle a JPEG background with the hole the piece fits into.
+                        Media to solve: a PNG for image_distort, an animated GIF for motion_noise, for slide_puzzle
+                         a JPEG background with the hole the piece fits into, and for animal_jump the animated GIF of
+                         round 1: five animal heads jump and the person clicks the one that jumps highest.
                     format: bytes
                 expires_in:
                     type: integer
@@ -91,5 +92,9 @@ components:
                 pow_difficulty:
                     type: integer
                     format: int32
+                second_image:
+                    type: string
+                    description: 'animal_jump only: the GIF of round 2; image is round 1. Both play once, 2 s each.'
+                    format: bytes
 tags:
     - name: ChallengeService

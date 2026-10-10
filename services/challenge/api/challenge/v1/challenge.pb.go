@@ -26,7 +26,7 @@ type NewChallengeRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Public site key of the calling site.
 	SiteKey string `protobuf:"bytes,1,opt,name=site_key,json=siteKey,proto3" json:"site_key,omitempty"`
-	// "image_distort" (default), "motion_noise" or "slide_puzzle".
+	// "image_distort" (default), "motion_noise", "slide_puzzle" or "animal_jump".
 	ChallengeType string `protobuf:"bytes,2,opt,name=challenge_type,json=challengeType,proto3" json:"challenge_type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -81,8 +81,9 @@ type Challenge struct {
 	ChallengeId string                 `protobuf:"bytes,1,opt,name=challenge_id,json=challengeId,proto3" json:"challenge_id,omitempty"`
 	// Challenge type, e.g. "image_distort".
 	ChallengeType string `protobuf:"bytes,2,opt,name=challenge_type,json=challengeType,proto3" json:"challenge_type,omitempty"`
-	// Media to solve: a PNG for image_distort, an animated GIF for motion_noise, and for
-	// slide_puzzle a JPEG background with the hole the piece fits into.
+	// Media to solve: a PNG for image_distort, an animated GIF for motion_noise, for slide_puzzle
+	// a JPEG background with the hole the piece fits into, and for animal_jump the animated GIF of
+	// round 1: five animal heads jump and the person clicks the one that jumps highest.
 	Image []byte `protobuf:"bytes,3,opt,name=image,proto3" json:"image,omitempty"`
 	// Seconds until the challenge expires.
 	ExpiresIn int32 `protobuf:"varint,4,opt,name=expires_in,json=expiresIn,proto3" json:"expires_in,omitempty"`
@@ -107,6 +108,8 @@ type Challenge struct {
 	// challenge. A difficulty of 0 asks for none.
 	PowSalt       []byte `protobuf:"bytes,12,opt,name=pow_salt,json=powSalt,proto3" json:"pow_salt,omitempty"`
 	PowDifficulty int32  `protobuf:"varint,13,opt,name=pow_difficulty,json=powDifficulty,proto3" json:"pow_difficulty,omitempty"`
+	// animal_jump only: the GIF of round 2; image is round 1. Both play once, 2 s each.
+	SecondImage   []byte `protobuf:"bytes,14,opt,name=second_image,json=secondImage,proto3,oneof" json:"second_image,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -232,13 +235,23 @@ func (x *Challenge) GetPowDifficulty() int32 {
 	return 0
 }
 
+func (x *Challenge) GetSecondImage() []byte {
+	if x != nil {
+		return x.SecondImage
+	}
+	return nil
+}
+
 type CheckAnswerRequest struct {
 	state       protoimpl.MessageState `protogen:"open.v1"`
 	ChallengeId string                 `protobuf:"bytes,1,opt,name=challenge_id,json=challengeId,proto3" json:"challenge_id,omitempty"`
 	// The text read from the image. For slide_puzzle, the JSON the SDK writes from the drag:
 	// {"x": <final left edge of the piece>, "t": [[ms, x, y], ...]}, each point the time since
 	// pointerdown, the piece's left edge and the pointer's vertical offset from where it went
-	// down, in CSS pixels of image.
+	// down, in CSS pixels of image. For animal_jump, the JSON the SDK writes from the two clicks:
+	// {"c": [{"x": .., "y": .., "ms": .., "p": ..}, {...}]}, one per round in order: where the click
+	// landed in CSS pixels of image, the milliseconds since that round's playback started (a replay
+	// restarts the count) and the replays used in that round.
 	Answer string `protobuf:"bytes,2,opt,name=answer,proto3" json:"answer,omitempty"`
 	// How the person behaved while the challenge was on screen, as the SDK records it. Clients that
 	// do not send it have their answers checked as before.
@@ -748,7 +761,7 @@ const file_challenge_v1_challenge_proto_rawDesc = "" +
 	"\x1cchallenge/v1/challenge.proto\x12\fchallenge.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\"\\\n" +
 	"\x13NewChallengeRequest\x12\x1e\n" +
 	"\bsite_key\x18\x01 \x01(\tB\x03\xe0A\x02R\asiteKey\x12%\n" +
-	"\x0echallenge_type\x18\x02 \x01(\tR\rchallengeType\"\xe6\x03\n" +
+	"\x0echallenge_type\x18\x02 \x01(\tR\rchallengeType\"\x9f\x04\n" +
 	"\tChallenge\x12!\n" +
 	"\fchallenge_id\x18\x01 \x01(\tR\vchallengeId\x12%\n" +
 	"\x0echallenge_type\x18\x02 \x01(\tR\rchallengeType\x12\x14\n" +
@@ -766,12 +779,14 @@ const file_challenge_v1_challenge_proto_rawDesc = "" +
 	"pieceWidth\x88\x01\x01\x12&\n" +
 	"\fpiece_height\x18\v \x01(\x05H\x03R\vpieceHeight\x88\x01\x01\x12\x19\n" +
 	"\bpow_salt\x18\f \x01(\fR\apowSalt\x12%\n" +
-	"\x0epow_difficulty\x18\r \x01(\x05R\rpowDifficultyB\x0e\n" +
+	"\x0epow_difficulty\x18\r \x01(\x05R\rpowDifficulty\x12&\n" +
+	"\fsecond_image\x18\x0e \x01(\fH\x04R\vsecondImage\x88\x01\x01B\x0e\n" +
 	"\f_piece_imageB\n" +
 	"\n" +
 	"\b_piece_yB\x0e\n" +
 	"\f_piece_widthB\x0f\n" +
-	"\r_piece_height\"\xe8\x02\n" +
+	"\r_piece_heightB\x0f\n" +
+	"\r_second_image\"\xe8\x02\n" +
 	"\x12CheckAnswerRequest\x12&\n" +
 	"\fchallenge_id\x18\x01 \x01(\tB\x03\xe0A\x02R\vchallengeId\x12\x1b\n" +
 	"\x06answer\x18\x02 \x01(\tB\x03\xe0A\x02R\x06answer\x122\n" +

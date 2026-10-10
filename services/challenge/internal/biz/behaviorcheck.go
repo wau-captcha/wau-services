@@ -54,11 +54,13 @@ const (
 )
 
 // minSolveTime is the least time each type takes a person on screen: reading and typing the
-// text, or finding the hole and dragging. Faster answers come from scripts.
+// text, finding the hole and dragging, or watching two rounds of jumps and clicking. Faster
+// answers come from scripts.
 var minSolveTime = map[string]time.Duration{
 	TypeImageDistort: 1000 * time.Millisecond,
 	TypeMotionNoise:  1500 * time.Millisecond,
 	TypeSlidePuzzle:  400 * time.Millisecond,
+	TypeAnimalJump:   1500 * time.Millisecond,
 }
 
 var pointerTypes = []string{"", "mouse", "touch", "pen"}

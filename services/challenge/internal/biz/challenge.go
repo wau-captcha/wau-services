@@ -17,6 +17,7 @@ const (
 	TypeImageDistort = "image_distort"
 	TypeMotionNoise  = "motion_noise"
 	TypeSlidePuzzle  = "slide_puzzle"
+	TypeAnimalJump   = "animal_jump"
 )
 
 var (
@@ -61,6 +62,9 @@ type Media struct {
 	Width, Height int
 	// Piece is the cut-out to drag over Data, set for slide_puzzle only.
 	Piece *Piece
+	// SecondRound is the GIF of animal_jump's second round, Data being the first; nil for the
+	// other types.
+	SecondRound []byte
 }
 
 // Piece is a PNG with alpha shown over the background at x = 0, y = Y, and dragged sideways.

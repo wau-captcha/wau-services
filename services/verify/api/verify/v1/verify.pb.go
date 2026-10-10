@@ -27,8 +27,9 @@ type VerifyChallengeRequest struct {
 	state       protoimpl.MessageState `protogen:"open.v1"`
 	ChallengeId string                 `protobuf:"bytes,1,opt,name=challenge_id,json=challengeId,proto3" json:"challenge_id,omitempty"`
 	// Text read from the challenge image. For slide_puzzle, the JSON the SDK writes from the drag:
-	// {"x": <final left edge of the piece>, "t": [[ms, x, y], ...]}; see the challenge's
-	// CheckAnswerRequest.answer.
+	// {"x": <final left edge of the piece>, "t": [[ms, x, y], ...]}; for animal_jump, the JSON it
+	// writes from the two clicks: {"c": [{"x": .., "y": .., "ms": .., "p": ..}, {...}]}; see the
+	// challenge's CheckAnswerRequest.answer.
 	Answer string `protobuf:"bytes,2,opt,name=answer,proto3" json:"answer,omitempty"`
 	// How the person behaved while the challenge was on screen, as the SDK records it. Optional:
 	// without it only the answer is checked, as before, unless the key requires it.
