@@ -16,7 +16,7 @@ type ChallengeClient interface {
 // request of the challenge.
 type Answer struct {
 	ChallengeID string
-	// The text read from the image, or the JSON of a slide_puzzle drag.
+	// The text read from the image, or the JSON of a slide_puzzle drag or of animal_jump's clicks.
 	Text string
 	// Nil when the client sent none.
 	Behavior *Behavior

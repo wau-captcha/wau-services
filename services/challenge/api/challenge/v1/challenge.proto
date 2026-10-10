@@ -22,7 +22,7 @@ service ChallengeService {
 message NewChallengeRequest {
   // Public site key of the calling site.
   string site_key = 1 [(google.api.field_behavior) = REQUIRED];
-  // "image_distort" (default), "motion_noise" or "slide_puzzle".
+  // "image_distort" (default), "motion_noise", "slide_puzzle" or "animal_jump".
   string challenge_type = 2;
 }
 
@@ -30,8 +30,9 @@ message Challenge {
   string challenge_id = 1;
   // Challenge type, e.g. "image_distort".
   string challenge_type = 2;
-  // Media to solve: a PNG for image_distort, an animated GIF for motion_noise, and for
-  // slide_puzzle a JPEG background with the hole the piece fits into.
+  // Media to solve: a PNG for image_distort, an animated GIF for motion_noise, for slide_puzzle
+  // a JPEG background with the hole the piece fits into, and for animal_jump the animated GIF of
+  // round 1: five animal heads jump and the person clicks the one that jumps highest.
   bytes image = 3;
   // Seconds until the challenge expires.
   int32 expires_in = 4;
@@ -56,6 +57,8 @@ message Challenge {
   // challenge. A difficulty of 0 asks for none.
   bytes pow_salt = 12;
   int32 pow_difficulty = 13;
+  // animal_jump only: the GIF of round 2; image is round 1. Both play once, 2 s each.
+  optional bytes second_image = 14;
 }
 
 message CheckAnswerRequest {
@@ -63,7 +66,10 @@ message CheckAnswerRequest {
   // The text read from the image. For slide_puzzle, the JSON the SDK writes from the drag:
   // {"x": <final left edge of the piece>, "t": [[ms, x, y], ...]}, each point the time since
   // pointerdown, the piece's left edge and the pointer's vertical offset from where it went
-  // down, in CSS pixels of image.
+  // down, in CSS pixels of image. For animal_jump, the JSON the SDK writes from the two clicks:
+  // {"c": [{"x": .., "y": .., "ms": .., "p": ..}, {...}]}, one per round in order: where the click
+  // landed in CSS pixels of image, the milliseconds since that round's playback started (a replay
+  // restarts the count) and the replays used in that round.
   string answer = 2 [(google.api.field_behavior) = REQUIRED];
   // How the person behaved while the challenge was on screen, as the SDK records it. Clients that
   // do not send it have their answers checked as before.
