@@ -92,7 +92,7 @@ func (f *fakeLimiter) Allow(_ context.Context, rule ratelimit.Rule, _ string) ti
 }
 
 type fakeHistory struct {
-	wrong, automated map[string]int64
+	wrong, automated, passes map[string]int64
 }
 
 func (f *fakeHistory) WrongAnswers(_ context.Context, addr string, _ time.Time) (int64, error) {
@@ -107,6 +107,13 @@ func (f *fakeHistory) CountWrong(_ context.Context, addr string, _ time.Time) er
 }
 func (f *fakeHistory) CountAutomated(_ context.Context, addr string, _ time.Time) error {
 	f.automated[addr]++
+	return nil
+}
+func (f *fakeHistory) AutoPassesLastHour(_ context.Context, addr string, _ time.Time) (int64, error) {
+	return f.passes[addr], nil
+}
+func (f *fakeHistory) CountAutoPass(_ context.Context, addr string, _ time.Time) error {
+	f.passes[addr]++
 	return nil
 }
 
@@ -127,7 +134,7 @@ func newFixture(site *Site) *fixture {
 		challenges: &fakeChallenges{stored: map[string]*Challenge{}},
 		counters:   &fakeCounters{},
 		limiter:    &fakeLimiter{refuse: map[string]bool{}},
-		history:    &fakeHistory{wrong: map[string]int64{}, automated: map[string]int64{}},
+		history:    &fakeHistory{wrong: map[string]int64{}, automated: map[string]int64{}, passes: map[string]int64{}},
 		now:        time.Date(2026, 10, 8, 3, 0, 0, 0, time.UTC),
 	}
 	usecase, err := NewChallengeUsecase(f.sites, f.challenges, f.counters, fakeUsage{}, f.limiter, f.history,
@@ -136,7 +143,8 @@ func newFixture(site *Site) *fixture {
 		&conf.RateLimit{NewPerIp: 30, NewPerSiteKey: 600, NewPerFlaggedSiteKey: 60},
 		&conf.Scraping{FlagMinIssued: 500, FlagMaxAnsweredPercent: 10, FlagMinAnswered: 200, FlagMaxSolvedPercent: 10,
 			FlagMaxAutomatedPercent: 50, SuspendMinIssued: 5000, SuspendMaxAnsweredPercent: 5},
-		&conf.IPHistory{WrongPer_10Minutes: 20, AutomatedPerHour: 5})
+		&conf.IPHistory{WrongPer_10Minutes: 20, AutomatedPerHour: 5},
+		&conf.AutoCheck{PowDifficulty: 18, MinScorePercent: 80, PassesPerIpHour: 30})
 	if err != nil {
 		panic(err)
 	}

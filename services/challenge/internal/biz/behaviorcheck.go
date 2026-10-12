@@ -55,13 +55,15 @@ const (
 
 // minSolveTime is the least time each type takes a person on screen: reading and typing the
 // text, finding the hole and dragging, watching two rounds of jumps and clicking, or turning two
-// objects to their arrows. Faster answers come from scripts.
+// objects to their arrows. auto_check asks for nothing, but its SDK waits 1.5 s before it answers:
+// sooner, the answer came from something else. Faster answers come from scripts.
 var minSolveTime = map[string]time.Duration{
 	TypeImageDistort: 1000 * time.Millisecond,
 	TypeMotionNoise:  1500 * time.Millisecond,
 	TypeSlidePuzzle:  400 * time.Millisecond,
 	TypeAnimalJump:   1500 * time.Millisecond,
 	TypeObjectRotate: 1500 * time.Millisecond,
+	TypeAutoCheck:    1000 * time.Millisecond,
 }
 
 var pointerTypes = []string{"", "mouse", "touch", "pen"}

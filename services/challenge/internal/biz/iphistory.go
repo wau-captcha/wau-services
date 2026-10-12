@@ -13,8 +13,8 @@ import (
 // HistoryBucket is the window the history of an address is counted in; an hour is six of them.
 const HistoryBucket = 10 * time.Minute
 
-// IPHistory keeps, per client address, the wrong answers and the answers judged automated of the
-// last buckets, in Redis (see data/iphistory.go).
+// IPHistory keeps, per client address, the wrong answers, the answers judged automated and the
+// auto_check passes of the last buckets, in Redis (see data/iphistory.go).
 type IPHistory interface {
 	// WrongAnswers counts the wrong answers from addr in the bucket of now.
 	WrongAnswers(ctx context.Context, addr string, now time.Time) (int64, error)
@@ -22,6 +22,9 @@ type IPHistory interface {
 	AutomatedLastHour(ctx context.Context, addr string, now time.Time) (int64, error)
 	CountWrong(ctx context.Context, addr string, now time.Time) error
 	CountAutomated(ctx context.Context, addr string, now time.Time) error
+	// AutoPassesLastHour counts the auto_check passes of addr in the six buckets up to now.
+	AutoPassesLastHour(ctx context.Context, addr string, now time.Time) (int64, error)
+	CountAutoPass(ctx context.Context, addr string, now time.Time) error
 }
 
 // ipLimits are the thresholds of conf.IPHistory; 0 turns one off.
@@ -68,14 +71,14 @@ func (uc *ChallengeUsecase) badHistory(ctx context.Context, addr netip.Addr) boo
 	return automated > uc.ipLimits.automatedPerHour
 }
 
-// recordOutcome adds an answer from addr to its history. A failure is logged: the answer has
-// been judged already.
-func (uc *ChallengeUsecase) recordOutcome(ctx context.Context, addr netip.Addr, right bool, verdict string) {
+// recordOutcome adds an answer from addr to its history: wrong when it counts against the address's
+// limit of wrong answers. A failure is logged: the answer has been judged already.
+func (uc *ChallengeUsecase) recordOutcome(ctx context.Context, addr netip.Addr, wrong bool, verdict string) {
 	if !addr.IsValid() {
 		return
 	}
 	now := uc.now()
-	if !right {
+	if wrong {
 		if err := uc.history.CountWrong(ctx, addr.String(), now); err != nil {
 			log.WarnContext(ctx, "wrong answer not counted for its address", "err", err)
 		}

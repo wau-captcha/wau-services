@@ -37,10 +37,19 @@ func (h *ipHistory) WrongAnswers(ctx context.Context, addr string, now time.Time
 }
 
 func (h *ipHistory) AutomatedLastHour(ctx context.Context, addr string, now time.Time) (int64, error) {
+	return h.lastHour(ctx, addr, "auto", now)
+}
+
+func (h *ipHistory) AutoPassesLastHour(ctx context.Context, addr string, now time.Time) (int64, error) {
+	return h.lastHour(ctx, addr, "pass", now)
+}
+
+// lastHour adds up the buckets of one kind of addr over the hour up to now.
+func (h *ipHistory) lastHour(ctx context.Context, addr, kind string, now time.Time) (int64, error) {
 	current := bucketOf(now)
 	keys := make([]string, historyBuckets)
 	for i := range keys {
-		keys[i] = historyKey(addr, "auto", current-int64(i))
+		keys[i] = historyKey(addr, kind, current-int64(i))
 	}
 	values, err := h.data.redis.MGet(ctx, keys...).Result()
 	if err != nil && !errors.Is(err, redis.Nil) {
@@ -58,13 +67,17 @@ func (h *ipHistory) AutomatedLastHour(ctx context.Context, addr string, now time
 	return total, nil
 }
 
-// A wrong-answer bucket is only read while it is current; an automated one for an hour.
+// A wrong-answer bucket is only read while it is current; an automated or a pass one for an hour.
 func (h *ipHistory) CountWrong(ctx context.Context, addr string, now time.Time) error {
 	return h.count(ctx, historyKey(addr, "wrong", bucketOf(now)), biz.HistoryBucket)
 }
 
 func (h *ipHistory) CountAutomated(ctx context.Context, addr string, now time.Time) error {
 	return h.count(ctx, historyKey(addr, "auto", bucketOf(now)), historyBuckets*biz.HistoryBucket)
+}
+
+func (h *ipHistory) CountAutoPass(ctx context.Context, addr string, now time.Time) error {
+	return h.count(ctx, historyKey(addr, "pass", bucketOf(now)), historyBuckets*biz.HistoryBucket)
 }
 
 func (h *ipHistory) count(ctx context.Context, key string, ttl time.Duration) error {

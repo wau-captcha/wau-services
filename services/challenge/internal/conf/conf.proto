@@ -13,6 +13,7 @@ message Bootstrap {
   RateLimit rate_limit = 5;
   Scraping scraping = 6;
   IPHistory ip_history = 7;
+  AutoCheck auto_check = 8;
 }
 
 message Server {
@@ -102,4 +103,18 @@ message Scraping {
 message IPHistory {
   int32 wrong_per_10_minutes = 1;
   int32 automated_per_hour = 2;
+}
+
+// AutoCheck tunes auto_check, which lets a visitor through without a puzzle when the browser and
+// behaviour signals are clean (see biz/autocheck.go). Each value can be replaced from the
+// environment, e.g. KRATOS_AUTO_CHECK_POW_DIFFICULTY.
+message AutoCheck {
+  // Leading zero bits of its proof of work, the cost of every pass to the client; the other types
+  // use challenge.pow_difficulty. 0 asks for none.
+  int32 pow_difficulty = 1;
+  // The least score, in percent, that passes.
+  int32 min_score_percent = 2;
+  // Passes one client address may get per hour; past them its visitors get the fallback. 0 turns
+  // the cap off.
+  int32 passes_per_ip_hour = 3;
 }

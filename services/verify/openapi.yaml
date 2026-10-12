@@ -108,9 +108,10 @@ components:
                     type: boolean
                     description: or the user agent says Chrome but window.chrome is missing.
             description: |-
-                Behavior is what the SDK records from the moment a challenge is shown (its image has loaded) to
-                 the moment its answer is sent. Times are milliseconds since it was shown; x and y are CSS pixels
-                 from the top-left corner of the widget. Key values, page content and anything outside that time
+                Behavior is what the SDK records from the moment a challenge is shown (its image has loaded, or for
+                 auto_check its box appeared) to the moment its answer is sent. Times are milliseconds since it was
+                 shown; x and y are CSS pixels from the top-left corner of the widget, also for the presses on the
+                 rest of the page that auto_check records. Key values, page content and anything outside that time
                  are never recorded. The same fields as challenge.v1.Behavior, which verify passes it on as.
         verify.v1.BehaviorResult:
             type: object
@@ -151,6 +152,10 @@ components:
                     type: boolean
                 challenge_type:
                     type: string
+                    description: |-
+                        The type of the challenge solved. "auto_check" means the visitor passed without solving a
+                         puzzle; a site that wants more can require behavior.score above its own threshold for sensitive
+                         actions. A visitor auto_check did not let through solved its fallback, whose type this is then.
                 challenge_ts:
                     type: string
                     description: Time the challenge was solved.
@@ -201,7 +206,8 @@ components:
                          {"x": <final left edge of the piece>, "t": [[ms, x, y], ...]}; for animal_jump, the JSON it
                          writes from the two clicks: {"c": [{"x": .., "y": .., "ms": .., "p": ..}, {...}]}; for
                          object_rotate, the JSON it writes from the presses: {"r": [{"f": .., "s": [[ms, d], ...],
-                         "done": ..}, {...}]}; see the challenge's CheckAnswerRequest.answer.
+                         "done": ..}, {...}]}; for auto_check, the JSON it writes from its browser probes: {"v": 1,
+                         "ua": .., "lang": .., "f": [..]}; see the challenge's CheckAnswerRequest.answer.
                 behavior:
                     allOf:
                         - $ref: '#/components/schemas/verify.v1.Behavior'

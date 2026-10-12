@@ -38,3 +38,8 @@ scraping:
 ip_history:
   wrong_per_10_minutes: 20
   automated_per_hour: 5
+# auto_check; KRATOS_AUTO_CHECK_<KEY> replaces a value.
+auto_check:
+  pow_difficulty: 18        # bits; the other types use challenge.pow_difficulty
+  min_score_percent: 80     # least score for a pass
+  passes_per_ip_hour: 30    # auto passes one address may get per hour; then it gets the fallback

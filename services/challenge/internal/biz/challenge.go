@@ -19,6 +19,9 @@ const (
 	TypeSlidePuzzle  = "slide_puzzle"
 	TypeAnimalJump   = "animal_jump"
 	TypeObjectRotate = "object_rotate"
+	// TypeAutoCheck shows no puzzle: it judges the browser, and sends who it does not let through to
+	// an interactive type (see autocheck.go).
+	TypeAutoCheck = "auto_check"
 )
 
 var (
@@ -56,6 +59,7 @@ type Site struct {
 	DailyQuota int64
 }
 
+// Media is what a challenge shows; empty for auto_check, which shows nothing to solve.
 type Media struct {
 	Data     []byte
 	MIMEType string
@@ -102,6 +106,9 @@ type Challenge struct {
 	// The proof of work asked for; a difficulty of 0 asks for none.
 	PowSalt       []byte
 	PowDifficulty int
+	// auto_check only: the interactive type the client loads when the check does not pass; empty
+	// when the key allows none. Sent to the client with the challenge, not stored.
+	FallbackType string
 }
 
 type SiteRepo interface {
@@ -129,6 +136,7 @@ type ChallengeUsecase struct {
 	limits     limits
 	scraping   scrapingRules
 	ipLimits   ipLimits
+	auto       autoCheckRules
 	ttl        time.Duration
 	powBits    int
 	location   *time.Location
@@ -137,7 +145,7 @@ type ChallengeUsecase struct {
 
 func NewChallengeUsecase(sites SiteRepo, challenges ChallengeRepo, counters CounterRepo, usage UsageRepo, limiter RateLimiter,
 	history IPHistory, challengeConf *conf.Challenge, quotaConf *conf.Quota, rateConf *conf.RateLimit,
-	scrapingConf *conf.Scraping, historyConf *conf.IPHistory) (*ChallengeUsecase, error) {
+	scrapingConf *conf.Scraping, historyConf *conf.IPHistory, autoConf *conf.AutoCheck) (*ChallengeUsecase, error) {
 	ttl := challengeConf.GetTtl().AsDuration()
 	if ttl <= 0 {
 		return nil, fmt.Errorf("challenge ttl must be positive")
@@ -152,6 +160,10 @@ func NewChallengeUsecase(sites SiteRepo, challenges ChallengeRepo, counters Coun
 	if err != nil {
 		return nil, err
 	}
+	auto, err := newAutoCheckRules(autoConf)
+	if err != nil {
+		return nil, err
+	}
 	return &ChallengeUsecase{
 		sites:      sites,
 		challenges: challenges,
@@ -162,6 +174,7 @@ func NewChallengeUsecase(sites SiteRepo, challenges ChallengeRepo, counters Coun
 		limits:     newLimits(rateConf),
 		scraping:   newScrapingRules(scrapingConf),
 		ipLimits:   newIPLimits(historyConf),
+		auto:       auto,
 		ttl:        ttl,
 		powBits:    int(challengeConf.GetPowDifficulty()),
 		location:   location,

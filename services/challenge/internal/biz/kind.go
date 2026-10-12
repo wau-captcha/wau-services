@@ -19,6 +19,8 @@ var challengeKinds = map[string]challengeKind{
 	TypeSlidePuzzle:  {generate: generateSlidePuzzle, check: checkSlidePuzzle},
 	TypeAnimalJump:   {generate: generateAnimalJump, check: checkAnimalJump},
 	TypeObjectRotate: {generate: generateObjectRotate, check: checkObjectRotate},
+	// check only says whether the answer is well formed; Check decides on the pass (see autocheck.go).
+	TypeAutoCheck: {generate: generateAutoCheck, check: checkAutoCheck},
 }
 
 // textKind is a type whose answer is a random code drawn into the media and typed back,

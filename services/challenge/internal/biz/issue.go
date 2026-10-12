@@ -15,6 +15,9 @@ type NewRequest struct {
 	SiteKey string
 	// image_distort when empty.
 	ChallengeType string
+	// auto_check only: the interactive type the site prefers when the visitor is not let through.
+	// The key may not allow it; another is chosen then (see fallbackType).
+	FallbackType string
 	// The caller's address, read through the trusted proxies; zero when unknown.
 	Client netip.Addr
 	// The website the call comes from, scheme://host[:port] (requestinfo.Origin); empty when unknown.
@@ -85,10 +88,15 @@ func (uc *ChallengeUsecase) New(ctx context.Context, request NewRequest) (challe
 		RequireBehavior: site.RequireBehavior,
 		PowDifficulty:   uc.powBits,
 	}
+	if challengeType == TypeAutoCheck {
+		// A pass costs no puzzle, so it costs more work; the challenge keeps its own difficulty.
+		challenge.PowDifficulty = uc.auto.powBits
+		challenge.FallbackType = fallbackType(site.ChallengeTypes, request.FallbackType)
+	}
 	if request.Client.IsValid() {
 		challenge.ClientIP = request.Client.String()
 	}
-	if uc.powBits > 0 {
+	if challenge.PowDifficulty > 0 {
 		challenge.PowSalt = newPowSalt()
 	}
 	if err := uc.challenges.Save(ctx, challenge); err != nil {
