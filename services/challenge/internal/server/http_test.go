@@ -82,7 +82,7 @@ func (cleanHistory) CountAutomated(context.Context, string, time.Time) error { r
 
 func newChallengeServer(t *testing.T, domains ...string) http.Handler {
 	t.Helper()
-	site := biz.Site{APIKeyID: "key-1", UserID: "user-1", ChallengeTypes: []string{biz.TypeImageDistort, biz.TypeAnimalJump}, DailyQuota: 100, AllowedDomains: domains}
+	site := biz.Site{APIKeyID: "key-1", UserID: "user-1", ChallengeTypes: []string{biz.TypeImageDistort, biz.TypeAnimalJump, biz.TypeObjectRotate}, DailyQuota: 100, AllowedDomains: domains}
 	usecase, err := biz.NewChallengeUsecase(stubSites{site}, &memoryChallenges{stored: map[string]*biz.Challenge{}}, quietCounters{}, noUsage{},
 		openLimiter{}, cleanHistory{}, &conf.Challenge{Ttl: durationpb.New(2 * time.Minute), PowDifficulty: 15},
 		&conf.Quota{TimeZone: "Asia/Ho_Chi_Minh"}, &conf.RateLimit{NewPerIp: 30, NewPerSiteKey: 600, NewPerFlaggedSiteKey: 60},

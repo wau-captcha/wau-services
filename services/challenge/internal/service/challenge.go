@@ -74,9 +74,13 @@ func (s *ChallengeService) NewChallenge(ctx context.Context, req *v1.NewChalleng
 		reply.PieceWidth = proto.Int32(int32(piece.Width))
 		reply.PieceHeight = proto.Int32(int32(piece.Height))
 	}
-	// animal_jump only, so the other types' replies carry no second_image either.
+	// animal_jump and object_rotate only, so the other types' replies carry no second_image either.
 	if challenge.Media.SecondRound != nil {
 		reply.SecondImage = challenge.Media.SecondRound
+	}
+	// object_rotate only, like the piece fields.
+	if challenge.Media.Frames > 0 {
+		reply.FrameCount = proto.Int32(int32(challenge.Media.Frames))
 	}
 	return reply, nil
 }

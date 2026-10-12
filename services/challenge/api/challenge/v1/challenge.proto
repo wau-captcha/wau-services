@@ -22,7 +22,7 @@ service ChallengeService {
 message NewChallengeRequest {
   // Public site key of the calling site.
   string site_key = 1 [(google.api.field_behavior) = REQUIRED];
-  // "image_distort" (default), "motion_noise", "slide_puzzle" or "animal_jump".
+  // "image_distort" (default), "motion_noise", "slide_puzzle", "animal_jump" or "object_rotate".
   string challenge_type = 2;
 }
 
@@ -31,14 +31,17 @@ message Challenge {
   // Challenge type, e.g. "image_distort".
   string challenge_type = 2;
   // Media to solve: a PNG for image_distort, an animated GIF for motion_noise, for slide_puzzle
-  // a JPEG background with the hole the piece fits into, and for animal_jump the animated GIF of
-  // round 1: five animal heads jump and the person clicks the one that jumps highest.
+  // a JPEG background with the hole the piece fits into, for animal_jump the animated GIF of
+  // round 1: five animal heads jump and the person clicks the one that jumps highest, and for
+  // object_rotate the JPEG strip of round 1: an object in frame_count directions beside an arrow
+  // on the ground, which the person turns a frame at a time until it faces the arrow.
   bytes image = 3;
   // Seconds until the challenge expires.
   int32 expires_in = 4;
   // MIME type of image, e.g. "image/gif".
   string mime_type = 5;
-  // Size to display image at, in CSS pixels. The media may hold more pixels for finer dots.
+  // Size to display image at, in CSS pixels; for object_rotate, one frame of it. The media may
+  // hold more pixels for finer dots.
   int32 width = 6;
   int32 height = 7;
   // slide_puzzle only: the piece to drag, a PNG with alpha. It starts at x = 0 and moves
@@ -57,8 +60,12 @@ message Challenge {
   // challenge. A difficulty of 0 asks for none.
   bytes pow_salt = 12;
   int32 pow_difficulty = 13;
-  // animal_jump only: the GIF of round 2; image is round 1. Both play once, 2 s each.
+  // The second round, image being the first: for animal_jump the GIF of round 2 (both play
+  // once, 2 s each), for object_rotate the strip of round 2. Unset for the other types.
   optional bytes second_image = 14;
+  // object_rotate only: image and second_image are each this many frames of width × height side
+  // by side; frame k is the object turned k steps clockwise as seen from above.
+  optional int32 frame_count = 15;
 }
 
 message CheckAnswerRequest {
@@ -69,7 +76,10 @@ message CheckAnswerRequest {
   // down, in CSS pixels of image. For animal_jump, the JSON the SDK writes from the two clicks:
   // {"c": [{"x": .., "y": .., "ms": .., "p": ..}, {...}]}, one per round in order: where the click
   // landed in CSS pixels of image, the milliseconds since that round's playback started (a replay
-  // restarts the count) and the replays used in that round.
+  // restarts the count) and the replays used in that round. For object_rotate, the JSON the SDK
+  // writes from the presses: {"r": [{"f": .., "s": [[ms, d], ...], "done": ..}, {...}]}, one per
+  // round in order: the frame shown when Done was pressed, every press of Rotate right (d = 1)
+  // or Rotate left (d = -1) with the milliseconds since that round was shown, and when Done was.
   string answer = 2 [(google.api.field_behavior) = REQUIRED];
   // How the person behaved while the challenge was on screen, as the SDK records it. Clients that
   // do not send it have their answers checked as before.
