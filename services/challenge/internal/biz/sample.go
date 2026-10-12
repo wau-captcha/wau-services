@@ -5,10 +5,11 @@ package biz
 const SlideTolerancePx = slideAimSlackPx
 
 // Sample makes one challenge of challengeType with the generator /challenge/new uses, for
-// cmd/samples: the stored answer and the media a client gets. Nothing is saved.
+// cmd/samples: the stored answer and the media a client gets. Nothing is saved. auto_check has no
+// media to sample.
 func Sample(challengeType string) (answer string, media Media, err error) {
 	kind, ok := challengeKinds[challengeType]
-	if !ok {
+	if !ok || challengeType == TypeAutoCheck {
 		return "", Media{}, ErrChallengeTypeUnsupported
 	}
 	return kind.generate()

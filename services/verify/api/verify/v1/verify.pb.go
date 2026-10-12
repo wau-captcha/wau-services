@@ -30,7 +30,8 @@ type VerifyChallengeRequest struct {
 	// {"x": <final left edge of the piece>, "t": [[ms, x, y], ...]}; for animal_jump, the JSON it
 	// writes from the two clicks: {"c": [{"x": .., "y": .., "ms": .., "p": ..}, {...}]}; for
 	// object_rotate, the JSON it writes from the presses: {"r": [{"f": .., "s": [[ms, d], ...],
-	// "done": ..}, {...}]}; see the challenge's CheckAnswerRequest.answer.
+	// "done": ..}, {...}]}; for auto_check, the JSON it writes from its browser probes: {"v": 1,
+	// "ua": .., "lang": .., "f": [..]}; see the challenge's CheckAnswerRequest.answer.
 	Answer string `protobuf:"bytes,2,opt,name=answer,proto3" json:"answer,omitempty"`
 	// How the person behaved while the challenge was on screen, as the SDK records it. Optional:
 	// without it only the answer is checked, as before, unless the key requires it.
@@ -217,9 +218,12 @@ func (x *SiteVerifyRequest) GetToken() string {
 }
 
 type SiteVerifyReply struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	ChallengeType string                 `protobuf:"bytes,2,opt,name=challenge_type,json=challengeType,proto3" json:"challenge_type,omitempty"`
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Success bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	// The type of the challenge solved. "auto_check" means the visitor passed without solving a
+	// puzzle; a site that wants more can require behavior.score above its own threshold for sensitive
+	// actions. A visitor auto_check did not let through solved its fallback, whose type this is then.
+	ChallengeType string `protobuf:"bytes,2,opt,name=challenge_type,json=challengeType,proto3" json:"challenge_type,omitempty"`
 	// Time the challenge was solved.
 	ChallengeTs *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=challenge_ts,json=challengeTs,proto3" json:"challenge_ts,omitempty"`
 	// What the behaviour check concluded about the answer behind the token, set when success is
@@ -298,9 +302,10 @@ func (x *SiteVerifyReply) GetHostname() string {
 	return ""
 }
 
-// Behavior is what the SDK records from the moment a challenge is shown (its image has loaded) to
-// the moment its answer is sent. Times are milliseconds since it was shown; x and y are CSS pixels
-// from the top-left corner of the widget. Key values, page content and anything outside that time
+// Behavior is what the SDK records from the moment a challenge is shown (its image has loaded, or for
+// auto_check its box appeared) to the moment its answer is sent. Times are milliseconds since it was
+// shown; x and y are CSS pixels from the top-left corner of the widget, also for the presses on the
+// rest of the page that auto_check records. Key values, page content and anything outside that time
 // are never recorded. The same fields as challenge.v1.Behavior, which verify passes it on as.
 type Behavior struct {
 	state protoimpl.MessageState `protogen:"open.v1"`

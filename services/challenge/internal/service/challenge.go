@@ -36,7 +36,7 @@ func NewChallengeService(challenges *biz.ChallengeUsecase, serverConf *conf.Serv
 
 // NewChallenge issues a challenge for a site key, to an address and a website the key allows.
 func (s *ChallengeService) NewChallenge(ctx context.Context, req *v1.NewChallengeRequest) (*v1.Challenge, error) {
-	request := biz.NewRequest{SiteKey: req.GetSiteKey(), ChallengeType: req.GetChallengeType()}
+	request := biz.NewRequest{SiteKey: req.GetSiteKey(), ChallengeType: req.GetChallengeType(), FallbackType: req.GetFallbackType()}
 	tr, httpRequest := httpTransport(ctx)
 	if httpRequest != nil {
 		request.Client = clientip.From(httpRequest, s.trusted)
@@ -81,6 +81,10 @@ func (s *ChallengeService) NewChallenge(ctx context.Context, req *v1.NewChalleng
 	// object_rotate only, like the piece fields.
 	if challenge.Media.Frames > 0 {
 		reply.FrameCount = proto.Int32(int32(challenge.Media.Frames))
+	}
+	// auto_check only, even when empty: the client then knows the key allows nothing to fall back to.
+	if challenge.Type == biz.TypeAutoCheck {
+		reply.FallbackType = proto.String(challenge.FallbackType)
 	}
 	return reply, nil
 }

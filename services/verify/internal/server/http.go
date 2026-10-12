@@ -15,8 +15,8 @@ import (
 )
 
 // Request body caps. An answer with its behaviour is a few KiB, a slide_puzzle drag up to about
-// 9 KiB, animal_jump's two clicks under 1 KiB, object_rotate's presses under 2 KiB; /siteverify
-// carries one token.
+// 9 KiB, animal_jump's two clicks under 1 KiB, object_rotate's presses and auto_check's probes
+// under 2 KiB; /siteverify carries one token.
 var bodyLimits = map[string]int64{
 	"/challenge/verify": 64 << 10,
 	"/siteverify":       4 << 10,

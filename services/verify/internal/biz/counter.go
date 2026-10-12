@@ -31,7 +31,8 @@ func (uc *VerifyUsecase) recordAnswer(ctx context.Context, challengeID string, s
 
 // recordCounters feeds the scraping check with every checked answer and the quota with correct
 // ones. They are counted before the response, so the quota is exact; a failure is logged rather
-// than denying the user the token.
+// than denying the user the token. An auto_check that falls back counts as answered and not
+// solved: the scraping flag only fires under 10 percent solved, far below a normal fallback rate.
 func (uc *VerifyUsecase) recordCounters(ctx context.Context, solution *Solution) {
 	day := quota.Day(uc.now(), uc.location)
 	automated := solution.Behavior.Verdict == VerdictAutomated

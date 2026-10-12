@@ -29,8 +29,12 @@ type NewChallengeRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Public site key of the calling site.
 	SiteKey string `protobuf:"bytes,1,opt,name=site_key,json=siteKey,proto3" json:"site_key,omitempty"`
-	// "image_distort" (default), "motion_noise", "slide_puzzle", "animal_jump" or "object_rotate".
+	// "image_distort" (default), "motion_noise", "slide_puzzle", "animal_jump", "object_rotate" or
+	// "auto_check".
 	ChallengeType string `protobuf:"bytes,2,opt,name=challenge_type,json=challengeType,proto3" json:"challenge_type,omitempty"`
+	// auto_check only: the interactive type the site prefers if the visitor is not let through; the
+	// server may pick another the key allows.
+	FallbackType  string `protobuf:"bytes,3,opt,name=fallback_type,json=fallbackType,proto3" json:"fallback_type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -79,6 +83,13 @@ func (x *NewChallengeRequest) GetChallengeType() string {
 	return ""
 }
 
+func (x *NewChallengeRequest) GetFallbackType() string {
+	if x != nil {
+		return x.FallbackType
+	}
+	return ""
+}
+
 type Challenge struct {
 	state       protoimpl.MessageState `protogen:"open.v1"`
 	ChallengeId string                 `protobuf:"bytes,1,opt,name=challenge_id,json=challengeId,proto3" json:"challenge_id,omitempty"`
@@ -88,7 +99,8 @@ type Challenge struct {
 	// a JPEG background with the hole the piece fits into, for animal_jump the animated GIF of
 	// round 1: five animal heads jump and the person clicks the one that jumps highest, and for
 	// object_rotate the JPEG strip of round 1: an object in frame_count directions beside an arrow
-	// on the ground, which the person turns a frame at a time until it faces the arrow.
+	// on the ground, which the person turns a frame at a time until it faces the arrow. auto_check
+	// has none: it shows nothing to solve, so image and mime_type are empty and width and height 0.
 	Image []byte `protobuf:"bytes,3,opt,name=image,proto3" json:"image,omitempty"`
 	// Seconds until the challenge expires.
 	ExpiresIn int32 `protobuf:"varint,4,opt,name=expires_in,json=expiresIn,proto3" json:"expires_in,omitempty"`
@@ -119,7 +131,10 @@ type Challenge struct {
 	SecondImage []byte `protobuf:"bytes,14,opt,name=second_image,json=secondImage,proto3,oneof" json:"second_image,omitempty"`
 	// object_rotate only: image and second_image are each this many frames of width × height side
 	// by side; frame k is the object turned k steps clockwise as seen from above.
-	FrameCount    *int32 `protobuf:"varint,15,opt,name=frame_count,json=frameCount,proto3,oneof" json:"frame_count,omitempty"`
+	FrameCount *int32 `protobuf:"varint,15,opt,name=frame_count,json=frameCount,proto3,oneof" json:"frame_count,omitempty"`
+	// auto_check only: the type to load if this check does not pass; empty if the key allows no
+	// interactive type.
+	FallbackType  *string `protobuf:"bytes,16,opt,name=fallback_type,json=fallbackType,proto3,oneof" json:"fallback_type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -259,6 +274,13 @@ func (x *Challenge) GetFrameCount() int32 {
 	return 0
 }
 
+func (x *Challenge) GetFallbackType() string {
+	if x != nil && x.FallbackType != nil {
+		return *x.FallbackType
+	}
+	return ""
+}
+
 type CheckAnswerRequest struct {
 	state       protoimpl.MessageState `protogen:"open.v1"`
 	ChallengeId string                 `protobuf:"bytes,1,opt,name=challenge_id,json=challengeId,proto3" json:"challenge_id,omitempty"`
@@ -272,9 +294,13 @@ type CheckAnswerRequest struct {
 	// writes from the presses: {"r": [{"f": .., "s": [[ms, d], ...], "done": ..}, {...}]}, one per
 	// round in order: the frame shown when Done was pressed, every press of Rotate right (d = 1)
 	// or Rotate left (d = -1) with the milliseconds since that round was shown, and when Done was.
+	// For auto_check, the JSON the SDK writes from its browser probes, at most 2 KiB:
+	// {"v": 1, "ua": <navigator.userAgent, at most 512 characters>, "lang": <navigator.language>,
+	// "f": [<names of the probes that tripped>, ...]}.
 	Answer string `protobuf:"bytes,2,opt,name=answer,proto3" json:"answer,omitempty"`
-	// How the person behaved while the challenge was on screen, as the SDK records it. Clients that
-	// do not send it have their answers checked as before.
+	// How the person behaved while the challenge was on screen, as the SDK records it; for
+	// auto_check, while the check ran. Clients that do not send it have their answers checked as
+	// before, and an auto_check without it never passes.
 	Behavior *Behavior `protobuf:"bytes,3,opt,name=behavior,proto3" json:"behavior,omitempty"`
 	// The site key the client answers for: the answer to a challenge of another key is wrong. Empty
 	// from SDKs before 1.3.0, which is accepted.
@@ -393,8 +419,9 @@ func (x *CheckAnswerRequest) GetPowNonce() string {
 }
 
 type CheckAnswerReply struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	Success bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// For auto_check: the visitor passed without a puzzle.
+	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
 	// API key the challenge was issued for.
 	ApiKeyId      string `protobuf:"bytes,2,opt,name=api_key_id,json=apiKeyId,proto3" json:"api_key_id,omitempty"`
 	ChallengeType string `protobuf:"bytes,3,opt,name=challenge_type,json=challengeType,proto3" json:"challenge_type,omitempty"`
@@ -490,9 +517,10 @@ func (x *CheckAnswerReply) GetBehaviorRequired() bool {
 	return false
 }
 
-// Behavior is what the SDK records from the moment a challenge is shown (its image has loaded) to
-// the moment its answer is sent. Times are milliseconds since it was shown; x and y are CSS pixels
-// from the top-left corner of the widget. Key values, page content and anything outside that time
+// Behavior is what the SDK records from the moment a challenge is shown (its image has loaded, or for
+// auto_check its box appeared) to the moment its answer is sent. Times are milliseconds since it was
+// shown; x and y are CSS pixels from the top-left corner of the widget, also for the presses on the
+// rest of the page that auto_check records. Key values, page content and anything outside that time
 // are never recorded.
 type Behavior struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -778,10 +806,11 @@ var File_challenge_v1_challenge_proto protoreflect.FileDescriptor
 
 const file_challenge_v1_challenge_proto_rawDesc = "" +
 	"\n" +
-	"\x1cchallenge/v1/challenge.proto\x12\fchallenge.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\"\\\n" +
+	"\x1cchallenge/v1/challenge.proto\x12\fchallenge.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\"\x81\x01\n" +
 	"\x13NewChallengeRequest\x12\x1e\n" +
 	"\bsite_key\x18\x01 \x01(\tB\x03\xe0A\x02R\asiteKey\x12%\n" +
-	"\x0echallenge_type\x18\x02 \x01(\tR\rchallengeType\"\xd5\x04\n" +
+	"\x0echallenge_type\x18\x02 \x01(\tR\rchallengeType\x12#\n" +
+	"\rfallback_type\x18\x03 \x01(\tR\ffallbackType\"\x91\x05\n" +
 	"\tChallenge\x12!\n" +
 	"\fchallenge_id\x18\x01 \x01(\tR\vchallengeId\x12%\n" +
 	"\x0echallenge_type\x18\x02 \x01(\tR\rchallengeType\x12\x14\n" +
@@ -802,14 +831,16 @@ const file_challenge_v1_challenge_proto_rawDesc = "" +
 	"\x0epow_difficulty\x18\r \x01(\x05R\rpowDifficulty\x12&\n" +
 	"\fsecond_image\x18\x0e \x01(\fH\x04R\vsecondImage\x88\x01\x01\x12$\n" +
 	"\vframe_count\x18\x0f \x01(\x05H\x05R\n" +
-	"frameCount\x88\x01\x01B\x0e\n" +
+	"frameCount\x88\x01\x01\x12(\n" +
+	"\rfallback_type\x18\x10 \x01(\tH\x06R\ffallbackType\x88\x01\x01B\x0e\n" +
 	"\f_piece_imageB\n" +
 	"\n" +
 	"\b_piece_yB\x0e\n" +
 	"\f_piece_widthB\x0f\n" +
 	"\r_piece_heightB\x0f\n" +
 	"\r_second_imageB\x0e\n" +
-	"\f_frame_count\"\xe8\x02\n" +
+	"\f_frame_countB\x10\n" +
+	"\x0e_fallback_type\"\xe8\x02\n" +
 	"\x12CheckAnswerRequest\x12&\n" +
 	"\fchallenge_id\x18\x01 \x01(\tB\x03\xe0A\x02R\vchallengeId\x12\x1b\n" +
 	"\x06answer\x18\x02 \x01(\tB\x03\xe0A\x02R\x06answer\x122\n" +

@@ -21,7 +21,16 @@ paths:
                     type: string
                 - name: challenge_type
                   in: query
-                  description: '"image_distort" (default), "motion_noise", "slide_puzzle", "animal_jump" or "object_rotate".'
+                  description: |-
+                    "image_distort" (default), "motion_noise", "slide_puzzle", "animal_jump", "object_rotate" or
+                     "auto_check".
+                  schema:
+                    type: string
+                - name: fallback_type
+                  in: query
+                  description: |-
+                    auto_check only: the interactive type the site prefers if the visitor is not let through; the
+                     server may pick another the key allows.
                   schema:
                     type: string
             responses:
@@ -48,7 +57,8 @@ components:
                          a JPEG background with the hole the piece fits into, for animal_jump the animated GIF of
                          round 1: five animal heads jump and the person clicks the one that jumps highest, and for
                          object_rotate the JPEG strip of round 1: an object in frame_count directions beside an arrow
-                         on the ground, which the person turns a frame at a time until it faces the arrow.
+                         on the ground, which the person turns a frame at a time until it faces the arrow. auto_check
+                         has none: it shows nothing to solve, so image and mime_type are empty and width and height 0.
                     format: bytes
                 expires_in:
                     type: integer
@@ -108,5 +118,10 @@ components:
                         object_rotate only: image and second_image are each this many frames of width × height side
                          by side; frame k is the object turned k steps clockwise as seen from above.
                     format: int32
+                fallback_type:
+                    type: string
+                    description: |-
+                        auto_check only: the type to load if this check does not pass; empty if the key allows no
+                         interactive type.
 tags:
     - name: ChallengeService

@@ -11,8 +11,8 @@ import (
 // came in.
 type Answer struct {
 	ChallengeID string
-	// The text read from the image, or the JSON of a slide_puzzle drag, of animal_jump's clicks or
-	// of object_rotate's presses.
+	// The text read from the image, or the JSON of a slide_puzzle drag, of animal_jump's clicks, of
+	// object_rotate's presses or of auto_check's browser probes.
 	Text string
 	// Nil when the client sent none.
 	Behavior *Behavior
@@ -40,9 +40,10 @@ type Outcome struct {
 }
 
 // Check takes the challenge, so each one is answered once whatever happens, and judges the answer:
-// the text or the drag, the site key and website it comes from, and the behaviour behind it. An
-// address over its limit of wrong answers is refused before anything is taken. A malformed answer
-// is a wrong one, not an error.
+// the text or the drag, the site key and website it comes from, and the behaviour behind it; for
+// auto_check, whether all of that lets the visitor through without a puzzle. An address over its
+// limit of wrong answers is refused before anything is taken. A malformed answer is a wrong one,
+// not an error.
 func (uc *ChallengeUsecase) Check(ctx context.Context, answer Answer) (*Outcome, error) {
 	if !validChallengeID(answer.ChallengeID) {
 		return nil, ErrChallengeIDInvalid
@@ -55,20 +56,26 @@ func (uc *ChallengeUsecase) Check(ctx context.Context, answer Answer) (*Outcome,
 		return nil, err
 	}
 	sinceIssue := uc.sinceIssue(challenge)
-	result := checkBehavior(answer.Behavior, challenge.Type, sinceIssue, uc.observe(ctx, challenge, answer))
+	signals := uc.observe(ctx, challenge, answer)
+	result := checkBehavior(answer.Behavior, challenge.Type, sinceIssue, signals)
 
 	right := false
 	if kind, ok := challengeKinds[challenge.Type]; ok {
 		right = kind.check(answer.Text, challenge.Answer, sinceIssue)
 	}
 	// The challenge belongs to one key and the website that asked for it.
+	matched := true
 	if answer.SiteKey != "" && challenge.SiteKey != "" && answer.SiteKey != challenge.SiteKey {
-		right = false
+		matched = false
 		result.Reasons = append(result.Reasons, "site_key_mismatch")
 	}
 	if answer.Client.IsValid() && challenge.Origin != "" && answer.Origin != challenge.Origin {
-		right = false
+		matched = false
 		result.Reasons = append(result.Reasons, "origin_changed")
+	}
+	right = right && matched
+	if challenge.Type == TypeAutoCheck {
+		right, result = uc.judgeAutoCheck(ctx, challenge, answer, signals, result, matched)
 	}
 	if result.Verdict == VerdictAutomated {
 		right = false
@@ -78,8 +85,11 @@ func (uc *ChallengeUsecase) Check(ctx context.Context, answer Answer) (*Outcome,
 		outcome.Right, outcome.BehaviorRequired = false, true
 	}
 	// A right answer refused for want of behaviour is not a wrong one: the visitors of a site on
-	// an old SDK must not get their addresses blocked.
-	uc.recordOutcome(ctx, answer.Client, right, result.Verdict)
+	// an old SDK must not get their addresses blocked. Nor is an auto_check that falls back, unless
+	// it was judged automated: falling back is the normal path, and the visitors behind one carrier
+	// NAT share an address.
+	wrong := !right && (challenge.Type != TypeAutoCheck || result.Verdict == VerdictAutomated)
+	uc.recordOutcome(ctx, answer.Client, wrong, result.Verdict)
 	return outcome, nil
 }
 
