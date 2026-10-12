@@ -3,6 +3,9 @@
 // output. Live challenges are generated anew for every request and can be answered once.
 //
 //	go run ./cmd/samples -out ../../../wau-dashboard/public/captchas/samples
+//
+// With -rotate-sheet it instead draws every object_rotate object in each of its eight directions
+// into one PNG, for looking the models over.
 package main
 
 import (
@@ -41,8 +44,12 @@ type entry struct {
 	TolerancePx *float64 `json:"tolerance_px,omitempty"`
 	// animal_jump: File is round 1, SecondFile round 2, Poster round 1's first frame. Rounds holds
 	// each round's target: where a click counts and when its high jump peaks, in ms.
-	SecondFile string      `json:"second_file,omitempty"`
-	Rounds     []jumpRound `json:"rounds,omitempty"`
+	// object_rotate: File and SecondFile are the rounds' strips of FrameCount frames of Width ×
+	// Height side by side, and Targets each round's answer.
+	SecondFile string         `json:"second_file,omitempty"`
+	Rounds     []jumpRound    `json:"rounds,omitempty"`
+	FrameCount int            `json:"frame_count,omitempty"`
+	Targets    []rotateTarget `json:"targets,omitempty"`
 }
 
 // jumpRound is one round of the stored animal_jump answer, {"r": [...]}.
@@ -54,6 +61,13 @@ type jumpRound struct {
 	Apex float64 `json:"apex"`
 }
 
+// rotateTarget is one round of the stored object_rotate answer: the frame that faces the arrow,
+// counted from 0, and the object drawn.
+type rotateTarget struct {
+	Frame  int    `json:"frame"`
+	Object string `json:"object"`
+}
+
 var extensions = map[string]string{"image/png": ".png", "image/gif": ".gif", "image/jpeg": ".jpg"}
 
 func main() {
@@ -63,13 +77,22 @@ func main() {
 		biz.TypeMotionNoise:  flag.Int("motion-noise", 5, "motion_noise samples"),
 		biz.TypeSlidePuzzle:  flag.Int("slide-puzzle", 10, "slide_puzzle samples"),
 		biz.TypeAnimalJump:   flag.Int("animal-jump", 5, "animal_jump samples, two rounds each"),
+		biz.TypeObjectRotate: flag.Int("object-rotate", 5, "object_rotate samples, two rounds each"),
 	}
+	sheet := flag.String("rotate-sheet", "", "write a PNG of every object_rotate object in its eight directions to this path, and no samples")
 	flag.Parse()
+	if *sheet != "" {
+		if err := writeRotateSheet(*sheet); err != nil {
+			log.Fatal(err)
+		}
+		fmt.Printf("wrote the object_rotate contact sheet to %s\n", *sheet)
+		return
+	}
 	if err := os.MkdirAll(*out, 0o755); err != nil {
 		log.Fatal(err)
 	}
 	var manifest []entry
-	for _, challengeType := range []string{biz.TypeImageDistort, biz.TypeMotionNoise, biz.TypeSlidePuzzle, biz.TypeAnimalJump} {
+	for _, challengeType := range []string{biz.TypeImageDistort, biz.TypeMotionNoise, biz.TypeSlidePuzzle, biz.TypeAnimalJump, biz.TypeObjectRotate} {
 		for i := 1; i <= *counts[challengeType]; i++ {
 			sample, err := write(*out, challengeType, i)
 			if err != nil {
@@ -95,6 +118,9 @@ func write(dir, challengeType string, index int) (entry, error) {
 	}
 	name := fmt.Sprintf("%s-%02d", challengeType, index)
 	sample := entry{File: name + extensions[media.MIMEType], Type: challengeType, Answer: answer, Width: media.Width, Height: media.Height}
+	if media.Frames > 0 {
+		return writeRotate(dir, name, sample, media)
+	}
 	if media.SecondRound != nil {
 		return writeJump(dir, name, sample, media)
 	}
@@ -138,6 +164,42 @@ func writeJump(dir, name string, sample entry, media biz.Media) (entry, error) {
 		}
 	}
 	return sample, writeFirstFrame(filepath.Join(dir, sample.Poster), media.Data)
+}
+
+// writeRotate writes both strips of an object_rotate sample and each round's target frame.
+func writeRotate(dir, name string, sample entry, media biz.Media) (entry, error) {
+	var stored struct {
+		R []struct {
+			T int    `json:"t"`
+			O string `json:"o"`
+		} `json:"r"`
+	}
+	if err := json.Unmarshal([]byte(sample.Answer), &stored); err != nil {
+		return entry{}, err
+	}
+	for _, round := range stored.R {
+		sample.Targets = append(sample.Targets, rotateTarget{Frame: round.T, Object: round.O})
+	}
+	sample.File, sample.SecondFile, sample.FrameCount = name+"-1.jpg", name+"-2.jpg", media.Frames
+	for file, data := range map[string][]byte{sample.File: media.Data, sample.SecondFile: media.SecondRound} {
+		if err := os.WriteFile(filepath.Join(dir, file), data, 0o644); err != nil {
+			return entry{}, err
+		}
+	}
+	return sample, nil
+}
+
+// writeRotateSheet saves biz.ObjectRotateSheet as a PNG.
+func writeRotateSheet(path string) error {
+	sheet, err := biz.ObjectRotateSheet()
+	if err != nil {
+		return err
+	}
+	var encoded bytes.Buffer
+	if err := png.Encode(&encoded, sheet); err != nil {
+		return err
+	}
+	return os.WriteFile(path, encoded.Bytes(), 0o644)
 }
 
 // writeFirstFrame saves the first frame of a GIF as a PNG.

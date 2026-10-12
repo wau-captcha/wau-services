@@ -21,7 +21,7 @@ paths:
                     type: string
                 - name: challenge_type
                   in: query
-                  description: '"image_distort" (default), "motion_noise", "slide_puzzle" or "animal_jump".'
+                  description: '"image_distort" (default), "motion_noise", "slide_puzzle", "animal_jump" or "object_rotate".'
                   schema:
                     type: string
             responses:
@@ -45,8 +45,10 @@ components:
                     type: string
                     description: |-
                         Media to solve: a PNG for image_distort, an animated GIF for motion_noise, for slide_puzzle
-                         a JPEG background with the hole the piece fits into, and for animal_jump the animated GIF of
-                         round 1: five animal heads jump and the person clicks the one that jumps highest.
+                         a JPEG background with the hole the piece fits into, for animal_jump the animated GIF of
+                         round 1: five animal heads jump and the person clicks the one that jumps highest, and for
+                         object_rotate the JPEG strip of round 1: an object in frame_count directions beside an arrow
+                         on the ground, which the person turns a frame at a time until it faces the arrow.
                     format: bytes
                 expires_in:
                     type: integer
@@ -57,7 +59,9 @@ components:
                     description: MIME type of image, e.g. "image/gif".
                 width:
                     type: integer
-                    description: Size to display image at, in CSS pixels. The media may hold more pixels for finer dots.
+                    description: |-
+                        Size to display image at, in CSS pixels; for object_rotate, one frame of it. The media may
+                         hold more pixels for finer dots.
                     format: int32
                 height:
                     type: integer
@@ -94,7 +98,15 @@ components:
                     format: int32
                 second_image:
                     type: string
-                    description: 'animal_jump only: the GIF of round 2; image is round 1. Both play once, 2 s each.'
+                    description: |-
+                        The second round, image being the first: for animal_jump the GIF of round 2 (both play
+                         once, 2 s each), for object_rotate the strip of round 2. Unset for the other types.
                     format: bytes
+                frame_count:
+                    type: integer
+                    description: |-
+                        object_rotate only: image and second_image are each this many frames of width × height side
+                         by side; frame k is the object turned k steps clockwise as seen from above.
+                    format: int32
 tags:
     - name: ChallengeService

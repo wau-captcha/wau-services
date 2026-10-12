@@ -18,6 +18,7 @@ var challengeKinds = map[string]challengeKind{
 	TypeMotionNoise:  textKind(distinctChars, 5, renderMotionNoise),
 	TypeSlidePuzzle:  {generate: generateSlidePuzzle, check: checkSlidePuzzle},
 	TypeAnimalJump:   {generate: generateAnimalJump, check: checkAnimalJump},
+	TypeObjectRotate: {generate: generateObjectRotate, check: checkObjectRotate},
 }
 
 // textKind is a type whose answer is a random code drawn into the media and typed back,
