@@ -46,6 +46,8 @@ type Solution struct {
 	Hostname string
 	// The key requires behaviour data and the answer came without any.
 	BehaviorRequired bool
+	// For a right answer to an interactive type: the clearance the browser keeps for auto_check.
+	Clearance string
 }
 
 // Limits of what verify passes on. A site key or a nonce past them cannot be valid, so they are

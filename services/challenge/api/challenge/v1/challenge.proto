@@ -90,7 +90,12 @@ message CheckAnswerRequest {
   // or Rotate left (d = -1) with the milliseconds since that round was shown, and when Done was.
   // For auto_check, the JSON the SDK writes from its browser probes, at most 2 KiB:
   // {"v": 1, "ua": <navigator.userAgent, at most 512 characters>, "lang": <navigator.language>,
-  // "f": [<names of the probes that tripped>, ...]}.
+  // "f": [<names of the probes that tripped>, ...], "c": <the clearance the browser keeps for the
+  // site, at most 256 characters>, "m": {"n": .., "k": .., "z": .., "s": ..}}. From SDK 1.7.0 on,
+  // and optional: "c" is a CheckAnswerReply.clearance of an earlier puzzle; "m" counts the trusted
+  // mouse moves over the page: n moves, k of them coalesced with others (-1 when the browser cannot
+  // tell), z without movement although the position changed, s within 1 ms of the most common gap
+  // between moves, each from 0 to 100000 and k, z and s at most n.
   string answer = 2 [(google.api.field_behavior) = REQUIRED];
   // How the person behaved while the challenge was on screen, as the SDK records it; for
   // auto_check, while the check ran. Clients that do not send it have their answers checked as
@@ -125,6 +130,9 @@ message CheckAnswerReply {
   // The key requires behaviour data and the answer came without any: it was refused for that,
   // right or wrong, and verify answers BEHAVIOR_REQUIRED.
   bool behavior_required = 7;
+  // For a right answer to an interactive type: a signed clearance the browser keeps and sends back
+  // in its auto_check answers, to pass on this key without a puzzle for a while. Empty otherwise.
+  string clearance = 8;
 }
 
 // Behavior is what the SDK records from the moment a challenge is shown (its image has loaded, or for
@@ -176,6 +184,8 @@ message BehaviorResult {
   string verdict = 1;
   // From 0 (scripted) to 1 (human-like); unset when not measured.
   optional double score = 2;
-  // Short codes of what lowered the score or broke a rule, e.g. "webdriver" or "even_typing".
+  // Short codes of what lowered the score or broke a rule, e.g. "webdriver" or "even_typing"; for
+  // an auto_check pass, also how it was earned: "cleared" (with a clearance) or "first_visit"
+  // (without one, in balanced mode).
   repeated string reasons = 3;
 }

@@ -106,8 +106,8 @@ message IPHistory {
 }
 
 // AutoCheck tunes auto_check, which lets a visitor through without a puzzle when the browser and
-// behaviour signals are clean (see biz/autocheck.go). Each value can be replaced from the
-// environment, e.g. KRATOS_AUTO_CHECK_POW_DIFFICULTY.
+// behaviour signals are clean (see biz/autocheck.go). Each value but clearance_secret can be
+// replaced from the environment, e.g. KRATOS_AUTO_CHECK_POW_DIFFICULTY.
 message AutoCheck {
   // Leading zero bits of its proof of work, the cost of every pass to the client; the other types
   // use challenge.pow_difficulty. 0 asks for none.
@@ -117,4 +117,24 @@ message AutoCheck {
   // Passes one client address may get per hour; past them its visitors get the fallback. 0 turns
   // the cap off.
   int32 passes_per_ip_hour = 3;
+  // "strict": an automatic pass needs a clearance, which the browser earns by solving a puzzle of
+  // the key; "balanced": a first visit without one may pass on its signals alone.
+  string mode = 4;
+  // Balanced mode: passes without a clearance one client address may get per hour. 0 turns the cap
+  // off.
+  int32 first_visit_passes_per_ip_hour = 5;
+  // How long a clearance lasts, from 1 hour to 30 days.
+  google.protobuf.Duration clearance_ttl = 6;
+  // Automatic passes one clearance may give per hour and per local day. 0 turns that cap off.
+  int32 clearance_passes_per_hour = 7;
+  int32 clearance_passes_per_day = 8;
+  // An answer from the range of a cloud or hosting provider (biz/hostingranges.txt) never passes
+  // automatically, whatever its clearance and score.
+  bool block_hosting_addresses = 9;
+  // Comma-separated CIDR blocks to treat as hosting ranges too.
+  string extra_hosting_cidrs = 10;
+  // The pointer evidence of an answer lowers its score only when true; it is logged either way.
+  bool enforce_pointer_signals = 11;
+  // Signs clearances, through a key derived from it: the token secret verify signs tokens with.
+  string clearance_secret = 12;
 }

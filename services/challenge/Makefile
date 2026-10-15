@@ -24,6 +24,11 @@ config:
 sqlc:
 	sqlc generate
 
+.PHONY: hostingranges
+# refresh internal/biz/hostingranges.txt from the cloud providers' lists, about once a month
+hostingranges:
+	go run ./cmd/hostingranges
+
 .PHONY: build
 # build
 build:

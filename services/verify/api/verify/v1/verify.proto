@@ -37,7 +37,8 @@ message VerifyChallengeRequest {
   // writes from the two clicks: {"c": [{"x": .., "y": .., "ms": .., "p": ..}, {...}]}; for
   // object_rotate, the JSON it writes from the presses: {"r": [{"f": .., "s": [[ms, d], ...],
   // "done": ..}, {...}]}; for auto_check, the JSON it writes from its browser probes: {"v": 1,
-  // "ua": .., "lang": .., "f": [..]}; see the challenge's CheckAnswerRequest.answer.
+  // "ua": .., "lang": .., "f": [..], "c": .., "m": {..}}, "c" and "m" being optional; see the
+  // challenge's CheckAnswerRequest.answer.
   string answer = 2 [(google.api.field_behavior) = REQUIRED];
   // How the person behaved while the challenge was on screen, as the SDK records it. Optional:
   // without it only the answer is checked, as before, unless the key requires it.
@@ -56,6 +57,10 @@ message VerifyChallengeReply {
   string token = 2;
   // Seconds until the token expires.
   int32 expires_in = 3;
+  // Set only on success, after a puzzle (not auto_check): a clearance the browser keeps and sends
+  // back with its auto_check answers on this site, to pass without a puzzle for a while. The SDK
+  // handles it; a site's backend never needs it.
+  string clearance = 4;
 }
 
 message SiteVerifyRequest {
@@ -66,7 +71,8 @@ message SiteVerifyReply {
   bool success = 1;
   // The type of the challenge solved. "auto_check" means the visitor passed without solving a
   // puzzle; a site that wants more can require behavior.score above its own threshold for sensitive
-  // actions. A visitor auto_check did not let through solved its fallback, whose type this is then.
+  // actions, or refuse the reason "first_visit". A visitor auto_check did not let through solved its
+  // fallback, whose type this is then.
   string challenge_type = 2;
   // Time the challenge was solved.
   google.protobuf.Timestamp challenge_ts = 3;
@@ -129,6 +135,9 @@ message BehaviorResult {
   string verdict = 1;
   // From 0 (scripted) to 1 (human-like); unset when not measured.
   optional double score = 2;
-  // Short codes of what lowered the score, e.g. "webdriver" or "even_typing".
+  // Short codes of what lowered the score, e.g. "webdriver" or "even_typing". An auto_check pass
+  // also says how it was earned: "cleared", by a browser that solved a puzzle of this site before,
+  // or "first_visit", by one that did not, on its signals alone; refuse "first_visit" for sign-ups,
+  // logins and payments to ask such visitors for a puzzle there.
   repeated string reasons = 3;
 }

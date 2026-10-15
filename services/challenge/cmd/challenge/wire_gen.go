@@ -36,7 +36,8 @@ func wireApp(confServer *conf.Server, confData *conf.Data, challenge *conf.Chall
 	usageRepo := data.NewUsageRepo(dataData)
 	rateLimiter := data.NewRateLimiter(dataData)
 	bizIPHistory := data.NewIPHistory(dataData)
-	challengeUsecase, err := biz.NewChallengeUsecase(siteRepo, challengeRepo, counterRepo, usageRepo, rateLimiter, bizIPHistory, challenge, quota, rateLimit, scraping, ipHistory, autoCheck)
+	clearanceRepo := data.NewClearanceRepo(dataData)
+	challengeUsecase, err := biz.NewChallengeUsecase(siteRepo, challengeRepo, counterRepo, usageRepo, rateLimiter, bizIPHistory, clearanceRepo, challenge, quota, rateLimit, scraping, ipHistory, autoCheck)
 	if err != nil {
 		cleanup()
 		return nil, nil, err

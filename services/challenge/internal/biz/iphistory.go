@@ -13,8 +13,9 @@ import (
 // HistoryBucket is the window the history of an address is counted in; an hour is six of them.
 const HistoryBucket = 10 * time.Minute
 
-// IPHistory keeps, per client address, the wrong answers, the answers judged automated and the
-// auto_check passes of the last buckets, in Redis (see data/iphistory.go).
+// IPHistory keeps, per client address, the wrong answers, the answers judged automated, the
+// auto_check passes and those of them without a clearance of the last buckets, in Redis (see
+// data/iphistory.go).
 type IPHistory interface {
 	// WrongAnswers counts the wrong answers from addr in the bucket of now.
 	WrongAnswers(ctx context.Context, addr string, now time.Time) (int64, error)
@@ -25,6 +26,10 @@ type IPHistory interface {
 	// AutoPassesLastHour counts the auto_check passes of addr in the six buckets up to now.
 	AutoPassesLastHour(ctx context.Context, addr string, now time.Time) (int64, error)
 	CountAutoPass(ctx context.Context, addr string, now time.Time) error
+	// FirstVisitPassesLastHour counts the auto_check passes of addr without a clearance, the first
+	// visits of balanced mode, in the six buckets up to now.
+	FirstVisitPassesLastHour(ctx context.Context, addr string, now time.Time) (int64, error)
+	CountFirstVisitPass(ctx context.Context, addr string, now time.Time) error
 }
 
 // ipLimits are the thresholds of conf.IPHistory; 0 turns one off.

@@ -31,7 +31,8 @@ type VerifyChallengeRequest struct {
 	// writes from the two clicks: {"c": [{"x": .., "y": .., "ms": .., "p": ..}, {...}]}; for
 	// object_rotate, the JSON it writes from the presses: {"r": [{"f": .., "s": [[ms, d], ...],
 	// "done": ..}, {...}]}; for auto_check, the JSON it writes from its browser probes: {"v": 1,
-	// "ua": .., "lang": .., "f": [..]}; see the challenge's CheckAnswerRequest.answer.
+	// "ua": .., "lang": .., "f": [..], "c": .., "m": {..}}, "c" and "m" being optional; see the
+	// challenge's CheckAnswerRequest.answer.
 	Answer string `protobuf:"bytes,2,opt,name=answer,proto3" json:"answer,omitempty"`
 	// How the person behaved while the challenge was on screen, as the SDK records it. Optional:
 	// without it only the answer is checked, as before, unless the key requires it.
@@ -117,7 +118,11 @@ type VerifyChallengeReply struct {
 	// One-time token, set only on success.
 	Token string `protobuf:"bytes,2,opt,name=token,proto3" json:"token,omitempty"`
 	// Seconds until the token expires.
-	ExpiresIn     int32 `protobuf:"varint,3,opt,name=expires_in,json=expiresIn,proto3" json:"expires_in,omitempty"`
+	ExpiresIn int32 `protobuf:"varint,3,opt,name=expires_in,json=expiresIn,proto3" json:"expires_in,omitempty"`
+	// Set only on success, after a puzzle (not auto_check): a clearance the browser keeps and sends
+	// back with its auto_check answers on this site, to pass without a puzzle for a while. The SDK
+	// handles it; a site's backend never needs it.
+	Clearance     string `protobuf:"bytes,4,opt,name=clearance,proto3" json:"clearance,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -173,6 +178,13 @@ func (x *VerifyChallengeReply) GetExpiresIn() int32 {
 	return 0
 }
 
+func (x *VerifyChallengeReply) GetClearance() string {
+	if x != nil {
+		return x.Clearance
+	}
+	return ""
+}
+
 type SiteVerifyRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
@@ -222,7 +234,8 @@ type SiteVerifyReply struct {
 	Success bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
 	// The type of the challenge solved. "auto_check" means the visitor passed without solving a
 	// puzzle; a site that wants more can require behavior.score above its own threshold for sensitive
-	// actions. A visitor auto_check did not let through solved its fallback, whose type this is then.
+	// actions, or refuse the reason "first_visit". A visitor auto_check did not let through solved its
+	// fallback, whose type this is then.
 	ChallengeType string `protobuf:"bytes,2,opt,name=challenge_type,json=challengeType,proto3" json:"challenge_type,omitempty"`
 	// Time the challenge was solved.
 	ChallengeTs *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=challenge_ts,json=challengeTs,proto3" json:"challenge_ts,omitempty"`
@@ -531,7 +544,10 @@ type BehaviorResult struct {
 	Verdict string `protobuf:"bytes,1,opt,name=verdict,proto3" json:"verdict,omitempty"`
 	// From 0 (scripted) to 1 (human-like); unset when not measured.
 	Score *float64 `protobuf:"fixed64,2,opt,name=score,proto3,oneof" json:"score,omitempty"`
-	// Short codes of what lowered the score, e.g. "webdriver" or "even_typing".
+	// Short codes of what lowered the score, e.g. "webdriver" or "even_typing". An auto_check pass
+	// also says how it was earned: "cleared", by a browser that solved a puzzle of this site before,
+	// or "first_visit", by one that did not, on its signals alone; refuse "first_visit" for sign-ups,
+	// logins and payments to ask such visitors for a puzzle there.
 	Reasons       []string `protobuf:"bytes,3,rep,name=reasons,proto3" json:"reasons,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -598,12 +614,13 @@ const file_verify_v1_verify_proto_rawDesc = "" +
 	"\x06answer\x18\x02 \x01(\tB\x03\xe0A\x02R\x06answer\x12/\n" +
 	"\bbehavior\x18\x03 \x01(\v2\x13.verify.v1.BehaviorR\bbehavior\x12\x19\n" +
 	"\bsite_key\x18\x04 \x01(\tR\asiteKey\x12\x1b\n" +
-	"\tpow_nonce\x18\x05 \x01(\tR\bpowNonce\"e\n" +
+	"\tpow_nonce\x18\x05 \x01(\tR\bpowNonce\"\x83\x01\n" +
 	"\x14VerifyChallengeReply\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x14\n" +
 	"\x05token\x18\x02 \x01(\tR\x05token\x12\x1d\n" +
 	"\n" +
-	"expires_in\x18\x03 \x01(\x05R\texpiresIn\".\n" +
+	"expires_in\x18\x03 \x01(\x05R\texpiresIn\x12\x1c\n" +
+	"\tclearance\x18\x04 \x01(\tR\tclearance\".\n" +
 	"\x11SiteVerifyRequest\x12\x19\n" +
 	"\x05token\x18\x01 \x01(\tB\x03\xe0A\x02R\x05token\"\xe4\x01\n" +
 	"\x0fSiteVerifyReply\x12\x18\n" +

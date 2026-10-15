@@ -133,6 +133,7 @@ type ChallengeUsecase struct {
 	usage      UsageRepo
 	limiter    RateLimiter
 	history    IPHistory
+	clearances ClearanceRepo
 	limits     limits
 	scraping   scrapingRules
 	ipLimits   ipLimits
@@ -144,7 +145,7 @@ type ChallengeUsecase struct {
 }
 
 func NewChallengeUsecase(sites SiteRepo, challenges ChallengeRepo, counters CounterRepo, usage UsageRepo, limiter RateLimiter,
-	history IPHistory, challengeConf *conf.Challenge, quotaConf *conf.Quota, rateConf *conf.RateLimit,
+	history IPHistory, clearances ClearanceRepo, challengeConf *conf.Challenge, quotaConf *conf.Quota, rateConf *conf.RateLimit,
 	scrapingConf *conf.Scraping, historyConf *conf.IPHistory, autoConf *conf.AutoCheck) (*ChallengeUsecase, error) {
 	ttl := challengeConf.GetTtl().AsDuration()
 	if ttl <= 0 {
@@ -171,6 +172,7 @@ func NewChallengeUsecase(sites SiteRepo, challenges ChallengeRepo, counters Coun
 		usage:      usage,
 		limiter:    limiter,
 		history:    history,
+		clearances: clearances,
 		limits:     newLimits(rateConf),
 		scraping:   newScrapingRules(scrapingConf),
 		ipLimits:   newIPLimits(historyConf),

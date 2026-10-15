@@ -63,6 +63,15 @@ For `auto_check` the fallback is the type the site asked for when the key allows
 first allowed of `slide_puzzle`, `image_distort`, `animal_jump`, `motion_noise`, otherwise any other
 allowed type (`fallbackOrder` in `services/challenge/internal/biz/autocheck.go`).
 
+The probes of `auto_check` run in a browser a bot may control, so an automatic pass also rests on
+what a bot cannot fake from there. The address must be outside the cloud and hosting ranges of
+`services/challenge/internal/biz/hostingranges.txt`; refresh that list about once a month with
+`go run ./cmd/hostingranges` in `services/challenge`. The browser needs a clearance, which it earns
+by solving a puzzle of the key (7 days, 6 automatic passes an hour and 24 a day). In `balanced`
+mode a browser without one may pass as a first visit, 5 an hour per address. siteverify reports
+such passes with the reason `cleared` or `first_visit`. The settings are the `KRATOS_AUTO_CHECK_*`
+rows under [challenge](#challenge).
+
 ## Repository layout
 
 - `.github/workflows/`: `ci.yml` and `release.yml`.
@@ -143,7 +152,7 @@ the service stops and names the missing ones. Local values:
 | `KRATOS_REDIS_TLS` | `false` | `false` | `false` | |
 | `KRATOS_TRUSTED_PROXIES` | `<cidr-list>` | `<cidr-list>` | | |
 | `KRATOS_CHALLENGE_GRPC_ENDPOINT` | | `localhost:9000` | | |
-| `KRATOS_TOKEN_SECRET` | | `<your-value>` | | |
+| `KRATOS_TOKEN_SECRET` | the same value as verify | `<your-value>` | | |
 | `KRATOS_AUTH_SECRET` | | | `<your-value>` | the same value as tenant |
 | `KRATOS_GOOGLE_CLIENT_ID` | | | `<your-value>` | |
 | `KRATOS_GOOGLE_JWKS_URL` | | | `https://www.googleapis.com/oauth2/v3/certs` | |
@@ -223,6 +232,7 @@ endpoint, the Google JWKS URL and the billing return URL; everything else comes 
 | `KRATOS_REDIS_ADDRS` | yes | | Comma-separated Redis Cluster seed nodes, `host:port`. |
 | `KRATOS_REDIS_PASSWORD` | yes | | Redis password. |
 | `KRATOS_REDIS_TLS` | yes | | `true` to speak TLS to every node (production), `false` locally. |
+| `KRATOS_TOKEN_SECRET` | yes | | verify's token secret, the same value: `auto_check` clearances are signed with a key derived from it. |
 | `KRATOS_RATE_LIMIT_NEW_PER_IP` | no | `30` | `/challenge/new` calls per client address per minute. `0` turns a limit off. |
 | `KRATOS_RATE_LIMIT_NEW_PER_SITE_KEY` | no | `600` | `/challenge/new` calls per API key per minute. |
 | `KRATOS_RATE_LIMIT_NEW_PER_FLAGGED_SITE_KEY` | no | `60` | The per-key limit for a key the scraping check flagged today. |
@@ -238,6 +248,14 @@ endpoint, the Google JWKS URL and the billing return URL; everything else comes 
 | `KRATOS_AUTO_CHECK_POW_DIFFICULTY` | no | `18` | Proof-of-work bits of `auto_check`. `0` asks for none. |
 | `KRATOS_AUTO_CHECK_MIN_SCORE_PERCENT` | no | `80` | Least score, in percent, that passes `auto_check` (1-100). |
 | `KRATOS_AUTO_CHECK_PASSES_PER_IP_HOUR` | no | `30` | `auto_check` passes one address may get per hour, then it gets the fallback. `0` turns the cap off. |
+| `KRATOS_AUTO_CHECK_MODE` | no | `balanced` | `strict`: an automatic pass needs a clearance, earned by solving a puzzle of the key. `balanced`: a first visit may also pass on its signals alone, with the reason `first_visit`. |
+| `KRATOS_AUTO_CHECK_FIRST_VISIT_PASSES_PER_IP_HOUR` | no | `5` | `balanced` mode: passes without a clearance one address may get per hour. `0` turns the cap off. |
+| `KRATOS_AUTO_CHECK_CLEARANCE_TTL` | no | `604800s` | How long a clearance lasts, from `3600s` to `2592000s` (written in seconds, as every duration of `config.yaml`). |
+| `KRATOS_AUTO_CHECK_CLEARANCE_PASSES_PER_HOUR` | no | `6` | Automatic passes one clearance may give per hour. `0` turns the cap off. |
+| `KRATOS_AUTO_CHECK_CLEARANCE_PASSES_PER_DAY` | no | `24` | ...and per day of `quota.time_zone`. `0` turns the cap off. |
+| `KRATOS_AUTO_CHECK_BLOCK_HOSTING_ADDRESSES` | no | `true` | An answer from a cloud or hosting range never passes automatically, and a puzzle solved from one earns no clearance. |
+| `KRATOS_AUTO_CHECK_EXTRA_HOSTING_CIDRS` | no | | Comma-separated CIDR blocks to treat as hosting ranges too. |
+| `KRATOS_AUTO_CHECK_ENFORCE_POINTER_SIGNALS` | no | `false` | Let the pointer evidence (`synthetic_pointer`, `step_pointer`) lower the score. It is logged either way, in the line `auto check judged`. |
 
 Fixed in `config.yaml`: challenges live 120 s, the proof of work of the other types is 15 bits, and
 the daily quota follows the calendar of `Asia/Ho_Chi_Minh`.
@@ -354,7 +372,7 @@ makes 50 object_rotate challenges in the generator test instead of 1000.
 
 | Service | Test files | What they cover |
 | --- | --- | --- |
-| challenge | 21 | The animal_jump and object_rotate generators and checkers, auto_check, answer checks, scraping and admission, domains, proof of work, browser signals, filters, rate limits, the HTTP server. The image_distort and motion_noise renderers and the slide_puzzle generator and checker have no tests of their own. |
+| challenge | 23 | The animal_jump and object_rotate generators and checkers, auto_check with its clearances and hosting ranges, answer checks, scraping and admission, domains, proof of work, browser signals, filters, rate limits, the HTTP server. The image_distort and motion_noise renderers and the slide_puzzle generator and checker have no tests of their own. |
 | verify | 7 | Answer handling, the challenge client, filters, rate limits, origins, site binding, the HTTP server. |
 | tenant | 5 | API keys and their events, appeals, admin actions, domains, quota counters, the HTTP server. |
 | billing | 1 | Only that the SePay IPN refuses large bodies. Checkout, payment handling and sweeps have no tests. |

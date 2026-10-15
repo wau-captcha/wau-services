@@ -9,14 +9,18 @@ import (
 // are set: KRATOS_<SECTION>_<KEY>, upper case, for <section>.<key>, e.g. KRATOS_RATE_LIMIT_NEW_PER_IP
 // for rate_limit.new_per_ip. Unlike ${NAME} placeholders these sections keep the value config.yaml
 // gives when the variable is not set: they hold tuning values with a sensible default, not the
-// settings of an environment.
+// settings of an environment. A value that is a placeholder is such a setting, a secret say, with
+// a variable of its own: it is never replaced, which is why Override runs before Resolve.
 func Override(values map[string]any, sections ...string) {
 	for _, section := range sections {
 		entries, ok := values[section].(map[string]any)
 		if !ok {
 			continue
 		}
-		for key := range entries {
+		for key, value := range entries {
+			if text, ok := value.(string); ok && placeholder.MatchString(text) {
+				continue
+			}
 			name := "KRATOS_" + strings.ToUpper(section+"_"+key)
 			if value, ok := os.LookupEnv(name); ok && strings.TrimSpace(value) != "" {
 				entries[key] = strings.TrimSpace(value)

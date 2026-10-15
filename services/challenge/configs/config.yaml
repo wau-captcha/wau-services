@@ -38,8 +38,17 @@ scraping:
 ip_history:
   wrong_per_10_minutes: 20
   automated_per_hour: 5
-# auto_check; KRATOS_AUTO_CHECK_<KEY> replaces a value.
+# auto_check; KRATOS_AUTO_CHECK_<KEY> replaces a value, but not clearance_secret.
 auto_check:
-  pow_difficulty: 18        # bits; the other types use challenge.pow_difficulty
-  min_score_percent: 80     # least score for a pass
-  passes_per_ip_hour: 30    # auto passes one address may get per hour; then it gets the fallback
+  pow_difficulty: 18                # bits; the other types use challenge.pow_difficulty
+  min_score_percent: 80             # least score for a pass
+  passes_per_ip_hour: 30            # auto passes one address may get per hour; then it gets the fallback
+  mode: balanced                    # strict: an automatic pass needs a clearance; balanced: a first visit may pass on signals alone
+  first_visit_passes_per_ip_hour: 5 # balanced mode: passes without a clearance per address and hour
+  clearance_ttl: 604800s            # 168h: how long a clearance from a solved puzzle lasts (protobuf durations are in seconds)
+  clearance_passes_per_hour: 6      # automatic passes one clearance may give per hour
+  clearance_passes_per_day: 24      # and per day
+  block_hosting_addresses: true     # an answer from a cloud or hosting range never passes automatically
+  extra_hosting_cidrs: ""           # comma-separated ranges to treat as hosting too
+  enforce_pointer_signals: false    # pointer evidence only lowers the score when true; it is always logged
+  clearance_secret: ${KRATOS_TOKEN_SECRET} # verify's token secret; clearances use a key derived from it

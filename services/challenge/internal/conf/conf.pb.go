@@ -560,8 +560,8 @@ func (x *IPHistory) GetAutomatedPerHour() int32 {
 }
 
 // AutoCheck tunes auto_check, which lets a visitor through without a puzzle when the browser and
-// behaviour signals are clean (see biz/autocheck.go). Each value can be replaced from the
-// environment, e.g. KRATOS_AUTO_CHECK_POW_DIFFICULTY.
+// behaviour signals are clean (see biz/autocheck.go). Each value but clearance_secret can be
+// replaced from the environment, e.g. KRATOS_AUTO_CHECK_POW_DIFFICULTY.
 type AutoCheck struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Leading zero bits of its proof of work, the cost of every pass to the client; the other types
@@ -572,6 +572,26 @@ type AutoCheck struct {
 	// Passes one client address may get per hour; past them its visitors get the fallback. 0 turns
 	// the cap off.
 	PassesPerIpHour int32 `protobuf:"varint,3,opt,name=passes_per_ip_hour,json=passesPerIpHour,proto3" json:"passes_per_ip_hour,omitempty"`
+	// "strict": an automatic pass needs a clearance, which the browser earns by solving a puzzle of
+	// the key; "balanced": a first visit without one may pass on its signals alone.
+	Mode string `protobuf:"bytes,4,opt,name=mode,proto3" json:"mode,omitempty"`
+	// Balanced mode: passes without a clearance one client address may get per hour. 0 turns the cap
+	// off.
+	FirstVisitPassesPerIpHour int32 `protobuf:"varint,5,opt,name=first_visit_passes_per_ip_hour,json=firstVisitPassesPerIpHour,proto3" json:"first_visit_passes_per_ip_hour,omitempty"`
+	// How long a clearance lasts, from 1 hour to 30 days.
+	ClearanceTtl *durationpb.Duration `protobuf:"bytes,6,opt,name=clearance_ttl,json=clearanceTtl,proto3" json:"clearance_ttl,omitempty"`
+	// Automatic passes one clearance may give per hour and per local day. 0 turns that cap off.
+	ClearancePassesPerHour int32 `protobuf:"varint,7,opt,name=clearance_passes_per_hour,json=clearancePassesPerHour,proto3" json:"clearance_passes_per_hour,omitempty"`
+	ClearancePassesPerDay  int32 `protobuf:"varint,8,opt,name=clearance_passes_per_day,json=clearancePassesPerDay,proto3" json:"clearance_passes_per_day,omitempty"`
+	// An answer from the range of a cloud or hosting provider (biz/hostingranges.txt) never passes
+	// automatically, whatever its clearance and score.
+	BlockHostingAddresses bool `protobuf:"varint,9,opt,name=block_hosting_addresses,json=blockHostingAddresses,proto3" json:"block_hosting_addresses,omitempty"`
+	// Comma-separated CIDR blocks to treat as hosting ranges too.
+	ExtraHostingCidrs string `protobuf:"bytes,10,opt,name=extra_hosting_cidrs,json=extraHostingCidrs,proto3" json:"extra_hosting_cidrs,omitempty"`
+	// The pointer evidence of an answer lowers its score only when true; it is logged either way.
+	EnforcePointerSignals bool `protobuf:"varint,11,opt,name=enforce_pointer_signals,json=enforcePointerSignals,proto3" json:"enforce_pointer_signals,omitempty"`
+	// Signs clearances, through a key derived from it: the token secret verify signs tokens with.
+	ClearanceSecret string `protobuf:"bytes,12,opt,name=clearance_secret,json=clearanceSecret,proto3" json:"clearance_secret,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -625,6 +645,69 @@ func (x *AutoCheck) GetPassesPerIpHour() int32 {
 		return x.PassesPerIpHour
 	}
 	return 0
+}
+
+func (x *AutoCheck) GetMode() string {
+	if x != nil {
+		return x.Mode
+	}
+	return ""
+}
+
+func (x *AutoCheck) GetFirstVisitPassesPerIpHour() int32 {
+	if x != nil {
+		return x.FirstVisitPassesPerIpHour
+	}
+	return 0
+}
+
+func (x *AutoCheck) GetClearanceTtl() *durationpb.Duration {
+	if x != nil {
+		return x.ClearanceTtl
+	}
+	return nil
+}
+
+func (x *AutoCheck) GetClearancePassesPerHour() int32 {
+	if x != nil {
+		return x.ClearancePassesPerHour
+	}
+	return 0
+}
+
+func (x *AutoCheck) GetClearancePassesPerDay() int32 {
+	if x != nil {
+		return x.ClearancePassesPerDay
+	}
+	return 0
+}
+
+func (x *AutoCheck) GetBlockHostingAddresses() bool {
+	if x != nil {
+		return x.BlockHostingAddresses
+	}
+	return false
+}
+
+func (x *AutoCheck) GetExtraHostingCidrs() string {
+	if x != nil {
+		return x.ExtraHostingCidrs
+	}
+	return ""
+}
+
+func (x *AutoCheck) GetEnforcePointerSignals() bool {
+	if x != nil {
+		return x.EnforcePointerSignals
+	}
+	return false
+}
+
+func (x *AutoCheck) GetClearanceSecret() string {
+	if x != nil {
+		return x.ClearanceSecret
+	}
+	return ""
 }
 
 type Server_HTTP struct {
@@ -931,11 +1014,21 @@ const file_conf_conf_proto_rawDesc = "" +
 	"\x1csuspend_max_answered_percent\x18\a \x01(\x05R\x19suspendMaxAnsweredPercent\"j\n" +
 	"\tIPHistory\x12/\n" +
 	"\x14wrong_per_10_minutes\x18\x01 \x01(\x05R\x11wrongPer10Minutes\x12,\n" +
-	"\x12automated_per_hour\x18\x02 \x01(\x05R\x10automatedPerHour\"\x8b\x01\n" +
+	"\x12automated_per_hour\x18\x02 \x01(\x05R\x10automatedPerHour\"\xe1\x04\n" +
 	"\tAutoCheck\x12%\n" +
 	"\x0epow_difficulty\x18\x01 \x01(\x05R\rpowDifficulty\x12*\n" +
 	"\x11min_score_percent\x18\x02 \x01(\x05R\x0fminScorePercent\x12+\n" +
-	"\x12passes_per_ip_hour\x18\x03 \x01(\x05R\x0fpassesPerIpHourB\x1eZ\x1cchallenge/internal/conf;confb\x06proto3"
+	"\x12passes_per_ip_hour\x18\x03 \x01(\x05R\x0fpassesPerIpHour\x12\x12\n" +
+	"\x04mode\x18\x04 \x01(\tR\x04mode\x12A\n" +
+	"\x1efirst_visit_passes_per_ip_hour\x18\x05 \x01(\x05R\x19firstVisitPassesPerIpHour\x12>\n" +
+	"\rclearance_ttl\x18\x06 \x01(\v2\x19.google.protobuf.DurationR\fclearanceTtl\x129\n" +
+	"\x19clearance_passes_per_hour\x18\a \x01(\x05R\x16clearancePassesPerHour\x127\n" +
+	"\x18clearance_passes_per_day\x18\b \x01(\x05R\x15clearancePassesPerDay\x126\n" +
+	"\x17block_hosting_addresses\x18\t \x01(\bR\x15blockHostingAddresses\x12.\n" +
+	"\x13extra_hosting_cidrs\x18\n" +
+	" \x01(\tR\x11extraHostingCidrs\x126\n" +
+	"\x17enforce_pointer_signals\x18\v \x01(\bR\x15enforcePointerSignals\x12)\n" +
+	"\x10clearance_secret\x18\f \x01(\tR\x0fclearanceSecretB\x1eZ\x1cchallenge/internal/conf;confb\x06proto3"
 
 var (
 	file_conf_conf_proto_rawDescOnce sync.Once
@@ -980,15 +1073,16 @@ var file_conf_conf_proto_depIdxs = []int32{
 	11, // 10: kratos.api.Data.database:type_name -> kratos.api.Data.Database
 	12, // 11: kratos.api.Data.redis:type_name -> kratos.api.Data.Redis
 	13, // 12: kratos.api.Challenge.ttl:type_name -> google.protobuf.Duration
-	13, // 13: kratos.api.Server.HTTP.timeout:type_name -> google.protobuf.Duration
-	13, // 14: kratos.api.Server.GRPC.timeout:type_name -> google.protobuf.Duration
-	13, // 15: kratos.api.Data.Redis.read_timeout:type_name -> google.protobuf.Duration
-	13, // 16: kratos.api.Data.Redis.write_timeout:type_name -> google.protobuf.Duration
-	17, // [17:17] is the sub-list for method output_type
-	17, // [17:17] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	13, // 13: kratos.api.AutoCheck.clearance_ttl:type_name -> google.protobuf.Duration
+	13, // 14: kratos.api.Server.HTTP.timeout:type_name -> google.protobuf.Duration
+	13, // 15: kratos.api.Server.GRPC.timeout:type_name -> google.protobuf.Duration
+	13, // 16: kratos.api.Data.Redis.read_timeout:type_name -> google.protobuf.Duration
+	13, // 17: kratos.api.Data.Redis.write_timeout:type_name -> google.protobuf.Duration
+	18, // [18:18] is the sub-list for method output_type
+	18, // [18:18] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_conf_conf_proto_init() }

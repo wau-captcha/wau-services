@@ -90,9 +90,14 @@ func missingBrowserHeaders(userAgent, secFetchSite, acceptLanguage string) bool 
 const maxUserAgentBytes = 1024
 
 // hashUserAgent is what a challenge keeps of the User-Agent that asked for it: enough to tell
-// whether the answer comes from the same one, and nothing to read back. Only what verify passes
-// on counts: the first maxUserAgentBytes, without what is not UTF-8.
+// whether the answer comes from the same one, and nothing to read back.
 func hashUserAgent(userAgent string) string {
-	sum := sha256.Sum256([]byte(strings.ToValidUTF8(userAgent[:min(len(userAgent), maxUserAgentBytes)], "")))
+	sum := userAgentDigest(userAgent)
 	return hex.EncodeToString(sum[:])
+}
+
+// userAgentDigest is the SHA-256 of a User-Agent, of hashUserAgent and of clearances. Only what
+// verify passes on counts: the first maxUserAgentBytes, without what is not UTF-8.
+func userAgentDigest(userAgent string) [sha256.Size]byte {
+	return sha256.Sum256([]byte(strings.ToValidUTF8(userAgent[:min(len(userAgent), maxUserAgentBytes)], "")))
 }

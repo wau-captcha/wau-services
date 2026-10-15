@@ -130,7 +130,11 @@ components:
                     type: array
                     items:
                         type: string
-                    description: Short codes of what lowered the score, e.g. "webdriver" or "even_typing".
+                    description: |-
+                        Short codes of what lowered the score, e.g. "webdriver" or "even_typing". An auto_check pass
+                         also says how it was earned: "cleared", by a browser that solved a puzzle of this site before,
+                         or "first_visit", by one that did not, on its signals alone; refuse "first_visit" for sign-ups,
+                         logins and payments to ask such visitors for a puzzle there.
             description: BehaviorResult is what the behaviour check concluded about the answer behind a token.
         verify.v1.PointerSample:
             type: object
@@ -155,7 +159,8 @@ components:
                     description: |-
                         The type of the challenge solved. "auto_check" means the visitor passed without solving a
                          puzzle; a site that wants more can require behavior.score above its own threshold for sensitive
-                         actions. A visitor auto_check did not let through solved its fallback, whose type this is then.
+                         actions, or refuse the reason "first_visit". A visitor auto_check did not let through solved its
+                         fallback, whose type this is then.
                 challenge_ts:
                     type: string
                     description: Time the challenge was solved.
@@ -191,6 +196,12 @@ components:
                     type: integer
                     description: Seconds until the token expires.
                     format: int32
+                clearance:
+                    type: string
+                    description: |-
+                        Set only on success, after a puzzle (not auto_check): a clearance the browser keeps and sends
+                         back with its auto_check answers on this site, to pass without a puzzle for a while. The SDK
+                         handles it; a site's backend never needs it.
         verify.v1.VerifyChallengeRequest:
             required:
                 - challenge_id
@@ -207,7 +218,8 @@ components:
                          writes from the two clicks: {"c": [{"x": .., "y": .., "ms": .., "p": ..}, {...}]}; for
                          object_rotate, the JSON it writes from the presses: {"r": [{"f": .., "s": [[ms, d], ...],
                          "done": ..}, {...}]}; for auto_check, the JSON it writes from its browser probes: {"v": 1,
-                         "ua": .., "lang": .., "f": [..]}; see the challenge's CheckAnswerRequest.answer.
+                         "ua": .., "lang": .., "f": [..], "c": .., "m": {..}}, "c" and "m" being optional; see the
+                         challenge's CheckAnswerRequest.answer.
                 behavior:
                     allOf:
                         - $ref: '#/components/schemas/verify.v1.Behavior'

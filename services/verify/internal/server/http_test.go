@@ -285,3 +285,38 @@ func TestSiteVerifyToken(t *testing.T) {
 		}
 	})
 }
+
+func TestVerifyChallengeRelaysClearance(t *testing.T) {
+	const clearance = "AQ3uZ0n7cGF5bG9hZA.c2lnbmF0dXJlIG9mIHRoZSBjbGVhcmFuY2U"
+	verify := func(t *testing.T, solution func(*biz.Solution)) reply {
+		t.Helper()
+		h := newHarness(t)
+		h.challenges.solution.Clearance = clearance
+		solution(&h.challenges.solution)
+		return h.do(t, http.MethodPost, "/challenge/verify", "application/json", fmt.Sprintf(`{"challenge_id":%q,"answer":"abcde"}`, testChallengeID))
+	}
+	t.Run("a solved puzzle: with the token", func(t *testing.T) {
+		got := verify(t, func(*biz.Solution) {})
+		if token, _ := got.body["token"].(string); got.status != 200 || got.body["success"] != true || token == "" || got.body["clearance"] != clearance {
+			t.Fatalf("got %d %s", got.status, got.rawBody)
+		}
+	})
+	t.Run("a wrong answer: none", func(t *testing.T) {
+		got := verify(t, func(s *biz.Solution) { s.Success = false })
+		if got.status != 200 || got.body["success"] == true || strings.Contains(got.rawBody, clearance) {
+			t.Fatalf("got %d %s", got.status, got.rawBody)
+		}
+	})
+	t.Run("refused for want of behaviour: none", func(t *testing.T) {
+		got := verify(t, func(s *biz.Solution) { s.BehaviorRequired = true })
+		if got.status != 400 || strings.Contains(got.rawBody, clearance) {
+			t.Fatalf("got %d %s", got.status, got.rawBody)
+		}
+	})
+	t.Run("an auto_check pass, which carries none", func(t *testing.T) {
+		got := verify(t, func(s *biz.Solution) { s.ChallengeType, s.Clearance = "auto_check", "" })
+		if got.status != 200 || got.body["success"] != true || (got.body["clearance"] != nil && got.body["clearance"] != "") {
+			t.Fatalf("got %d %s", got.status, got.rawBody)
+		}
+	})
+}
