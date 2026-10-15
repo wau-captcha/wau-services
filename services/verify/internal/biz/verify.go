@@ -54,6 +54,8 @@ type Grant struct {
 type Token struct {
 	Value string
 	TTL   time.Duration
+	// The challenge service's clearance for the browser, relayed to it; empty after auto_check.
+	Clearance string
 }
 
 // GrantRepo stores the grants behind issued tokens.
@@ -144,7 +146,7 @@ func (uc *VerifyUsecase) VerifyChallenge(ctx context.Context, answer Answer) (*T
 	if err := uc.grants.Save(ctx, id, grant, uc.ttl); err != nil {
 		return nil, err
 	}
-	return &Token{Value: token, TTL: uc.ttl}, nil
+	return &Token{Value: token, TTL: uc.ttl, Clearance: solution.Clearance}, nil
 }
 
 // SiteVerify consumes a token for the site owning secretKey. It returns nil

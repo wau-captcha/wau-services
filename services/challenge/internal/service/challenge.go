@@ -130,5 +130,6 @@ func (s *ChallengeService) CheckAnswer(ctx context.Context, req *v1.CheckAnswerR
 		Behavior:         toBehaviorResult(outcome.Behavior),
 		Hostname:         requestinfo.Host(challenge.Origin),
 		BehaviorRequired: outcome.BehaviorRequired,
+		Clearance:        outcome.Clearance,
 	}, nil
 }

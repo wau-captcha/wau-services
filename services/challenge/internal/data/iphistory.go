@@ -44,6 +44,10 @@ func (h *ipHistory) AutoPassesLastHour(ctx context.Context, addr string, now tim
 	return h.lastHour(ctx, addr, "pass", now)
 }
 
+func (h *ipHistory) FirstVisitPassesLastHour(ctx context.Context, addr string, now time.Time) (int64, error) {
+	return h.lastHour(ctx, addr, "first", now)
+}
+
 // lastHour adds up the buckets of one kind of addr over the hour up to now.
 func (h *ipHistory) lastHour(ctx context.Context, addr, kind string, now time.Time) (int64, error) {
 	current := bucketOf(now)
@@ -51,23 +55,38 @@ func (h *ipHistory) lastHour(ctx context.Context, addr, kind string, now time.Ti
 	for i := range keys {
 		keys[i] = historyKey(addr, kind, current-int64(i))
 	}
-	values, err := h.data.redis.MGet(ctx, keys...).Result()
-	if err != nil && !errors.Is(err, redis.Nil) {
+	counts, err := readTaggedCounters(ctx, h.data.redis, keys)
+	if err != nil {
 		return 0, err
 	}
 	var total int64
-	for _, value := range values {
-		if text, ok := value.(string); ok {
-			var count int64
-			if _, err := fmt.Sscan(text, &count); err == nil {
-				total += count
-			}
-		}
+	for _, count := range counts {
+		total += count
 	}
 	return total, nil
 }
 
-// A wrong-answer bucket is only read while it is current; an automated or a pass one for an hour.
+// readTaggedCounters reads counters that share a hash tag with one MGET; one that does not exist
+// yet counts as zero.
+func readTaggedCounters(ctx context.Context, client redis.Cmdable, keys []string) ([]int64, error) {
+	values, err := client.MGet(ctx, keys...).Result()
+	if err != nil && !errors.Is(err, redis.Nil) {
+		return nil, err
+	}
+	counts := make([]int64, len(keys))
+	for i, value := range values {
+		if text, ok := value.(string); ok {
+			var count int64
+			if _, err := fmt.Sscan(text, &count); err == nil {
+				counts[i] = count
+			}
+		}
+	}
+	return counts, nil
+}
+
+// A wrong-answer bucket is only read while it is current; an automated, a pass or a first-visit
+// one for an hour.
 func (h *ipHistory) CountWrong(ctx context.Context, addr string, now time.Time) error {
 	return h.count(ctx, historyKey(addr, "wrong", bucketOf(now)), biz.HistoryBucket)
 }
@@ -78,6 +97,10 @@ func (h *ipHistory) CountAutomated(ctx context.Context, addr string, now time.Ti
 
 func (h *ipHistory) CountAutoPass(ctx context.Context, addr string, now time.Time) error {
 	return h.count(ctx, historyKey(addr, "pass", bucketOf(now)), historyBuckets*biz.HistoryBucket)
+}
+
+func (h *ipHistory) CountFirstVisitPass(ctx context.Context, addr string, now time.Time) error {
+	return h.count(ctx, historyKey(addr, "first", bucketOf(now)), historyBuckets*biz.HistoryBucket)
 }
 
 func (h *ipHistory) count(ctx context.Context, key string, ttl time.Duration) error {

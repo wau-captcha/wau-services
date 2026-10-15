@@ -41,6 +41,7 @@ func (c *challengeClient) CheckAnswer(ctx context.Context, answer biz.Answer) (*
 		Behavior:         behaviorResult(reply.GetBehavior()),
 		Hostname:         reply.GetHostname(),
 		BehaviorRequired: reply.GetBehaviorRequired(),
+		Clearance:        reply.GetClearance(),
 	}, nil
 }
 

@@ -37,13 +37,17 @@ type Outcome struct {
 	Behavior BehaviorResult
 	// The key requires behaviour data and the answer came without any, so it was refused.
 	BehaviorRequired bool
+	// For a right answer to an interactive type: a clearance the browser keeps to pass auto_check
+	// on this key without a puzzle for a while (see clearance.go). Empty otherwise.
+	Clearance string
 }
 
 // Check takes the challenge, so each one is answered once whatever happens, and judges the answer:
 // the text or the drag, the site key and website it comes from, and the behaviour behind it; for
-// auto_check, whether all of that lets the visitor through without a puzzle. An address over its
-// limit of wrong answers is refused before anything is taken. A malformed answer is a wrong one,
-// not an error.
+// auto_check, whether all of that lets the visitor through without a puzzle. A right answer to an
+// interactive type earns the browser a clearance for auto_check. An address over its limit of
+// wrong answers is refused before anything is taken. A malformed answer is a wrong one, not an
+// error.
 func (uc *ChallengeUsecase) Check(ctx context.Context, answer Answer) (*Outcome, error) {
 	if !validChallengeID(answer.ChallengeID) {
 		return nil, ErrChallengeIDInvalid
@@ -83,6 +87,9 @@ func (uc *ChallengeUsecase) Check(ctx context.Context, answer Answer) (*Outcome,
 	outcome := &Outcome{Challenge: challenge, Right: right, Behavior: result}
 	if challenge.RequireBehavior && result.Verdict == VerdictNotMeasured {
 		outcome.Right, outcome.BehaviorRequired = false, true
+	}
+	if outcome.Right {
+		outcome.Clearance = uc.clearanceFor(ctx, challenge, answer)
 	}
 	// A right answer refused for want of behaviour is not a wrong one: the visitors of a site on
 	// an old SDK must not get their addresses blocked. Nor is an auto_check that falls back, unless

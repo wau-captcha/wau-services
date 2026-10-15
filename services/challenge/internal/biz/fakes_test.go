@@ -92,7 +92,7 @@ func (f *fakeLimiter) Allow(_ context.Context, rule ratelimit.Rule, _ string) ti
 }
 
 type fakeHistory struct {
-	wrong, automated, passes map[string]int64
+	wrong, automated, passes, firstVisits map[string]int64
 }
 
 func (f *fakeHistory) WrongAnswers(_ context.Context, addr string, _ time.Time) (int64, error) {
@@ -116,6 +116,46 @@ func (f *fakeHistory) CountAutoPass(_ context.Context, addr string, _ time.Time)
 	f.passes[addr]++
 	return nil
 }
+func (f *fakeHistory) FirstVisitPassesLastHour(_ context.Context, addr string, _ time.Time) (int64, error) {
+	return f.firstVisits[addr], nil
+}
+func (f *fakeHistory) CountFirstVisitPass(_ context.Context, addr string, _ time.Time) error {
+	f.firstVisits[addr]++
+	return nil
+}
+
+// fakeClearances counts the passes of each clearance in the last hour and per id and day; err
+// stands for a failure of Redis.
+type fakeClearances struct {
+	hour, day map[string]int64
+	err       error
+}
+
+func (f *fakeClearances) Passes(_ context.Context, id string, _ time.Time, day string) (int64, int64, error) {
+	if f.err != nil {
+		return 0, 0, f.err
+	}
+	return f.hour[id], f.day[id+" "+day], nil
+}
+
+func (f *fakeClearances) CountPass(_ context.Context, id string, _ time.Time, day string) error {
+	if f.err != nil {
+		return f.err
+	}
+	f.hour[id]++
+	f.day[id+" "+day]++
+	return nil
+}
+
+// testTokenSecret stands for KRATOS_TOKEN_SECRET.
+const testTokenSecret = "test-token-secret"
+
+// testAutoConf is the auto_check section of configs/config.yaml.
+func testAutoConf() *conf.AutoCheck {
+	return &conf.AutoCheck{PowDifficulty: 18, MinScorePercent: 80, PassesPerIpHour: 30, Mode: "balanced",
+		FirstVisitPassesPerIpHour: 5, ClearanceTtl: durationpb.New(168 * time.Hour), ClearancePassesPerHour: 6,
+		ClearancePassesPerDay: 24, BlockHostingAddresses: true, ClearanceSecret: testTokenSecret}
+}
 
 type fixture struct {
 	usecase    *ChallengeUsecase
@@ -124,27 +164,35 @@ type fixture struct {
 	counters   *fakeCounters
 	limiter    *fakeLimiter
 	history    *fakeHistory
+	clearances *fakeClearances
 	now        time.Time
 }
 
-// newFixture is a usecase over fakes with the limits of configs/config.yaml and a fixed clock.
-func newFixture(site *Site) *fixture {
+// newFixture is a usecase over fakes with the limits of configs/config.yaml and a fixed clock;
+// each tune changes the auto_check settings first.
+func newFixture(site *Site, tune ...func(*conf.AutoCheck)) *fixture {
 	f := &fixture{
 		sites:      &fakeSites{site: site},
 		challenges: &fakeChallenges{stored: map[string]*Challenge{}},
 		counters:   &fakeCounters{},
 		limiter:    &fakeLimiter{refuse: map[string]bool{}},
-		history:    &fakeHistory{wrong: map[string]int64{}, automated: map[string]int64{}, passes: map[string]int64{}},
+		history: &fakeHistory{wrong: map[string]int64{}, automated: map[string]int64{}, passes: map[string]int64{},
+			firstVisits: map[string]int64{}},
+		clearances: &fakeClearances{hour: map[string]int64{}, day: map[string]int64{}},
 		now:        time.Date(2026, 10, 8, 3, 0, 0, 0, time.UTC),
 	}
-	usecase, err := NewChallengeUsecase(f.sites, f.challenges, f.counters, fakeUsage{}, f.limiter, f.history,
+	autoConf := testAutoConf()
+	for _, change := range tune {
+		change(autoConf)
+	}
+	usecase, err := NewChallengeUsecase(f.sites, f.challenges, f.counters, fakeUsage{}, f.limiter, f.history, f.clearances,
 		&conf.Challenge{Ttl: durationpb.New(2 * time.Minute), PowDifficulty: 8},
 		&conf.Quota{TimeZone: "Asia/Ho_Chi_Minh"},
 		&conf.RateLimit{NewPerIp: 30, NewPerSiteKey: 600, NewPerFlaggedSiteKey: 60},
 		&conf.Scraping{FlagMinIssued: 500, FlagMaxAnsweredPercent: 10, FlagMinAnswered: 200, FlagMaxSolvedPercent: 10,
 			FlagMaxAutomatedPercent: 50, SuspendMinIssued: 5000, SuspendMaxAnsweredPercent: 5},
 		&conf.IPHistory{WrongPer_10Minutes: 20, AutomatedPerHour: 5},
-		&conf.AutoCheck{PowDifficulty: 18, MinScorePercent: 80, PassesPerIpHour: 30})
+		autoConf)
 	if err != nil {
 		panic(err)
 	}

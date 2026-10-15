@@ -83,14 +83,27 @@ func (cleanHistory) AutoPassesLastHour(context.Context, string, time.Time) (int6
 	return 0, nil
 }
 func (cleanHistory) CountAutoPass(context.Context, string, time.Time) error { return nil }
+func (cleanHistory) FirstVisitPassesLastHour(context.Context, string, time.Time) (int64, error) {
+	return 0, nil
+}
+func (cleanHistory) CountFirstVisitPass(context.Context, string, time.Time) error { return nil }
+
+type unusedClearances struct{}
+
+func (unusedClearances) Passes(context.Context, string, time.Time, string) (int64, int64, error) {
+	return 0, 0, nil
+}
+func (unusedClearances) CountPass(context.Context, string, time.Time, string) error { return nil }
 
 func newChallengeServer(t *testing.T, domains ...string) http.Handler {
 	t.Helper()
 	site := biz.Site{APIKeyID: "key-1", UserID: "user-1", ChallengeTypes: []string{biz.TypeImageDistort, biz.TypeAnimalJump, biz.TypeObjectRotate, biz.TypeAutoCheck}, DailyQuota: 100, AllowedDomains: domains}
 	usecase, err := biz.NewChallengeUsecase(stubSites{site}, &memoryChallenges{stored: map[string]*biz.Challenge{}}, quietCounters{}, noUsage{},
-		openLimiter{}, cleanHistory{}, &conf.Challenge{Ttl: durationpb.New(2 * time.Minute), PowDifficulty: 15},
+		openLimiter{}, cleanHistory{}, unusedClearances{}, &conf.Challenge{Ttl: durationpb.New(2 * time.Minute), PowDifficulty: 15},
 		&conf.Quota{TimeZone: "Asia/Ho_Chi_Minh"}, &conf.RateLimit{NewPerIp: 30, NewPerSiteKey: 600, NewPerFlaggedSiteKey: 60},
-		&conf.Scraping{}, &conf.IPHistory{}, &conf.AutoCheck{PowDifficulty: 18, MinScorePercent: 80, PassesPerIpHour: 30})
+		&conf.Scraping{}, &conf.IPHistory{}, &conf.AutoCheck{PowDifficulty: 18, MinScorePercent: 80, PassesPerIpHour: 30,
+			Mode: "balanced", FirstVisitPassesPerIpHour: 5, ClearanceTtl: durationpb.New(168 * time.Hour), ClearancePassesPerHour: 6,
+			ClearancePassesPerDay: 24, BlockHostingAddresses: true, ClearanceSecret: "test-token-secret"})
 	if err != nil {
 		t.Fatal(err)
 	}

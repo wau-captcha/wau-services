@@ -296,7 +296,12 @@ type CheckAnswerRequest struct {
 	// or Rotate left (d = -1) with the milliseconds since that round was shown, and when Done was.
 	// For auto_check, the JSON the SDK writes from its browser probes, at most 2 KiB:
 	// {"v": 1, "ua": <navigator.userAgent, at most 512 characters>, "lang": <navigator.language>,
-	// "f": [<names of the probes that tripped>, ...]}.
+	// "f": [<names of the probes that tripped>, ...], "c": <the clearance the browser keeps for the
+	// site, at most 256 characters>, "m": {"n": .., "k": .., "z": .., "s": ..}}. From SDK 1.7.0 on,
+	// and optional: "c" is a CheckAnswerReply.clearance of an earlier puzzle; "m" counts the trusted
+	// mouse moves over the page: n moves, k of them coalesced with others (-1 when the browser cannot
+	// tell), z without movement although the position changed, s within 1 ms of the most common gap
+	// between moves, each from 0 to 100000 and k, z and s at most n.
 	Answer string `protobuf:"bytes,2,opt,name=answer,proto3" json:"answer,omitempty"`
 	// How the person behaved while the challenge was on screen, as the SDK records it; for
 	// auto_check, while the check ran. Clients that do not send it have their answers checked as
@@ -434,8 +439,11 @@ type CheckAnswerReply struct {
 	// The key requires behaviour data and the answer came without any: it was refused for that,
 	// right or wrong, and verify answers BEHAVIOR_REQUIRED.
 	BehaviorRequired bool `protobuf:"varint,7,opt,name=behavior_required,json=behaviorRequired,proto3" json:"behavior_required,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// For a right answer to an interactive type: a signed clearance the browser keeps and sends back
+	// in its auto_check answers, to pass on this key without a puzzle for a while. Empty otherwise.
+	Clearance     string `protobuf:"bytes,8,opt,name=clearance,proto3" json:"clearance,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CheckAnswerReply) Reset() {
@@ -515,6 +523,13 @@ func (x *CheckAnswerReply) GetBehaviorRequired() bool {
 		return x.BehaviorRequired
 	}
 	return false
+}
+
+func (x *CheckAnswerReply) GetClearance() string {
+	if x != nil {
+		return x.Clearance
+	}
+	return ""
 }
 
 // Behavior is what the SDK records from the moment a challenge is shown (its image has loaded, or for
@@ -745,7 +760,9 @@ type BehaviorResult struct {
 	Verdict string `protobuf:"bytes,1,opt,name=verdict,proto3" json:"verdict,omitempty"`
 	// From 0 (scripted) to 1 (human-like); unset when not measured.
 	Score *float64 `protobuf:"fixed64,2,opt,name=score,proto3,oneof" json:"score,omitempty"`
-	// Short codes of what lowered the score or broke a rule, e.g. "webdriver" or "even_typing".
+	// Short codes of what lowered the score or broke a rule, e.g. "webdriver" or "even_typing"; for
+	// an auto_check pass, also how it was earned: "cleared" (with a clearance) or "first_visit"
+	// (without one, in balanced mode).
 	Reasons       []string `protobuf:"bytes,3,rep,name=reasons,proto3" json:"reasons,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -853,7 +870,7 @@ const file_challenge_v1_challenge_proto_rawDesc = "" +
 	"\x0esec_fetch_site\x18\b \x01(\tR\fsecFetchSite\x12'\n" +
 	"\x0faccept_language\x18\t \x01(\tR\x0eacceptLanguage\x12\x1b\n" +
 	"\tpow_nonce\x18\n" +
-	" \x01(\tR\bpowNonce\"\x8d\x02\n" +
+	" \x01(\tR\bpowNonce\"\xab\x02\n" +
 	"\x10CheckAnswerReply\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x1c\n" +
 	"\n" +
@@ -862,7 +879,8 @@ const file_challenge_v1_challenge_proto_rawDesc = "" +
 	"\auser_id\x18\x04 \x01(\tR\x06userId\x128\n" +
 	"\bbehavior\x18\x05 \x01(\v2\x1c.challenge.v1.BehaviorResultR\bbehavior\x12\x1a\n" +
 	"\bhostname\x18\x06 \x01(\tR\bhostname\x12+\n" +
-	"\x11behavior_required\x18\a \x01(\bR\x10behaviorRequired\"\xf8\x03\n" +
+	"\x11behavior_required\x18\a \x01(\bR\x10behaviorRequired\x12\x1c\n" +
+	"\tclearance\x18\b \x01(\tR\tclearance\"\xf8\x03\n" +
 	"\bBehavior\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\x05R\aversion\x12\x1d\n" +
 	"\n" +

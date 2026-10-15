@@ -59,7 +59,7 @@ func (s *VerifyService) VerifyChallenge(ctx context.Context, req *v1.VerifyChall
 	if token == nil {
 		return &v1.VerifyChallengeReply{}, nil
 	}
-	return &v1.VerifyChallengeReply{Success: true, Token: token.Value, ExpiresIn: int32(token.TTL.Seconds())}, nil
+	return &v1.VerifyChallengeReply{Success: true, Token: token.Value, ExpiresIn: int32(token.TTL.Seconds()), Clearance: token.Clearance}, nil
 }
 
 // SiteVerify consumes a token for the site identified by the bearer secret key.
