@@ -19,19 +19,19 @@ resources:
 images:
   - name: wau/challenge
     newName: 430030410164.dkr.ecr.ap-southeast-1.amazonaws.com/wau/challenge
-    newTag: sha-0ece2f7
+    newTag: sha-f1a886f
   - name: wau/verify
     newName: 430030410164.dkr.ecr.ap-southeast-1.amazonaws.com/wau/verify
-    newTag: sha-0ece2f7
+    newTag: sha-f1a886f
   - name: wau/tenant
     newName: 430030410164.dkr.ecr.ap-southeast-1.amazonaws.com/wau/tenant
-    newTag: sha-0ece2f7
+    newTag: sha-f1a886f
   - name: wau/billing
     newName: 430030410164.dkr.ecr.ap-southeast-1.amazonaws.com/wau/billing
-    newTag: sha-0ece2f7
+    newTag: sha-f1a886f
   - name: wau/migrate
     newName: 430030410164.dkr.ecr.ap-southeast-1.amazonaws.com/wau/migrate
-    newTag: sha-0ece2f7
+    newTag: sha-f1a886f
   - name: wau/dashboard
     newName: 430030410164.dkr.ecr.ap-southeast-1.amazonaws.com/wau/dashboard
     newTag: sha-dd04bd7
