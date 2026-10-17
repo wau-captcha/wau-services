@@ -53,7 +53,7 @@ func TestBehaviorRequired(t *testing.T) {
 		Behavior: biz.BehaviorResult{Verdict: biz.VerdictNotMeasured}, BehaviorRequired: true}
 	got := h.do(t, http.MethodPost, "/challenge/verify", "application/json", fmt.Sprintf(`{"challenge_id":%q,"answer":"abcde"}`, testChallengeID))
 	message, _ := got.body["message"].(string)
-	if got.status != 400 || got.body["reason"] != "BEHAVIOR_REQUIRED" || !strings.Contains(message, "@wau-captcha/client") {
+	if got.status != 400 || got.body["reason"] != "BEHAVIOR_REQUIRED" || !strings.Contains(message, "@waucaptcha-sdk/client") {
 		t.Fatalf("got %d %s", got.status, got.rawBody)
 	}
 	// Counted as an answer, but neither solved nor against the quota.

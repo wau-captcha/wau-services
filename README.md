@@ -7,7 +7,7 @@ short-lived state such as open challenges, tokens, rate limits and daily counter
 
 How a captcha is solved:
 
-1. A website embeds the widget (`@wau-captcha/client` or `@wau-captcha/react`) with its public site key.
+1. A website embeds the widget (`@waucaptcha-sdk/client` or `@waucaptcha-sdk/react`) with its public site key.
 2. The widget calls `GET /challenge/new` (challenge service), then `POST /challenge/verify` with the
    answer (verify service, which asks challenge over gRPC whether it is right) and gets a one-time token.
 3. The website's backend sends the token with its secret key to `POST /siteverify` (verify service)
@@ -448,7 +448,7 @@ Release order:
 
 1. wau-services: merge to `main`. The release builds the images and Argo CD runs the migration, then
    the new code, so the service knows the type before any client asks for it.
-2. The SDKs: publish `@wau-captcha/client`, `@wau-captcha/server` and `@wau-captcha/react` to npm
+2. The SDKs: publish `@waucaptcha-sdk/client`, `@waucaptcha-sdk/server` and `@waucaptcha-sdk/react` to npm
    (the `publish` workflow of wau-sdk-js), and the Java SDK to Maven Central.
 3. wau-dashboard: point `lib/sdk-cdn.ts` at the new client release (`node scripts/sri.mjs <version>`
    in wau-sdk-js), then merge to `main`.
