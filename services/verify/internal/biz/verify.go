@@ -22,7 +22,7 @@ var (
 	ErrRateLimited        = errors.New(http.StatusTooManyRequests, v1.ErrorReason_RATE_LIMITED.String(), "too many requests")
 	ErrPayloadTooLarge    = errors.New(http.StatusRequestEntityTooLarge, v1.ErrorReason_PAYLOAD_TOO_LARGE.String(), "request body too large")
 	ErrBehaviorRequired   = errors.BadRequest(v1.ErrorReason_BEHAVIOR_REQUIRED.String(),
-		"this site key requires behaviour data, which the client did not send: update @wau-captcha/client to the latest version")
+		"this site key requires behaviour data, which the client did not send: update @waucaptcha-sdk/client to the latest version")
 	// ErrInternal stands in for any failure of Redis, Postgres, the challenge service or the code:
 	// their text stays in the log.
 	ErrInternal = errors.InternalServer(v1.ErrorReason_INTERNAL.String(), "internal error")
