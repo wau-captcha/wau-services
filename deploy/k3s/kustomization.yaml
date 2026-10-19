@@ -34,4 +34,4 @@ images:
     newTag: sha-9b05be9
   - name: wau/dashboard
     newName: 430030410164.dkr.ecr.ap-southeast-1.amazonaws.com/wau/dashboard
-    newTag: sha-5be134a
+    newTag: sha-f925860
