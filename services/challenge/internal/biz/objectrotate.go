@@ -17,11 +17,16 @@ import (
 )
 
 // One object_rotate round: a 3D object stands on the ground, an arrow on the ground points in one
-// of 8 directions, and the person turns the object a step at a time until its front faces the
-// arrow. A round is a strip of rotateFrames frames side by side, frame k the object turned k steps
-// clockwise as seen from above. Sizes are CSS pixels of one 300 × 150 frame.
+// of 8 directions, and the person turns the object a step at a time until its front points the way
+// the arrow does. A round is a strip of rotateFrames frames side by side, frame k the object turned
+// k steps clockwise as seen from above. Each frame shows two panels, seen from the same camera: the
+// arrow alone on the left and the object alone on the right, so the arrow never covers the object.
+// Sizes are CSS pixels of one 300 × 150 frame.
 const (
 	rotateFrameWidth, rotateFrameHeight = 300, 150
+	rotateInset                         = 6  // backdrop around and between the panels
+	rotateArrowPanelWidth               = 96 // the object's panel takes the rest
+	rotatePanelRadius                   = 10
 	rotateFrames                        = 8
 	rotateStep                          = 360.0 / rotateFrames
 	rotateRounds                        = 2 // a random final frame is right 1 time in 8; two in a row, 1 in 64
@@ -29,8 +34,10 @@ const (
 	// (TestObjectRotateChallenges), so 2× it is.
 	rotateScale       = 2
 	rotateJPEGQuality = 80
-	// The object fills this share of the frame's height in every frame.
+	// The object fills this share of its panel's height in every frame; one too wide for that at
+	// some heading is made smaller, down to rotateLeastFill.
 	rotateMinFill, rotateMaxFill = 0.55, 0.75
+	rotateLeastFill              = 0.4
 	// Looking down this steeply sets the eight directions apart, the diagonals included.
 	rotateMinElevation, rotateMaxElevation = 20, 32
 	// The camera turns this far at most off the view square to the side, and each frame up to
@@ -48,16 +55,22 @@ type rotatePlan struct {
 	elevation, azimuth   float64
 }
 
+// The panels of a frame, in display pixels.
+var (
+	rotateArrowPanel  = rotateBounds{rotateInset, rotateInset, rotateInset + rotateArrowPanelWidth, rotateFrameHeight - rotateInset}
+	rotateObjectPanel = rotateBounds{2*rotateInset + rotateArrowPanelWidth, rotateInset, rotateFrameWidth - rotateInset, rotateFrameHeight - rotateInset}
+)
+
 // rotateRound is a plan with everything else drawn for it.
 type rotateRound struct {
-	plan       rotatePlan
-	headings   [rotateFrames]float64
-	arrow      float64
-	tint       [3]float64
-	light      vec3
-	layout     rotateLayout
-	share      float64 // of the arrow's full length
-	arrowPaint color.RGBA
+	plan        rotatePlan
+	headings    [rotateFrames]float64
+	arrow       float64
+	tint        [3]float64
+	light       vec3
+	layout      rotateLayout // of the object's panel
+	arrowLayout rotateLayout // of the arrow's panel
+	arrowPaint  color.RGBA
 }
 
 // randomRotatePlan draws a round's plan; the object differs from avoid, the other round's.
@@ -94,11 +107,12 @@ func newRotateRound(random *mrand.Rand, plan rotatePlan) (rotateRound, error) {
 	up, out := math.Sincos(radians(between(random, 40, 65)))
 	round.light = lightTurn.apply(vec3{0, 0, 1}).scale(out).add(vec3{0, up, 0}).unit()
 	model := &rotateModels[plan.model]
-	layout, share, ok := fitRotate(random, camera, model, round.headings[:], round.arrow)
+	layout, ok := fitRotate(random, camera, model, round.headings[:])
 	if !ok {
-		return rotateRound{}, fmt.Errorf("object_rotate: %s does not fit the frame", model.name)
+		return rotateRound{}, fmt.Errorf("object_rotate: %s does not fit its panel", model.name)
 	}
-	round.layout, round.share = layout, share
+	round.layout = layout
+	round.arrowLayout = fitArrow(camera, round.arrow)
 	round.arrowPaint = arrowColor(random, model)
 	return round, nil
 }
@@ -107,12 +121,12 @@ func newRotateRound(random *mrand.Rand, plan rotatePlan) (rotateRound, error) {
 func renderRotateStrip(random *mrand.Rand, round rotateRound, frames int, scale float64) *image.RGBA {
 	w, h := int(rotateFrameWidth*scale), int(rotateFrameHeight*scale)
 	scene := rotateScene{
-		camera: newRotateCamera(round.plan.elevation, round.plan.azimuth), layout: round.layout, scale: scale,
-		light: round.light, model: &rotateModels[round.plan.model], tint: round.tint,
+		camera: newRotateCamera(round.plan.elevation, round.plan.azimuth), layout: round.layout, arrowLayout: round.arrowLayout,
+		scale: scale, light: round.light, model: &rotateModels[round.plan.model], tint: round.tint,
 		base: image.NewRGBA(image.Rect(0, 0, w, h)),
 	}
 	scene.drawBackground(random)
-	scene.drawArrow(round.arrow, round.share, round.arrowPaint)
+	scene.drawArrow(round.arrow, round.arrowPaint)
 	strip := image.NewRGBA(image.Rect(0, 0, w*frames, h))
 	frame := image.NewRGBA(image.Rect(0, 0, w, h))
 	var raster rotateRaster

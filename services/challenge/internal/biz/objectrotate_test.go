@@ -110,9 +110,9 @@ func TestObjectRotateChallenges(t *testing.T) {
 
 // TestRotateModelsFit puts every object through rounds of every kind, at the lowest, middle and
 // highest elevation, the camera straight and at either side, frame 0 in every direction and the
-// arrow in every other: in all eight frames the object fills 55-75% of the frame's height, and the
-// object and the arrow stay inside the frame. The bounds fitRotate works from are checked for
-// every round; the drawn pixels, for rounds at the extremes, must agree with them.
+// arrow in every other: in all eight frames the object fills 40-75% of its panel's height and
+// stays inside that panel, and the arrow inside its own. The bounds fitRotate works from are
+// checked for every round; the drawn pixels, for rounds at the extremes, must agree with them.
 func TestRotateModelsFit(t *testing.T) {
 	if len(rotateModels) < 24 {
 		t.Fatalf("%d objects, want at least 24", len(rotateModels))
@@ -127,13 +127,14 @@ func TestRotateModelsFit(t *testing.T) {
 	random := mrand.New(mrand.NewPCG(3, 4))
 	w, h := rotateFrameWidth*rotateScale, rotateFrameHeight*rotateScale
 	// In output pixels; a pixel of slack for the edges the supersampling softens.
-	inside := func(box image.Rectangle) bool {
+	inside := func(box image.Rectangle, panel rotateBounds) bool {
 		margin := rotateMargin*rotateScale - 1
-		return box.Min.X >= margin && box.Min.Y >= margin && box.Max.X <= w-margin && box.Max.Y <= h-margin
+		return box.In(panelPixels(panel, rotateScale, w, h).Inset(margin))
 	}
+	panelHeight := (rotateObjectPanel.y1 - rotateObjectPanel.y0) * rotateScale
 	fills := func(box image.Rectangle) bool {
-		fill := float64(box.Dy()) / float64(h)
-		return fill >= rotateMinFill-1.0/rotateFrameHeight && fill <= rotateMaxFill+1.0/rotateFrameHeight
+		fill := float64(box.Dy()) / panelHeight
+		return fill >= rotateLeastFill-2/panelHeight && fill <= rotateMaxFill+2/panelHeight
 	}
 	onFrame := func(layout rotateLayout, b rotateBounds) image.Rectangle {
 		x0, y0 := layout.pixel(b.x0, b.y1)
@@ -141,6 +142,8 @@ func TestRotateModelsFit(t *testing.T) {
 		return image.Rect(int(x0*rotateScale), int(y0*rotateScale), int(x1*rotateScale+0.999), int(y1*rotateScale+0.999))
 	}
 	var raster rotateRaster
+	// Objects drawn below rotateMinFill somewhere, too wide for their panel at some heading.
+	smaller := map[string]bool{}
 	drawn := 0
 	for m := range rotateModels {
 		model := &rotateModels[m]
@@ -154,12 +157,19 @@ func TestRotateModelsFit(t *testing.T) {
 						if err != nil {
 							t.Fatalf("%+v: %v", plan, err)
 						}
-						if box := onFrame(round.layout, shapeBounds(camera, arrowShape(model, round.arrow, round.share, true))); !inside(box) {
-							t.Errorf("%s %+v: the arrow at %v leaves the frame", model.name, plan, box)
+						for k := range rotateFrames {
+							arrow := round.arrow + float64(k)*rotateStep
+							if box := onFrame(round.arrowLayout, shapeBounds(camera, arrowShape(arrow, true))); !inside(box, rotateArrowPanel) {
+								t.Errorf("%s %+v: the arrow at %.0f° lands at %v, outside its panel", model.name, plan, arrow, box)
+							}
 						}
 						for k, degrees := range round.headings {
-							if box := onFrame(round.layout, modelBounds(camera, model, degrees)); !fills(box) || !inside(box) {
-								t.Errorf("%s %+v frame %d: at %v, %.3f of the height", model.name, plan, k, box, float64(box.Dy())/float64(h))
+							box := onFrame(round.layout, modelBounds(camera, model, degrees))
+							if !fills(box) || !inside(box, rotateObjectPanel) {
+								t.Errorf("%s %+v frame %d: at %v, %.3f of the panel's height", model.name, plan, k, box, float64(box.Dy())/panelHeight)
+							}
+							if float64(box.Dy())/panelHeight < rotateMinFill-2/panelHeight {
+								smaller[model.name] = true
 							}
 						}
 						// Drawing every round would take minutes: two per object at each extreme.
@@ -169,20 +179,16 @@ func TestRotateModelsFit(t *testing.T) {
 						}
 						drawn++
 						scene := rotateScene{
-							camera: camera, layout: round.layout, scale: rotateScale, light: round.light,
+							camera: camera, layout: round.layout, arrowLayout: round.arrowLayout, scale: rotateScale, light: round.light,
 							model: model, tint: round.tint, base: image.NewRGBA(image.Rect(0, 0, w, h)),
-						}
-						scene.drawArrow(round.arrow, round.share, round.arrowPaint)
-						if !inside(scene.arrowRect) {
-							t.Errorf("%s %+v: the arrow drawn at %v leaves the frame", model.name, plan, scene.arrowRect)
 						}
 						for k, degrees := range round.headings {
 							if !scene.rasterize(&raster, degrees, w, h) {
 								t.Fatalf("%s %+v frame %d: nothing drawn", model.name, plan, k)
 							}
 							box := raster.covered()
-							if !fills(box) || !inside(box) {
-								t.Errorf("%s %+v frame %d: drawn at %v, %.3f of the height", model.name, plan, k, box, float64(box.Dy())/float64(h))
+							if !fills(box) || !inside(box, rotateObjectPanel) {
+								t.Errorf("%s %+v frame %d: drawn at %v, %.3f of the panel's height", model.name, plan, k, box, float64(box.Dy())/panelHeight)
 							}
 							if want := onFrame(round.layout, modelBounds(camera, model, degrees)); !box.In(want.Inset(-1)) || !want.Inset(2).In(box) {
 								t.Errorf("%s %+v frame %d: drawn at %v, its bounds %v", model.name, plan, k, box, want)
@@ -193,7 +199,7 @@ func TestRotateModelsFit(t *testing.T) {
 			}
 		}
 	}
-	t.Logf("%d objects in %d rounds each; %d rounds drawn", len(rotateModels), 3*3*rotateFrames*(rotateFrames-1), drawn)
+	t.Logf("%d objects in %d rounds each; %d rounds drawn; drawn smaller somewhere: %v", len(rotateModels), 3*3*rotateFrames*(rotateFrames-1), drawn, smaller)
 }
 
 // covered is the box of output pixels the raster drew any of the model into.

@@ -51,7 +51,7 @@ Other ports:
 | `motion_noise` | Types the five characters hidden in an animated GIF of moving dots. | `00002_catalog.sql` |
 | `slide_puzzle` | Drags a puzzle piece sideways into its hole; the drag itself is checked too. | `00003_slide_puzzle.sql` |
 | `animal_jump` | Watches two rounds of 2 s in which five animal heads jump, and clicks the one that jumps highest in each. | `00007_animal_jump.sql` |
-| `object_rotate` | In each of two rounds, turns an object a step at a time (eight directions) until it faces an arrow on the ground, then presses Done. | `00008_object_rotate.sql` |
+| `object_rotate` | In each of two rounds, turns an object a step at a time (eight directions) until it faces the way an arrow on the ground points, the arrow and the object in two panels so that neither covers the other, then presses Done. | `00008_object_rotate.sql` |
 | `auto_check` | Nothing, for most visitors: the browser SDK sends probes of the browser and the behaviour in it. A visitor who does not pass gets a challenge of a fallback type instead. | `00009_auto_check.sql` |
 
 The migrations are in `infra/postgres/migrations/`. Each adds the type to `challenge_types` and to
