@@ -22,13 +22,13 @@ const (
 	rotateDiffuse     = 0.6
 	rotateBackdrop    = 0.8 // the backdrop is the panels' gradient this much as bright
 	// The arrow in its panel, in model heights: across the middle of a disc of ground, from its tail
-	// to its tip along its heading.
+	// to its tip along its heading. The disc sets the panel's scale, so the arrow is drawn slim and
+	// well inside it.
 	rotateArrowDisc     = 0.6 // radius
-	rotateArrowLength   = 1.15
-	rotateArrowShaft    = 0.09 // half widths
-	rotateArrowHead     = 0.25
-	rotateArrowHeadLong = 0.38
-	rotateArrowEdge     = 0.04
+	rotateArrowLength   = 0.8
+	rotateArrowShaft    = 0.045 // half widths
+	rotateArrowHead     = 0.13
+	rotateArrowHeadLong = 0.24
 	rotateBaseHeight    = 0.25 // see rotateModel.base
 )
 
@@ -114,20 +114,15 @@ func discBounds(camera rotateCamera, radius float64) rotateBounds {
 }
 
 // arrowShape is the arrow's outline on the ground along heading degrees, across the middle of its
-// disc; outline grows it on every side for the light edge drawn under it.
-func arrowShape(degrees float64, outline bool) []vec3 {
-	edge := 0.0
-	if outline {
-		edge = rotateArrowEdge
-	}
+// disc.
+func arrowShape(degrees float64) []vec3 {
 	orient := heading(degrees)
 	at := func(along, across float64) vec3 { return orient.apply(vec3{along, 0, across}) }
 	tail, tip := -rotateArrowLength/2, rotateArrowLength/2
 	neck := tip - rotateArrowHeadLong
-	shaft, head := rotateArrowShaft+edge, rotateArrowHead+edge*1.5
 	return []vec3{
-		at(tail-edge, -shaft), at(neck, -shaft), at(neck-edge*0.6, -head), at(tip+edge*1.8, 0),
-		at(neck-edge*0.6, head), at(neck, shaft), at(tail-edge, shaft),
+		at(tail, -rotateArrowShaft), at(neck, -rotateArrowShaft), at(neck, -rotateArrowHead), at(tip, 0),
+		at(neck, rotateArrowHead), at(neck, rotateArrowShaft), at(tail, rotateArrowShaft),
 	}
 }
 
@@ -185,7 +180,7 @@ func fitArrow(camera rotateCamera, degrees float64) rotateLayout {
 	}
 	grow(discBounds(camera, rotateArrowDisc))
 	for k := range rotateFrames {
-		grow(shapeBounds(camera, arrowShape(degrees+float64(k)*rotateStep, true)))
+		grow(shapeBounds(camera, arrowShape(degrees+float64(k)*rotateStep)))
 	}
 	zoom := min((panel.x1-panel.x0-2*rotateMargin)/(2*reachX), (panel.y1-panel.y0-2*rotateMargin)/(2*reachY))
 	return rotateLayout{zoom: zoom, cx: (panel.x0+panel.x1)/2 - zoom*ox, cy: (panel.y0+panel.y1)/2 + zoom*oy}
@@ -330,8 +325,7 @@ func (s *rotateScene) drawBackground(random *mrand.Rand) {
 
 func smooth(t float64) float64 { return t * t * (3 - 2*t) }
 
-// drawArrow draws the arrow once for the round, on its disc in its panel: a light outline, then
-// the arrow in a strong colour.
+// drawArrow draws the arrow once for the round, on its disc in its panel, in a strong colour.
 func (s *rotateScene) drawArrow(degrees float64, paint color.RGBA) {
 	bounds := s.base.Bounds()
 	raster := vector.NewRasterizer(bounds.Dx(), bounds.Dy())
@@ -349,8 +343,7 @@ func (s *rotateScene) drawArrow(degrees float64, paint color.RGBA) {
 		raster.ClosePath()
 		raster.Draw(s.base, bounds, image.NewUniform(c), image.Point{})
 	}
-	fill(arrowShape(degrees, true), color.RGBA{250, 250, 246, 255})
-	fill(arrowShape(degrees, false), paint)
+	fill(arrowShape(degrees), paint)
 }
 
 // arrowColors are strong colours to point with; the one farthest from the model's main colour is used.

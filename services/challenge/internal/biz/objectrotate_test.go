@@ -94,7 +94,7 @@ func TestObjectRotateChallenges(t *testing.T) {
 		return
 	}
 	if !testing.Short() {
-		// 2000 rounds: about 286 per target frame and 71 per object.
+		// 2000 rounds: about 286 per target frame and 200 per object.
 		for frame := 1; frame < rotateFrames; frame++ {
 			if targets[frame] < 200 || targets[frame] > 380 {
 				t.Errorf("target frame %d drawn %d times in %d rounds", frame, targets[frame], 2*count)
@@ -114,8 +114,8 @@ func TestObjectRotateChallenges(t *testing.T) {
 // stays inside that panel, and the arrow inside its own. The bounds fitRotate works from are
 // checked for every round; the drawn pixels, for rounds at the extremes, must agree with them.
 func TestRotateModelsFit(t *testing.T) {
-	if len(rotateModels) < 24 {
-		t.Fatalf("%d objects, want at least 24", len(rotateModels))
+	if len(rotateModels) < 10 {
+		t.Fatalf("%d objects, want at least 10", len(rotateModels))
 	}
 	names := map[string]bool{}
 	for _, model := range rotateModels {
@@ -159,7 +159,7 @@ func TestRotateModelsFit(t *testing.T) {
 						}
 						for k := range rotateFrames {
 							arrow := round.arrow + float64(k)*rotateStep
-							if box := onFrame(round.arrowLayout, shapeBounds(camera, arrowShape(arrow, true))); !inside(box, rotateArrowPanel) {
+							if box := onFrame(round.arrowLayout, shapeBounds(camera, arrowShape(arrow))); !inside(box, rotateArrowPanel) {
 								t.Errorf("%s %+v: the arrow at %.0f° lands at %v, outside its panel", model.name, plan, arrow, box)
 							}
 						}

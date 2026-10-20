@@ -81,17 +81,14 @@ type rotateTri struct {
 // of each face the one away from the solid's centre.
 type rotateMesh struct{ tris []rotateTri }
 
-// Corners of one solid where faces meet at less than this angle share their normal, so the solid
-// looks curved there; a sharper edge, such as the rim of a cylinder, stays an edge.
+// Corners of a curved solid, a cylinder or an ellipsoid, where faces meet at less than this angle
+// share their normal, so it looks round there; a sharper edge, such as the rim of a cylinder, stays
+// an edge. Boxes, wedges and lofts keep every edge sharp: the objects are boxy toys.
 const rotateCrease = 50
 
 // Curved solids have at least this many sides around and stacks from pole to pole, so that their
 // outline stays round too.
 const rotateMinSides, rotateMinStacks = 16, 8
-
-// The edges and corners of a box are rounded with this share of its smallest side, in this many
-// steps from one face to the next.
-const rotateBoxRounding, rotateBoxSteps = 0.18, 2
 
 func (m *rotateMesh) face(paint color.RGBA, centre, a, b, c vec3) {
 	m.shadedFace(paint, centre, [3]vec3{a, b, c}, nil)
@@ -148,8 +145,8 @@ func (m *rotateMesh) smoothFrom(start int) {
 
 // solid places points of a unit shape: scaled by size, turned, then moved to centre. Faces are
 // turned outward from the mean of their corners, which lies inside any convex solid; centre itself
-// need not, and on a wedge it lies on the slope.
-func (m *rotateMesh) solid(paint color.RGBA, centre, size vec3, orient turn, faces [][3]vec3) {
+// need not, and on a wedge it lies on the slope. A curved solid is smoothed.
+func (m *rotateMesh) solid(paint color.RGBA, centre, size vec3, orient turn, faces [][3]vec3, curved bool) {
 	place := func(p vec3) vec3 { return orient.apply(p.times(size)).add(centre) }
 	var inner vec3
 	for _, f := range faces {
@@ -160,59 +157,22 @@ func (m *rotateMesh) solid(paint color.RGBA, centre, size vec3, orient turn, fac
 	for _, f := range faces {
 		m.face(paint, inner, place(f[0]), place(f[1]), place(f[2]))
 	}
-	m.smoothFrom(start)
+	if curved {
+		m.smoothFrom(start)
+	}
 }
 
-// box is a cuboid of the given full size around centre, its edges and corners rounded. Each face
-// is a grid on the box's surface: a point q of it lies over the inner box, the corners of which are
-// the centres of the rounding, at c, its nearest point; the surface point is then rounding away
-// from c towards q, with that direction as its normal. Grid lines at inner + r·tan(φ), φ in even
-// steps to 45°, spread the rounding evenly from each face to the next.
+// box is a cuboid of the given full size around centre.
 func (m *rotateMesh) box(paint color.RGBA, centre, size vec3, orient turn) {
-	half := size.scale(0.5)
-	r := rotateBoxRounding * min(size.x, size.y, size.z)
-	inner := vec3{half.x - r, half.y - r, half.z - r}
-	lines := func(h, in float64) []float64 {
-		var out []float64
-		for j := rotateBoxSteps / 2; j >= 0; j-- {
-			out = append(out, -(in + r*math.Tan(radians(90*float64(j)/rotateBoxSteps))))
-		}
-		for j := range rotateBoxSteps/2 + 1 {
-			out = append(out, in+r*math.Tan(radians(90*float64(j)/rotateBoxSteps)))
-		}
-		out[0], out[len(out)-1] = -h, h
-		return out
+	corner := func(i int) vec3 {
+		return vec3{float64(i&1) - 0.5, float64(i>>1&1) - 0.5, float64(i>>2&1) - 0.5}
 	}
-	axes := [3][]float64{lines(half.x, inner.x), lines(half.y, inner.y), lines(half.z, inner.z)}
-	get := func(v vec3, i int) float64 { return [3]float64{v.x, v.y, v.z}[i] }
-	surface := func(q [3]float64) (vec3, vec3) {
-		var c [3]float64
-		for i := range c {
-			c[i] = min(max(q[i], -get(inner, i)), get(inner, i))
-		}
-		n := vec3{q[0] - c[0], q[1] - c[1], q[2] - c[2]}.unit()
-		p := vec3{c[0], c[1], c[2]}.add(n.scale(r))
-		return orient.apply(p).add(centre), orient.apply(n)
+	quads := [6][4]int{{0, 1, 3, 2}, {4, 5, 7, 6}, {0, 1, 5, 4}, {2, 3, 7, 6}, {0, 2, 6, 4}, {1, 3, 7, 5}}
+	var faces [][3]vec3
+	for _, q := range quads {
+		faces = append(faces, [3]vec3{corner(q[0]), corner(q[1]), corner(q[2])}, [3]vec3{corner(q[0]), corner(q[2]), corner(q[3])})
 	}
-	for axis := range 3 {
-		u, v := (axis+1)%3, (axis+2)%3
-		for _, side := range []float64{-1, 1} {
-			for i := range len(axes[u]) - 1 {
-				for j := range len(axes[v]) - 1 {
-					var corners [4]vec3
-					var normals [4]vec3
-					for k, d := range [4][2]int{{0, 0}, {1, 0}, {1, 1}, {0, 1}} {
-						var q [3]float64
-						q[axis] = side * get(half, axis)
-						q[u], q[v] = axes[u][i+d[0]], axes[v][j+d[1]]
-						corners[k], normals[k] = surface(q)
-					}
-					m.shadedFace(paint, centre, [3]vec3{corners[0], corners[1], corners[2]}, []vec3{normals[0], normals[1], normals[2]})
-					m.shadedFace(paint, centre, [3]vec3{corners[0], corners[2], corners[3]}, []vec3{normals[0], normals[2], normals[3]})
-				}
-			}
-		}
-	}
+	m.solid(paint, centre, size, orient, faces, false)
 }
 
 // cylinder stands along its own +Y, size.y tall and size.x by size.z across at the bottom; top is
@@ -235,7 +195,7 @@ func (m *rotateMesh) cylinder(paint color.RGBA, centre, size vec3, orient turn, 
 			faces = append(faces, [3]vec3{b0, b1, high})
 		}
 	}
-	m.solid(paint, centre, size, orient, faces)
+	m.solid(paint, centre, size, orient, faces, true)
 }
 
 // rod is a cylinder from one point to another, width across at from and top times that at to.
@@ -261,8 +221,6 @@ func (m *rotateMesh) loft(paint color.RGBA, bottom, top []vec3) {
 	}
 	centre = centre.scale(0.5 / float64(len(bottom)))
 	n := len(bottom)
-	start := len(m.tris)
-	defer m.smoothFrom(start)
 	for i := range n {
 		j := (i + 1) % n
 		m.face(paint, centre, bottom[i], bottom[j], top[j])
@@ -296,7 +254,7 @@ func (m *rotateMesh) ellipsoid(paint color.RGBA, centre, size vec3, orient turn,
 			}
 		}
 	}
-	m.solid(paint, centre, size, orient, faces)
+	m.solid(paint, centre, size, orient, faces, true)
 }
 
 // wedge is a ramp: a box whose top slopes from full height at its back (-X) down to its front edge.
@@ -309,7 +267,7 @@ func (m *rotateMesh) wedge(paint color.RGBA, centre, size vec3, orient turn) {
 		{b[1], b[2], t[1]}, {b[1], t[1], t[0]}, // slope
 		{b[0], b[1], t[0]}, {b[3], b[2], t[1]}, // sides
 	}
-	m.solid(paint, centre, size, orient, faces)
+	m.solid(paint, centre, size, orient, faces, false)
 }
 
 // rotateModel is an object ready to draw: its faces scaled to stand 1 tall on y = 0 and centred
