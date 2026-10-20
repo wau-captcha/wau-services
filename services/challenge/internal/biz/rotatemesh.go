@@ -68,10 +68,12 @@ func roll(degrees float64) turn {
 	return turn{{1, 0, 0}, {0, c, -s}, {0, s, c}}
 }
 
-// rotateTri is one flat face of a model, its normal pointing out of the solid it belongs to.
+// rotateTri is one face of a model, its normal pointing out of the solid it belongs to; normals
+// are those of its corners, which the renderer shades between so that curved solids look smooth.
 type rotateTri struct {
 	a, b, c vec3
 	normal  vec3
+	normals [3]vec3
 	paint   color.RGBA
 }
 
@@ -79,16 +81,69 @@ type rotateTri struct {
 // of each face the one away from the solid's centre.
 type rotateMesh struct{ tris []rotateTri }
 
+// Corners of one solid where faces meet at less than this angle share their normal, so the solid
+// looks curved there; a sharper edge, such as the rim of a cylinder, stays an edge.
+const rotateCrease = 50
+
+// Curved solids have at least this many sides around and stacks from pole to pole, so that their
+// outline stays round too.
+const rotateMinSides, rotateMinStacks = 16, 8
+
+// The edges and corners of a box are rounded with this share of its smallest side, in this many
+// steps from one face to the next.
+const rotateBoxRounding, rotateBoxSteps = 0.18, 2
+
 func (m *rotateMesh) face(paint color.RGBA, centre, a, b, c vec3) {
+	m.shadedFace(paint, centre, [3]vec3{a, b, c}, nil)
+}
+
+// shadedFace adds a face turned outward from centre, with the given corner normals, or with its own
+// normal at every corner when there are none.
+func (m *rotateMesh) shadedFace(paint color.RGBA, centre vec3, corners [3]vec3, normals []vec3) {
+	a, b, c := corners[0], corners[1], corners[2]
 	normal := b.sub(a).cross(c.sub(a))
 	if normal.length() < 1e-12 {
 		return
 	}
 	normal = normal.unit()
+	at := [3]vec3{normal, normal, normal}
+	if normals != nil {
+		at = [3]vec3{normals[0], normals[1], normals[2]}
+	}
 	if normal.dot(a.add(b).add(c).scale(1.0/3).sub(centre)) < 0 {
 		b, c, normal = c, b, normal.scale(-1)
+		at[1], at[2] = at[2], at[1]
 	}
-	m.tris = append(m.tris, rotateTri{a: a, b: b, c: c, normal: normal, paint: paint})
+	m.tris = append(m.tris, rotateTri{a: a, b: b, c: c, normal: normal, normals: at, paint: paint})
+}
+
+// smoothFrom gives the faces added since start, one solid, shared normals at the corners where
+// they meet at less than rotateCrease degrees.
+func (m *rotateMesh) smoothFrom(start int) {
+	type key [3]int64
+	at := func(p vec3) key {
+		return key{int64(math.Round(p.x * 1e7)), int64(math.Round(p.y * 1e7)), int64(math.Round(p.z * 1e7))}
+	}
+	tris := m.tris[start:]
+	meeting := map[key][]vec3{}
+	for _, t := range tris {
+		for _, p := range [3]vec3{t.a, t.b, t.c} {
+			meeting[at(p)] = append(meeting[at(p)], t.normal)
+		}
+	}
+	limit := math.Cos(radians(rotateCrease))
+	for i := range tris {
+		t := &tris[i]
+		for c, p := range [3]vec3{t.a, t.b, t.c} {
+			var sum vec3
+			for _, n := range meeting[at(p)] {
+				if n.dot(t.normal) >= limit {
+					sum = sum.add(n)
+				}
+			}
+			t.normals[c] = sum.unit()
+		}
+	}
 }
 
 // solid places points of a unit shape: scaled by size, turned, then moved to centre. Faces are
@@ -101,27 +156,69 @@ func (m *rotateMesh) solid(paint color.RGBA, centre, size vec3, orient turn, fac
 		inner = inner.add(f[0]).add(f[1]).add(f[2])
 	}
 	inner = place(inner.scale(1 / float64(3*len(faces))))
+	start := len(m.tris)
 	for _, f := range faces {
 		m.face(paint, inner, place(f[0]), place(f[1]), place(f[2]))
 	}
+	m.smoothFrom(start)
 }
 
-// box is a cuboid of the given full size around centre.
+// box is a cuboid of the given full size around centre, its edges and corners rounded. Each face
+// is a grid on the box's surface: a point q of it lies over the inner box, the corners of which are
+// the centres of the rounding, at c, its nearest point; the surface point is then rounding away
+// from c towards q, with that direction as its normal. Grid lines at inner + r·tan(φ), φ in even
+// steps to 45°, spread the rounding evenly from each face to the next.
 func (m *rotateMesh) box(paint color.RGBA, centre, size vec3, orient turn) {
-	corner := func(i int) vec3 {
-		return vec3{float64(i&1) - 0.5, float64(i>>1&1) - 0.5, float64(i>>2&1) - 0.5}
+	half := size.scale(0.5)
+	r := rotateBoxRounding * min(size.x, size.y, size.z)
+	inner := vec3{half.x - r, half.y - r, half.z - r}
+	lines := func(h, in float64) []float64 {
+		var out []float64
+		for j := rotateBoxSteps / 2; j >= 0; j-- {
+			out = append(out, -(in + r*math.Tan(radians(90*float64(j)/rotateBoxSteps))))
+		}
+		for j := range rotateBoxSteps/2 + 1 {
+			out = append(out, in+r*math.Tan(radians(90*float64(j)/rotateBoxSteps)))
+		}
+		out[0], out[len(out)-1] = -h, h
+		return out
 	}
-	quads := [6][4]int{{0, 1, 3, 2}, {4, 5, 7, 6}, {0, 1, 5, 4}, {2, 3, 7, 6}, {0, 2, 6, 4}, {1, 3, 7, 5}}
-	var faces [][3]vec3
-	for _, q := range quads {
-		faces = append(faces, [3]vec3{corner(q[0]), corner(q[1]), corner(q[2])}, [3]vec3{corner(q[0]), corner(q[2]), corner(q[3])})
+	axes := [3][]float64{lines(half.x, inner.x), lines(half.y, inner.y), lines(half.z, inner.z)}
+	get := func(v vec3, i int) float64 { return [3]float64{v.x, v.y, v.z}[i] }
+	surface := func(q [3]float64) (vec3, vec3) {
+		var c [3]float64
+		for i := range c {
+			c[i] = min(max(q[i], -get(inner, i)), get(inner, i))
+		}
+		n := vec3{q[0] - c[0], q[1] - c[1], q[2] - c[2]}.unit()
+		p := vec3{c[0], c[1], c[2]}.add(n.scale(r))
+		return orient.apply(p).add(centre), orient.apply(n)
 	}
-	m.solid(paint, centre, size, orient, faces)
+	for axis := range 3 {
+		u, v := (axis+1)%3, (axis+2)%3
+		for _, side := range []float64{-1, 1} {
+			for i := range len(axes[u]) - 1 {
+				for j := range len(axes[v]) - 1 {
+					var corners [4]vec3
+					var normals [4]vec3
+					for k, d := range [4][2]int{{0, 0}, {1, 0}, {1, 1}, {0, 1}} {
+						var q [3]float64
+						q[axis] = side * get(half, axis)
+						q[u], q[v] = axes[u][i+d[0]], axes[v][j+d[1]]
+						corners[k], normals[k] = surface(q)
+					}
+					m.shadedFace(paint, centre, [3]vec3{corners[0], corners[1], corners[2]}, []vec3{normals[0], normals[1], normals[2]})
+					m.shadedFace(paint, centre, [3]vec3{corners[0], corners[2], corners[3]}, []vec3{normals[0], normals[2], normals[3]})
+				}
+			}
+		}
+	}
 }
 
 // cylinder stands along its own +Y, size.y tall and size.x by size.z across at the bottom; top is
 // the share of that width left at the top, 0 for a cone.
 func (m *rotateMesh) cylinder(paint color.RGBA, centre, size vec3, orient turn, top float64, sides int) {
+	sides = max(sides, rotateMinSides)
 	var faces [][3]vec3
 	ring := func(i int, y, r float64) vec3 {
 		s, c := math.Sincos(2 * math.Pi * float64(i) / float64(sides))
@@ -164,6 +261,8 @@ func (m *rotateMesh) loft(paint color.RGBA, bottom, top []vec3) {
 	}
 	centre = centre.scale(0.5 / float64(len(bottom)))
 	n := len(bottom)
+	start := len(m.tris)
+	defer m.smoothFrom(start)
 	for i := range n {
 		j := (i + 1) % n
 		m.face(paint, centre, bottom[i], bottom[j], top[j])
@@ -177,6 +276,7 @@ func (m *rotateMesh) loft(paint color.RGBA, bottom, top []vec3) {
 
 // ellipsoid has the full width, height and depth of size.
 func (m *rotateMesh) ellipsoid(paint color.RGBA, centre, size vec3, orient turn, stacks, slices int) {
+	stacks, slices = max(stacks, rotateMinStacks), max(slices, rotateMinSides)
 	point := func(i, j int) vec3 {
 		lat := math.Pi * (float64(i)/float64(stacks) - 0.5)
 		lon := 2 * math.Pi * float64(j) / float64(slices)
