@@ -20,7 +20,7 @@ google:
   jwks_url: ${KRATOS_GOOGLE_JWKS_URL}
   issuers: [accounts.google.com, https://accounts.google.com]
 api_key:
-  max_per_user: 10
+  max_per_user: 20
   previous_secret_ttl: 86400s
 usage:
   time_zone: Asia/Ho_Chi_Minh

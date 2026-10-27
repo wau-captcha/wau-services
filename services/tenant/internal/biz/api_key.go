@@ -20,7 +20,7 @@ const (
 	defaultPreviousSecretTTL = 24 * time.Hour
 	// 24 random bytes render as the 48 hex characters the seeded keys use.
 	keyRandomBytes  = 24
-	defaultMaxKeys  = 10
+	defaultMaxKeys  = 20
 	siteKeyPrefix   = "pk_"
 	secretKeyPrefix = "sk_"
 )

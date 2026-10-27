@@ -291,7 +291,7 @@ Fixed in `config.yaml`: tokens live 120 s.
 | `KRATOS_GOOGLE_CLIENT_ID` | yes | | OAuth client ID of the dashboard (its `GOOGLE_CLIENT_ID`); Google ID tokens must be issued for it. |
 | `KRATOS_GOOGLE_JWKS_URL` | yes | | Google's signing keys in JWK format: `https://www.googleapis.com/oauth2/v3/certs`. |
 
-Fixed in `config.yaml`: access tokens live 86400 s, a user holds at most 10 keys, a replaced secret
+Fixed in `config.yaml`: access tokens live 86400 s, a user holds at most 20 keys, a replaced secret
 key keeps working for 86400 s.
 
 ### billing
