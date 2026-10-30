@@ -10,8 +10,9 @@ import (
 	"time"
 )
 
-// taskTimeout bounds each task, which outlives the request it was queued by.
-const taskTimeout = 10 * time.Second
+// taskTimeout bounds each task, which outlives the request it was queued by. It leaves a write
+// time to wait for a paused database to resume, which takes 30s or more after a day asleep.
+const taskTimeout = 45 * time.Second
 
 // running tracks the background goroutines that run tasks, for Wait.
 var running sync.WaitGroup

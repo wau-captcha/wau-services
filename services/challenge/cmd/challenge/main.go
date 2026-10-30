@@ -29,8 +29,9 @@ import (
 	_ "time/tzdata"
 )
 
-// drainTimeout bounds the wait at shutdown for the usage writes still running. Each gives up
-// after 10s by itself (afterresponse), well within Kubernetes' default 30s grace period.
+// drainTimeout bounds the wait at shutdown for the usage writes still running, so the service
+// still exits within Kubernetes' default 30s grace period. Each write gives up after 45s by
+// itself (afterresponse); one still running when drainTimeout ends is abandoned.
 const drainTimeout = 15 * time.Second
 
 var (

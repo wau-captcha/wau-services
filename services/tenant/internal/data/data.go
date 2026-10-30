@@ -1,17 +1,16 @@
 package data
 
 import (
-	"context"
 	"crypto/tls"
 	"net"
 
 	"tenant/internal/conf"
 	"tenant/internal/data/db"
 	"tenant/internal/pkg/envconf"
+	"tenant/internal/pkg/pgpool"
 
 	"github.com/go-kratos/kratos/v3/log"
 	"github.com/google/wire"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -26,7 +25,7 @@ type Data struct {
 }
 
 func NewData(dataConf *conf.Data) (*Data, func(), error) {
-	pool, err := pgxpool.New(context.Background(), dataConf.GetDatabase().GetSource())
+	pool, err := pgpool.New(dataConf.GetDatabase().GetSource(), "tenant")
 	if err != nil {
 		return nil, nil, err
 	}

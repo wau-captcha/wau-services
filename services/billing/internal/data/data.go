@@ -8,13 +8,13 @@ import (
 	"billing/internal/biz"
 	"billing/internal/conf"
 	"billing/internal/data/db"
+	"billing/internal/pkg/pgpool"
 
 	"github.com/go-kratos/kratos/v3/log"
 	"github.com/google/wire"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // ProviderSet is data providers.
@@ -25,12 +25,12 @@ var ProviderSet = wire.NewSet(NewData, NewAccountRepo, NewPlanRepo, NewTransacti
 const uniqueViolation = "23505"
 
 type Data struct {
-	pool    *pgxpool.Pool
+	pool    *pgpool.Pool
 	queries *db.Queries
 }
 
 func NewData(dataConf *conf.Data) (*Data, func(), error) {
-	pool, err := pgxpool.New(context.Background(), dataConf.GetDatabase().GetSource())
+	pool, err := pgpool.New(dataConf.GetDatabase().GetSource(), "billing")
 	if err != nil {
 		return nil, nil, err
 	}
