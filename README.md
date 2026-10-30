@@ -230,6 +230,11 @@ pause:
 - A query that finds the pool empty retries a failed connect up to three times, after 1, 2 and
   4 s, as long as its own deadline allows. A wrong password, database or privilege is not retried.
 
+challenge and verify record usage after the response has gone out (`internal/pkg/afterresponse`),
+and each of these writes may take up to 45 s, long enough to wait for a resume. Request deadlines
+stay as `config.yaml` sets them (1 to 3 s), so a request that reads the database during a resume
+can still fail. At shutdown the two services wait 15 s for the writes still running.
+
 In production the manifests in `deploy/k3s` set the listen addresses, trusted proxies, the challenge
 endpoint, the Google JWKS URL and the billing return URL; everything else comes from the Secret
 `wau-env`, created by hand (see `deploy/README.md`).
@@ -319,8 +324,10 @@ key keeps working for 86400 s.
 | `SEPAY_CHECKOUT_URL` | yes | | SePay checkout form: `https://pay-sandbox.sepay.vn/v1/checkout/init` for testing, `https://pay.sepay.vn/v1/checkout/init` in production. |
 | `KRATOS_BILLING_RETURN_URL` | yes | | Dashboard page SePay sends the payer back to: `https://waucaptcha.com/billing` in production. |
 
-Fixed in `config.yaml`: a checkout waits 900 s for its payment, sweeps run every 60 s, and plan
-months follow `Asia/Ho_Chi_Minh`. The IPN URL to enter in SePay is
+Fixed in `config.yaml`: a checkout waits 900 s for its payment and plan months follow
+`Asia/Ho_Chi_Minh`. The sweep that moves ended plans back to free and marks unpaid checkouts
+expired runs at start, then every 86400 s (once a day); every read already treats both that way,
+so only the stored rows wait for it. The IPN URL to enter in SePay is
 `https://api.waucaptcha.com/v1/billing/sepay/ipn`.
 
 ## Database migrations

@@ -14,5 +14,5 @@ sepay:
 billing:
   return_url: ${KRATOS_BILLING_RETURN_URL}
   checkout_ttl: 900s
-  sweep_interval: 60s
+  sweep_interval: 86400s
   time_zone: Asia/Ho_Chi_Minh
