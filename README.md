@@ -217,6 +217,19 @@ Rules shared by every service (`internal/pkg/envconf`):
   `KRATOS_<SECTION>_<KEY>` in upper case, e.g. `KRATOS_RATE_LIMIT_NEW_PER_IP` for
   `rate_limit.new_per_ip`. These are optional.
 
+Every service opens its Postgres pool the same way (`internal/pkg/pgpool`), so that a database
+which pauses while nobody is connected, such as Aurora Serverless v2 with a minimum of 0 ACUs, can
+pause:
+
+- No connection is opened at start or kept idle: one closes within two minutes of its last use.
+  The `pool_min_conns`, `pool_min_idle_conns` and `pool_max_conn_idle_time` of
+  `KRATOS_DATABASE_SOURCE` are ignored.
+- Connections carry the service's name as `application_name`, shown in `pg_stat_activity`.
+- A connect waits at least 30 s, the time a paused Aurora instance may take to resume; a larger
+  `connect_timeout` in the DSN is kept.
+- A query that finds the pool empty retries a failed connect up to three times, after 1, 2 and
+  4 s, as long as its own deadline allows. A wrong password, database or privilege is not retried.
+
 In production the manifests in `deploy/k3s` set the listen addresses, trusted proxies, the challenge
 endpoint, the Google JWKS URL and the billing return URL; everything else comes from the Secret
 `wau-env`, created by hand (see `deploy/README.md`).
